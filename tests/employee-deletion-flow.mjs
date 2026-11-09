@@ -1,12 +1,12 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
  const context=await browser.newContext({viewport:{width:390,height:844}}),calls=[];
  const employee={id:'00000000-0000-0000-0000-000000000002',name:'Nhân viên',username:'bep01',role:'bep',is_active:true,staff_version:3,created_at:'2026-10-30T00:00:00Z'};
  const owner={...employee,id:'owner',name:'Owner',role:'chu',username:'owner'};let deletion=null,deleted=false;
- await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
+ await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
   const path=new URL(route.request().url()).pathname;let body;
   if(path==='/auth/v1/token')body={access_token:'mock-owner',refresh_token:'mock-refresh',token_type:'bearer',expires_in:3600,user:{id:'owner',email:'owner@example.test',aud:'authenticated',role:'authenticated'}};
   else if(path==='/auth/v1/user')body={id:'owner',email:'owner@example.test'};

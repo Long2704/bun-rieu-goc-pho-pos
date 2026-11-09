@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
  for(const role of ['phuc_vu','bep','chu']){
@@ -9,7 +9,7 @@ try{
   const paid={id:'paid',name:'Bún đã thanh toán',price:58000,qty:1,category:'bun',note:'',paid:true,bill_no:2,cancelled_at:null};
   const items=[paid,{id:'food',name:'Bún chưa thanh toán',price:58000,qty:1,category:'bun',note:'Không hành',paid:false,bill_no:1,cancelled_at:null},{id:'drink',name:'Trà đá',price:3000,qty:1,category:'do_uong',note:'',paid:false,bill_no:1,cancelled_at:null}];
   const order={id:'order',request_id:'request',session_id:'session',created_at:new Date().toISOString(),status:'cooking',kitchen_relevant:true,order_items:items};
-  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
+  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
    const req=route.request(),path=new URL(req.url()).pathname;let body;
    if(path==='/auth/v1/token')body={access_token:'mock',refresh_token:'refresh',token_type:'bearer',expires_in:3600,user:{id:'staff',email:'staff@example.test',aud:'authenticated',role:'authenticated'}};
    else if(path==='/auth/v1/user')body={id:'staff',email:'staff@example.test'};

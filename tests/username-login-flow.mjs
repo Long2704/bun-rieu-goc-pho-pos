@@ -1,13 +1,13 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
  const context=await browser.newContext({viewport:{width:390,height:844}}),calls=[];
  const user={id:'owner',email:'hidden@example.test',aud:'authenticated',role:'authenticated'};
  const token=[{alg:'HS256',typ:'JWT'},{sub:'owner',exp:Math.floor(Date.now()/1000)+3600},'mock'].map(v=>Buffer.from(typeof v==='string'?v:JSON.stringify(v)).toString('base64url')).join('.');
  let mode='wrong';
- await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
+ await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
   const path=new URL(route.request().url()).pathname;let body;
   if(path==='/functions/v1/staff-login'){
    const input=route.request().postDataJSON();calls.push(input);assert.equal(input.username,'owner');assert.ok(!('email' in input));

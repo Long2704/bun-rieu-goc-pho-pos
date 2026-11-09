@@ -1,14 +1,14 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
  const context=await browser.newContext({viewport:{width:390,height:844}}),requested=new Set(),errors=[];
  await context.addInitScript(()=>{window.formatterCreations=0;Intl.NumberFormat=new Proxy(Intl.NumberFormat,{construct(target,args){window.formatterCreations++;return Reflect.construct(target,args);}});});
  const menu=Array.from({length:180},(_,i)=>({id:'item-'+i,name:i===0?'Bún Riêu Đặc Biệt':'Món thử '+i,price:65000+i*1000,category:i%3===0?'bun':i%3===1?'an_them':'do_uong',is_out:false}));
  const writes=[];
- await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
+ await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
   const request=route.request(),path=new URL(request.url()).pathname;let body;
   if(path==='/auth/v1/token')body={access_token:'mock',refresh_token:'refresh',token_type:'bearer',expires_in:3600,user:{id:'owner',email:'owner@example.test',aud:'authenticated',role:'authenticated'}};
   else if(path==='/auth/v1/user')body={id:'owner',email:'owner@example.test'};

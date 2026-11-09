@@ -1,12 +1,12 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 const baseline=process.argv.includes('--baseline');
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:1});
  const name='Bún riêu đặc biệt đầy đủ thịt chả và riêu cua';
- await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
+ await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
   const path=new URL(route.request().url()).pathname;let body;
   if(path==='/auth/v1/token')body={access_token:'mock',refresh_token:'refresh',token_type:'bearer',expires_in:3600,user:{id:'owner',email:'owner@example.test',aud:'authenticated',role:'authenticated'}};
   else if(path==='/auth/v1/user')body={id:'owner',email:'owner@example.test'};

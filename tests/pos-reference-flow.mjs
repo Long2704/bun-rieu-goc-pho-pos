@@ -1,4 +1,4 @@
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
@@ -6,7 +6,7 @@ try{
  const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1});
  const menu=[{id:'full',name:'Bún Riêu Đầy Đủ',price:65000,category:'bun'},{id:'special',name:'Bún Riêu Góc Phố',price:80000,category:'bun'},{id:'traditional',name:'Bún Riêu Truyền Thống',price:58000,category:'bun'},{id:'extra',name:'Bún thêm (tô)',price:15000,category:'an_them'},{id:'bun',name:'Bún Thêm',price:10000,category:'an_them'},{id:'tomato',name:'Cà Chua thêm',price:10000,category:'an_them'},{id:'soup',name:'Canh Bún Đầy Đủ',price:65000,category:'bun'},{id:'special-soup',name:'Canh Bún Góc Phố',price:80000,category:'bun'},{id:'tea',name:'Trà đá',price:3000,category:'do_uong'}].map(p=>({...p,is_out:false}));
  let orders=[],paid=false,bills=[],submitAttempts=[],payAttempts=[],lostSubmit=true,lostPay=true;
- await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
+ await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
   const req=route.request(),u=new URL(req.url());let body;
   if(u.pathname==='/auth/v1/token')body={access_token:'mock-access',refresh_token:'mock-refresh',token_type:'bearer',expires_in:3600,user:{id:'user',email:'owner@example.test',aud:'authenticated',role:'authenticated'}};
   else if(u.pathname==='/auth/v1/user')body={id:'user',email:'owner@example.test'};

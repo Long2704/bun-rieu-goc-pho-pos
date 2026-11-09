@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
  for(const scenario of ['owner-ui','waiter-ui','kitchen-ui','split-ui','legacy-owner','legacy-waiter']){
@@ -12,7 +12,7 @@ try{
   const legacy=scenario.startsWith('legacy');const attempt={requestId:'60000000-0000-0000-0000-000000000034',sessionId:'session',tableId:4,tableName:'Bàn 4',billNo:1,itemIds:items.map(i=>i.id),items,method:'cash',discountType:'percent',discountValue:10,gross:291000,discount:29100,total:261900,cash:300000};
   if(legacy)await context.addInitScript(({attempt})=>localStorage.setItem('goc-pho-payment-v1:payment-ui-test',JSON.stringify(attempt)),{attempt});
   let calls=[],closed=false,releasePayment;
-  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
+  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
    const req=route.request(),path=new URL(req.url()).pathname;let body;
    if(path==='/auth/v1/token')body={access_token:'mock',refresh_token:'refresh',token_type:'bearer',expires_in:3600,user:{id:'payment-ui-test',email:'owner@example.test',aud:'authenticated',role:'authenticated'}};
    else if(path==='/auth/v1/user')body={id:'payment-ui-test',email:'owner@example.test'};

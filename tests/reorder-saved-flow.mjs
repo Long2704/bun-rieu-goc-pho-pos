@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 import {groupSavedOrders} from '../src/pos/saved-order-groups.ts';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
@@ -11,7 +11,7 @@ try{
   const paid={...original,id:'paid-line',paid:true},cancelled={...original,id:'cancelled-line',cancelled_at:'2026-01-01'};
   const orders=[{id:'old-order',request_id:'original',session_id:'session',status:'done',kitchen_relevant:true,created_at:'2026-01-01T00:00:00Z',order_items:[original,paid,cancelled]}];
   const originalSnapshot=structuredClone(orders[0]);
-  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
+  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
    const request=route.request(),url=new URL(request.url()),path=url.pathname;let body;
    if(path==='/auth/v1/token')body={access_token:'mock',refresh_token:'refresh',token_type:'bearer',expires_in:3600,user:{id:'staff',email:'staff@example.test',aud:'authenticated',role:'authenticated'}};
    else if(path==='/auth/v1/user')body={id:'staff',email:'staff@example.test'};
