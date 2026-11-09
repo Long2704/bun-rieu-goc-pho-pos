@@ -73,7 +73,9 @@
     "prepare:kitchen-image-wasm": "node scripts/prepare-kitchen-image-wasm.mjs",
     "test:temporary-images": "node tests/data-epoch.mjs && node tests/temporary-kitchen-images-sql.mjs && node tests/kitchen-images-edge.mjs && node tests/staff-table-cancellation-sql.mjs",
     "test:temporary-images-concurrency": "node tests/temporary-kitchen-images-concurrency.mjs",
-    "test:reference-theme": "node tests/reference-theme-flow.mjs"
+    "test:reference-theme": "node tests/reference-theme-flow.mjs",
+    "test:menu-groups": "node tests/menu-groups-sql.mjs",
+    "test:menu-groups-ui": "node tests/menu-groups-flow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.0.0",

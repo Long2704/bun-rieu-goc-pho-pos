@@ -1,0 +1,15 @@
+.menu-group-panel{margin:0 0 12px;padding:16px;border:1px solid #ecd5c0;border-radius:16px;background:#fff4e5;gap:12px}
+.menu-group-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.menu-group-heading h3{font-size:16px;color:#54270f;margin:0 0 5px}.menu-group-heading p{font-size:12px;color:#82634f;margin:0}
+.menu-group-heading>button{background:#ffead0;border-color:#e8bb95;color:#a4430a;border-radius:10px}
+.menu-group-tags{display:flex;gap:7px;flex-wrap:wrap}.menu-group-tags>span{padding:5px 10px;background:#fffdf9;border:1px solid #ecd5c0;border-radius:99px;font-size:12px;color:#793d18;overflow-wrap:anywhere;max-width:100%}
+.menu-group-form{max-width:none;margin:0;background:#fffaf3;border-color:#ecd5c0;border-radius:12px}
+.menu-group-form fieldset{min-width:0}.menu-group-form p{font-size:12px;color:#82634f}.menu-group-form input,.menu-group-form select{background:#fffdf9;border-color:#e6c9ae;color:#54270f}
+.menu-group-actions{display:flex;gap:8px;flex-wrap:wrap}.menu-group-actions>button{margin:0}
+.menu-group-panel>p{margin:0;font-size:13px}.menu-group-panel aside{padding:12px;border:1px solid #e8bb95;border-radius:10px;background:#fffaf3}
+@media(max-width:600px){.menu-group-panel{padding:12px}.menu-group-heading>button{width:100%}.menu-group-actions>button{flex:1}}
+
+.menu-group-heading>button:hover:not(:disabled){background:#ffe2bc;border-color:#dfad7e}
+.menu-order-actions{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.menu-management .sortable-tables .sortable-table-name{min-width:0;flex:1}
+.menu-management .table-drag-handle{flex:none;color:#a4430a;background:#fff0dd;border-color:#e8bb95}

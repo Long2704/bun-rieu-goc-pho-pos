@@ -1,5 +1,5 @@
 import {chromium,webkit} from 'playwright';
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 import assert from 'node:assert/strict';
 import {mkdirSync} from 'node:fs';
 const out=process.env.POS_SCREENSHOT_DIR||'/tmp/pos-reference-theme';mkdirSync(out,{recursive:true});
@@ -10,7 +10,7 @@ try{
   const tables=[{id:15,name:'Mang về'},...Array.from({length:14},(_,i)=>({id:i+1,name:'Bàn '+(i+1)}))];
   const prices={1:125000,3:85000,4:220000,6:65000,8:142000,10:95000};
   const sessions=Object.entries(prices).map(([id,price])=>({id:'s'+id,table_id:Number(id),orders:[{id:'o'+id,session_id:'s'+id,request_id:'request-'+id,status:'cooking',kitchen_relevant:true,created_at:new Date(Date.now()-(id==='3'?1200000:60000)).toISOString(),order_items:[{id:'line'+id,menu_item_id:'food',name:'Bún riêu truyền thống',price,qty:1,category:'bun',note:'Không hành',paid:false,bill_no:1,cancelled_at:null}]}]}));let reportReads=0;
-  await c.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{const path=new URL(route.request().url()).pathname;let body;
+  await c.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;const path=new URL(route.request().url()).pathname;let body;
    if(path==='/auth/v1/token')body={access_token:'fake',refresh_token:'fake-refresh',expires_in:3600,token_type:'bearer',user:{id:'theme-'+role,email:role+'@example.test',aud:'authenticated',role:'authenticated'}};
    else if(path==='/auth/v1/user')body={id:'theme-'+role,email:role+'@example.test'};
    else if(path.endsWith('/get_my_access'))body={...mockAccess({name:'Nhân viên minh họa',role}),data_epoch:0};

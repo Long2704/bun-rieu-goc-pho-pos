@@ -1,7 +1,7 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {readFileSync,mkdirSync} from 'node:fs';
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 const base=process.env.POS_TEST_URL||'http://localhost:5174';
 const image=readFileSync(new URL('../public/brand/goc-pho-logo.webp',import.meta.url));
@@ -14,7 +14,7 @@ try{
   let imageEpoch=1,dataEpoch=0,failDelete=false,expireNextUpload=false;let tickets=[ticket(1),ticket(2)],downloads=0,metadata=0,failRead=false,failComplete=false,uploads=0,lostUpload=true;const completions=[],uploadIds=[],downloadPaths=[],extraOrders=[];
   const filesOnServer=new Set(tickets.flatMap(t=>[t.image_path,t.preview_path]));
   const user=role+'-user';
-  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
+  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
    const req=route.request(),url=new URL(req.url());let body;
    if(url.pathname==='/auth/v1/token')body={access_token:'mock-access',refresh_token:'mock-refresh',token_type:'bearer',expires_in:3600,user:{id:user,email:'test@example.test',aud:'authenticated',role:'authenticated'}};
    else if(url.pathname==='/auth/v1/user')body={id:user};

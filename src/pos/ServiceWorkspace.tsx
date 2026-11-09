@@ -11,9 +11,10 @@ import OrderDetail from './OrderDetail';
 import CustomerInfoChips from './CustomerInfoChips';
 import FloatingAddButton from './FloatingAddButton';
 import OrderBottomBar from './OrderBottomBar';
-import { categories, draftAmount, searchProducts } from './types';
+import { categories as defaultCategories, draftAmount, searchProducts } from './types';
 import type { Product, TableContext } from './types';
 type Props = {
+    groups?: {id:string;name:string}[];
     userId: string;
     table: {
         id: number;
@@ -50,6 +51,7 @@ type Props = {
 };
 const emptyContext: TableContext = { guests: 1, customer: '', note: '' };
 export default function ServiceWorkspace(p: Props) {
+    const categories=p.groups?[{id:'all',name:'Tất cả'},...p.groups]:defaultCategories;
     const [category, setCategory] = useState('all'), [query, setQuery] = useState(''), [search, setSearch] = useState(false), [removing, setRemoving] = useState<string | null>(null), [clearing, setClearing] = useState(false), [more, setMore] = useState(false);
     const key = `goc-pho-table-info:${p.userId}:${p.table.id}`;
     const [info, setInfo] = useState<TableContext>(() => { try {
@@ -75,6 +77,7 @@ export default function ServiceWorkspace(p: Props) {
     const savedCount = p.orders.flatMap(order => order.order_items).filter(line => !line.cancelled_at && !line.paid).reduce((sum, line) => sum + line.qty, 0);
     const displayCount = savedCount + (knownRequest ? 0 : count);
     const total = p.pendingPaymentAmount ?? (p.savedTotal + (knownRequest ? 0 : draftTotal));
+    useEffect(()=>{if(!categories.some(g=>g.id===category))setCategory('all');},[p.groups,category]);
     const visible = useMemo(()=>searchProducts(p.products, category, query),[p.products,category,query]);
     const removeName = p.products.find(product => product.id === removing)?.name ?? '';
     const qtyRef=useRef(p.qty);qtyRef.current=p.qty;

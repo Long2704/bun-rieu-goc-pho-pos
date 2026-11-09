@@ -1,4 +1,4 @@
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
@@ -7,7 +7,7 @@ try{
  const menu=[{id:'food',name:'Bún riêu',price:58000,category:'bun',is_out:false},{id:'drink',name:'Trà đá',price:3000,category:'do_uong',is_out:false}];
  const tables=Array.from({length:13},(_,i)=>({id:i+1,name:i===12?'Mang về':`Bàn ${i+1}`,active:true})),sessions=[],bills=[],orderCalls=[],payCalls=[];
  let role='chu',lostPay=true,lostSave=true;const saves=[],saved=new Map(),ordered=new Map();let lostOrder=true;tables.forEach(t=>{t.version=1;t.busy=t.id===1;});
- await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
+ await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
   const req=route.request(),u=new URL(req.url());let body;
   if(u.pathname==='/auth/v1/token')body={access_token:'test-access-token',refresh_token:'test-refresh-token',token_type:'bearer',expires_in:3600,user:{id:'test-user',email:'test@example.com',aud:'authenticated',role:'authenticated'}};
   else if(u.pathname==='/auth/v1/user')body={id:'test-user',email:'test@example.com'};

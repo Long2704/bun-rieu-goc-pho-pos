@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try {
@@ -17,7 +17,7 @@ try {
  let role='chu',active=true,mode='ok',holdNext=false,releaseOld;
  let startedResolve;const holdStarted=new Promise(resolve=>startedResolve=resolve);
  const calls=[],requests=[],errors=[];
- await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
+ await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
   const req=route.request(),u=new URL(req.url());requests.push({path:u.pathname,method:req.method()});let body;
   if(u.pathname==='/auth/v1/token')body={access_token:'mock-owner-access',refresh_token:'mock-refresh',token_type:'bearer',expires_in:3600,user:{id:'owner',email:'owner@example.test',aud:'authenticated',role:'authenticated'}};
   else if(u.pathname==='/auth/v1/user')body={id:'owner',email:'owner@example.test'};

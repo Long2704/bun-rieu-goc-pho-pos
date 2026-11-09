@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {mockAccess} from './support/access.mjs';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try {
@@ -11,7 +11,7 @@ try {
  let active=true,role='bep',lostPayment=true,closed=false;
  const user='kitchen-test-user';
  const errors=[];
- await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
+ await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
   const req=route.request(),u=new URL(req.url());let body;
   if(u.pathname==='/auth/v1/token')body={access_token:'mock-access',refresh_token:'mock-refresh',token_type:'bearer',expires_in:3600,user:{id:user,email:'kitchen@example.test',aud:'authenticated',role:'authenticated'}};
   else if(u.pathname==='/auth/v1/user')body={id:user,email:'kitchen@example.test'};
