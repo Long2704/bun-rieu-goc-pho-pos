@@ -10,3 +10,9 @@ Tham khảo video người dùng cung cấp ngày 09/11/2026: mở màn món t�
 - Tôn trọng thiết lập giảm chuyển động của thiết bị; không đổi SQL, quyền truy cập hay dữ liệu hóa đơn.
 
 Kiểm thử dùng Chromium/API giả: `POS_TEST_URL=http://localhost:5194 node tests/kitchen-motion-flow.mjs`, `tests/kitchen-images-flow.mjs`, `tests/kitchen-cancelled-items-flow.mjs`. Bài mới kiểm tra chuyển cảnh thực tế, fallback trình duyệt cũ, vuốt ngắn/dọc, lỗi/khôi phục, xác nhận trước khi rời, một request, FIFO và giảm chuyển động. Đã ghi và xem lại video thử; chưa kiểm tra trên iPhone thật.
+
+## Sửa lỗi vuốt cảm ứng
+
+Đã tái hiện lỗi bằng cảm ứng di động: trình duyệt ngầm giữ điểm chạm trên tên món/ghi chú rồi chuyển sang article của phiếu. Sự kiện mất capture từ phần tử con nổi lên và bị hiểu nhầm là hủy cử chỉ, nên vuốt dừng giữa chừng. Chỉ reset khi chính phiếu mất capture của đúng ngón tay đang theo dõi; không để ngón phụ thay cử chỉ hiện tại. Không thay đổi RPC hoặc SQL.
+
+Bài kiểm tra cảm ứng: `POS_TEST_URL=http://localhost:5194 node tests/kitchen-touch-swipe-flow.mjs`. Dùng CDP touch input (khác với mouse), kiểm tra tên món/ghi chú/thời gian, cả hai chiều, vuốt ngắn/dọc/hủy, lỗi rồi thử lại một lần và FIFO. Bài này thất bại với bản trước và đạt sau sửa. Phiếu ảnh: `SWIPE_TOUCH=1 POS_TEST_URL=http://localhost:5194 node tests/kitchen-images-flow.mjs`. Chưa kiểm tra trên iPhone thật.

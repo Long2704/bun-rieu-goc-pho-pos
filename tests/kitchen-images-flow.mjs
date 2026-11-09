@@ -10,7 +10,7 @@ const normal={id:'regular',request_id:'request-normal',session_id:'session',stat
 function ticket(n){return {id:'image'+n,request_id:'request-image'+n,image_path:`owner/${n}/image.webp`,preview_path:`owner/${n}/preview.webp`,status:'cooking',created_at:created(20-n),created_by:'owner',completed_at:null,completed_by:null,width:256,height:256};}
 try{
  for(const role of ['chu','bep','phuc_vu']){
-  const context=await browser.newContext({viewport:{width:390,height:844}});const errors=[];
+  const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:process.env.SWIPE_TOUCH==='1',isMobile:process.env.SWIPE_TOUCH==='1'});const errors=[];
   let imageEpoch=1,dataEpoch=0,failDelete=false,expireNextUpload=false;let tickets=[ticket(1),ticket(2)],downloads=0,metadata=0,failRead=false,failComplete=false,uploads=0,lostUpload=true;const completions=[],uploadIds=[],downloadPaths=[],extraOrders=[];
   const filesOnServer=new Set(tickets.flatMap(t=>[t.image_path,t.preview_path]));
   const user=role+'-user';
@@ -79,7 +79,7 @@ try{
   failDelete=false;await page.getByRole('button',{name:'Thử đồng bộ ảnh'}).click();await page.getByRole('alert').filter({hasText:'Chưa xác nhận hoàn thành'}).waitFor({state:'hidden'});
   failComplete=true;await card.getByRole('button',{name:'Xong',exact:true}).click();await page.getByRole('alert').filter({hasText:'Chưa xác nhận hoàn thành'}).waitFor();assert.equal(await page.locator('.kitchen-image-ticket').count(),2);
   failComplete=false;await page.getByRole('button',{name:'Thử đồng bộ ảnh'}).click();await page.getByRole('alert').filter({hasText:'Chưa xác nhận hoàn thành'}).waitFor({state:'hidden'});
-  const box=await card.locator('.kitchen-image-tap').boundingBox();await page.mouse.move(box.x+40,box.y+50);await page.mouse.down();await page.mouse.move(box.x+200,box.y+50,{steps:10});await page.mouse.up();
+  await card.locator('.kitchen-image-tap').scrollIntoViewIfNeeded();const box=await card.locator('.kitchen-image-tap').boundingBox();if(process.env.SWIPE_TOUCH==='1'){const cdp=await context.newCDPSession(page);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+40,y:box.y+50,id:1}]});for(let n=1;n<=12;n++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:box.x+40+n*14,y:box.y+51,id:1}]});await page.waitForTimeout(16);}await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await cdp.detach();}else{await page.mouse.move(box.x+40,box.y+50);await page.mouse.down();await page.mouse.move(box.x+200,box.y+50,{steps:10});await page.mouse.up();}
   await page.waitForFunction(()=>document.querySelectorAll('.kitchen-image-ticket').length===1);assert.equal(await page.getByRole('dialog').count(),0);assert.equal(tickets.some(t=>t.id==='image1'),false);assert.equal(filesOnServer.has('owner/1/image.webp'),false);assert.equal(filesOnServer.has('owner/1/preview.webp'),false);
   await page.locator('.kitchen-image-ticket img').first().waitFor();const oldBlob=await page.locator('.kitchen-image-ticket img').first().getAttribute('src');
   await page.getByRole('button',{name:'Lịch sử',exact:true}).click();await page.getByText('Chưa có đơn đã xong của các bàn đang mở.',{exact:true}).waitFor();assert.equal(await page.locator('.kitchen-image-ticket').count(),0);

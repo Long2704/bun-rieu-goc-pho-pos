@@ -11,7 +11,7 @@ export default function SwipeOrderCard({disabled,className,onComplete,children}:
  function cancelAnimations(){animations.current.forEach(a=>a.cancel());animations.current=[];}
  function reset(){gesture.current=null;if(lock.current)return;place(0);setReady(false);setPhase('idle');}
  function down(e:PointerEvent<HTMLElement>){
-  if(disabled||lock.current||e.button!==0||(e.target as HTMLElement).closest('button,a,input,select,textarea,summary'))return;
+  if(disabled||lock.current||!e.isPrimary||gesture.current||e.button!==0||(e.target as HTMLElement).closest('button,a,input,select,textarea,summary'))return;
   cancelAnimations();width.current=e.currentTarget.getBoundingClientRect().width;gesture.current={id:e.pointerId,x:e.clientX,y:e.clientY,horizontal:false};
  }
  function move(e:PointerEvent<HTMLElement>){
@@ -45,5 +45,6 @@ export default function SwipeOrderCard({disabled,className,onComplete,children}:
   const complete=!!g&&g.id===e.pointerId&&g.horizontal&&Math.abs(dx)>=threshold()&&Math.abs(dx)>Math.abs(e.clientY-g.y)*1.4;
   gesture.current=null;if(!complete||disabled||lock.current){reset();return;}void finish(Math.sign(dx)||1);
  }
- return <div ref={wrapper} className={`swipe-order ${!disabled?'can-swipe':''} ${phase==='dragging'?'is-dragging':''} ${phase==='waiting'?'is-waiting':''} ${phase==='leaving'?'is-leaving':''}`}><div className="swipe-order-backdrop" style={{justifyItems:offset.current<0?'end':'start'}} aria-hidden="true">{phase==='waiting'?'Đang xác nhận…':phase==='leaving'?'Đã hoàn thành':ready?'Thả để hoàn thành':'Vuốt ngang để hoàn thành'}</div><article ref={card} className={className} onDragStart={e=>e.preventDefault()} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={reset} onLostPointerCapture={reset}>{children}</article></div>;
+ // Touch browsers transfer capture from the touched child to the card; ignore the child's bubbling capture loss.
+ return <div ref={wrapper} className={`swipe-order ${!disabled?'can-swipe':''} ${phase==='dragging'?'is-dragging':''} ${phase==='waiting'?'is-waiting':''} ${phase==='leaving'?'is-leaving':''}`}><div className="swipe-order-backdrop" style={{justifyItems:offset.current<0?'end':'start'}} aria-hidden="true">{phase==='waiting'?'Đang xác nhận…':phase==='leaving'?'Đã hoàn thành':ready?'Thả để hoàn thành':'Vuốt ngang để hoàn thành'}</div><article ref={card} className={className} onDragStart={e=>e.preventDefault()} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={e=>{if(gesture.current?.id===e.pointerId)reset();}} onLostPointerCapture={e=>{if(e.target===e.currentTarget&&gesture.current?.id===e.pointerId)reset();}}>{children}</article></div>;
 }
