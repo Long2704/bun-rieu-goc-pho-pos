@@ -1,0 +1,7 @@
+/* Permit scrolling on both axes, but not browser pinch or double-tap zoom. */
+html,body{touch-action:pan-x pan-y}
+/* Prevent iOS from enlarging the page when a small form field receives focus. */
+@media(hover:none) and (pointer:coarse){
+ input,select,textarea{font-size:16px!important}
+ .payment-sheet .payment-cash-input input{font-size:21px!important}
+}
