@@ -1065,3 +1065,16 @@ button.primary:hover:not(:disabled),.primary:hover:not(:disabled) {
 .kitchen-cancelled-line {color:#8b7d72}
 .kitchen-cancelled-line>strong,.kitchen-cancelled-line .item-note {text-decoration:line-through}
 .kitchen-cancelled-label {display:inline-block;margin-left:10px;font-size:12px;font-weight:600;text-decoration:none}
+
+.pos-toast {
+  position:fixed;z-index:10000;top:calc(env(safe-area-inset-top,0px) + 16px);left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:10px;width:max-content;max-width:min(520px,calc(100vw - 32px));
+  padding:10px 12px;border:1px solid #edcfaf;border-radius:16px;background:#fffaf2;color:#54260d;
+  box-shadow:0 8px 32px #54260d24;animation:pos-toast-in .16s ease-out;
+}
+.pos-toast p {margin:0;font-size:14px;line-height:1.45;overflow-wrap:anywhere;min-width:0}
+.pos-toast-icon {flex:none;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#ffead4;color:#d65b00;font-weight:700}
+.pos-toast button {flex:none;display:grid;place-items:center;width:32px;min-height:32px;padding:0;border:0;background:transparent;box-shadow:none;color:#805c42;font-size:22px}
+.kitchen-card .item-note {display:block;width:fit-content;max-width:100%;margin:3px 0 2px;padding:1px 0 1px 7px;border-left:2px solid #efc7a0;border-radius:0;background:transparent;color:#8b654a;font-size:12px;font-weight:400;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere}
+@keyframes pos-toast-in {from {opacity:0;translate:0 -5px}to {opacity:1;translate:0 0}}
+@media(prefers-reduced-motion:reduce){.pos-toast{animation:none}}

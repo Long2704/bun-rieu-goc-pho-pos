@@ -1,3 +1,4 @@
+import Toast from './Toast';
 import {useRef,useState} from 'react';
 import {supabase} from './supabase';
 type Draft={request_id:string;name:string;username?:string;staff_code?:string;email?:string;role:string};
@@ -33,7 +34,7 @@ export default function EmployeeCreate({userId,onCreated}:{userId:string;onCreat
  }
  return <div className="employee-create">
   {!open&&<button className="primary" onClick={()=>{setMessage('');setOpen(true);}}>Thêm nhân viên</button>}
-  {message&&<p role="status">{message}</p>}
+  {message&&(message.startsWith('Đã ')?<Toast message={message}/>:<p role="status">{message}</p>)}
   {open&&<form aria-label="Thêm nhân viên" onSubmit={e=>{e.preventDefault();void send();}}>
    <h3>Thêm nhân viên</h3>
    <fieldset disabled={busy||!!draft}>

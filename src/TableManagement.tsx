@@ -1,3 +1,4 @@
+import Toast from './Toast';
 import {useEffect,useRef,useState} from 'react';
 import DraggableTables from './DraggableTables';
 import PosIcon from './PosIcon';
@@ -49,5 +50,5 @@ export default function TableManagement({userId,active,disabled,onPending,onSave
  <DraggableTables rows={tables} disabled={disabled||busy||!!pending||!!orderPending||storageError||!!edit} onChange={next=>{setTables(next);setError('');setMessage('');}} render={t=><><div className="sortable-table-name"><h3>{t.name}</h3><p title={t.busy?'Bàn đang có khách hoặc món bếp chưa xong':undefined}>{!t.is_active?'Ngừng sử dụng':t.busy?'Đang phục vụ':'Trống'}</p></div><button className="table-edit-button" aria-label={`Sửa ${t.name}`} title={t.busy?'Xử lý xong đơn của bàn trước khi sửa':`Sửa ${t.name}`} disabled={disabled||busy||dirty||!!pending||!!orderPending||storageError||t.busy} onClick={()=>start(t)}>Sửa</button></>}/>
 
 
- {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}</section>;
+ {error&&<p role="alert">{error}</p>}{message&&<Toast message={message}/>}</section>;
 }
