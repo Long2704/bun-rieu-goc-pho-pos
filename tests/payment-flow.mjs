@@ -7,7 +7,7 @@ const context=await browser.newContext({viewport:{width:390,height:844}});
 const menu=[{id:'food',name:'Bún riêu truyền thống',price:58000,category:'bun',is_out:false},{id:'drink',name:'Trà đá',price:3000,category:'do_uong',is_out:false}];
 const order=(table,id)=>({id:'order'+id,session_id:'s'+table,request_id:'req'+id,status:'cooking',kitchen_relevant:true,created_at:new Date().toISOString(),order_items:menu.map((m,n)=>({...m,id:`line${id}-${n}`,qty:1,note:n?'':'Không hành',paid:false,bill_no:1}))});
 let sessions=[{id:'s1',table_id:1,orders:[order(1,1)]},{id:'s2',table_id:2,orders:[order(2,2)]},{id:'s3',table_id:3,orders:[order(3,3)]}];
-let bills=[],attempts=[],lostResponse=true,receiptUnavailable=false,role='chu',stale=false;
+let bills=[],attempts=[],lostResponse=true,receiptUnavailable=false,role='chu',stale=false,receiptReads=0;
 await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
  const req=route.request(),u=new URL(req.url());let body;
  if(u.pathname==='/auth/v1/token')body={access_token:'test-access-token',refresh_token:'test-refresh-token',token_type:'bearer',expires_in:3600,user:{id:'payment-test-user',email:'test@example.com',aud:'authenticated',role:'authenticated'}};
@@ -32,7 +32,7 @@ await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
   body=b.id;
  }
  else if(u.pathname==='/rest/v1/bills'){
-  if(u.searchParams.has('id')){if(receiptUnavailable)return route.fulfill({status:503,json:{message:'Receipt unavailable'}});body=bills.find(b=>'eq.'+b.id===u.searchParams.get('id'));}
+  if(u.searchParams.has('id')){receiptReads++;if(receiptUnavailable)return route.fulfill({status:503,json:{message:'Receipt unavailable'}});body=bills.find(b=>'eq.'+b.id===u.searchParams.get('id'));}
   else body=[...bills].reverse();
  }
  else throw new Error('Unexpected network '+u.pathname);
@@ -42,7 +42,7 @@ const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(
 
 async function management(name){if(await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).isVisible())if(await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).isVisible())await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).click();const control=page.locator('.management-menu');if(!await control.evaluate(e=>e.open))await control.locator('summary').click();await page.getByRole('button',{name,exact:true}).click();}
 async function tableActions(){const control=page.locator('.table-operations');if(!await control.evaluate(e=>e.open))await control.locator('summary').click();}
-await page.goto('http://localhost:5173');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('test@example.com');await page.getByLabel('Mật khẩu',{exact:true}).fill('fake-test-password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+await page.goto(process.env.POS_TEST_URL||'http://localhost:5173');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('test@example.com');await page.getByLabel('Mật khẩu',{exact:true}).fill('fake-test-password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
 await page.getByRole('button',{name:/^Bàn 1 /}).click();await page.getByRole('button',{name:'Thanh toán',exact:true}).click();
 let dialog=page.getByRole('dialog');await dialog.waitFor();
 assert.equal(await dialog.getByLabel('Giảm giá',{exact:true}).count(),0);await dialog.getByLabel('Tiền khách đưa',{exact:true}).fill('50000');
@@ -51,31 +51,28 @@ await dialog.getByLabel('Tiền khách đưa',{exact:true}).fill('100000');asser
 await dialog.getByRole('button',{name:'Xác nhận thu tiền mặt',exact:true}).click();
 await dialog.getByRole('button',{name:'Thử lại cùng mã',exact:true}).waitFor();
 await page.reload();await page.getByRole('button',{name:'Thử lại cùng mã',exact:true}).click();
-await page.getByRole('heading',{name:'Hóa đơn đã thanh toán',exact:true}).waitFor();
+await dialog.waitFor({state:'hidden'});assert.equal(receiptReads,0);
 assert.equal(bills.length,1);assert.equal(bills[0].discount,0);assert.equal(attempts[0].p_discount_value,0);assert.equal(attempts[0].p_discount_type,'amount');assert.equal(attempts.length,2);assert.equal(attempts[0].p_request_id,attempts[1].p_request_id);
 if(process.env.POS_SCREENSHOT_DIR)await page.screenshot({path:process.env.POS_SCREENSHOT_DIR+'/receipt-no-print-mobile.png',fullPage:true});
-assert.match(await dialog.innerText(),/61\.000đ/);assert.match(await dialog.innerText(),/39\.000đ/);assert.match(await dialog.innerText(),/Không hành/);
+assert.equal(bills[0].total,61000);assert.equal(bills[0].change_due,39000);assert.equal(bills[0].bill_items[0].note,'Không hành');
 assert.equal(await page.getByRole('button',{name:'In hóa đơn',exact:true}).count(),0);
-await dialog.getByRole('button',{name:'Đóng',exact:true}).click();
-assert.match(await page.getByRole('button',{name:/^Bàn 1 /}).innerText(),/Trống/);
+await page.getByRole('button',{name:/^Bàn 1 /}).waitFor();assert.match(await page.getByRole('button',{name:/^Bàn 1 /}).innerText(),/Trống/);
 await page.getByRole('button',{name:/^Bếp \(/}).click();assert.equal(await page.locator('.kitchen-card').count(),3);
 await page.getByRole('button',{name:'Phục vụ',exact:true}).click();await page.getByRole('button',{name:/^Bàn 2 /}).click();await page.getByRole('button',{name:'Thanh toán',exact:true}).click();
 await dialog.getByRole('button',{name:'Chuyển khoản',exact:true}).click();
 receiptUnavailable=true;
 await dialog.getByRole('button',{name:'Xác nhận đã nhận chuyển khoản',exact:true}).click();
-await dialog.getByText('Đã thanh toán thành công nhưng chưa tải được hóa đơn.',{exact:false}).waitFor();assert.match(await dialog.locator('.payment-amount').innerText(),/Đã thanh toán/);
-const requestCount=attempts.length;assert.equal(bills.length,2);assert.equal(bills[1].total,61000);assert.equal(bills[1].method,'transfer');
+await dialog.waitFor({state:'hidden'});await page.getByRole('button',{name:/^Bàn 2 /}).waitFor();
+assert.equal(receiptReads,0);assert.equal(bills.length,2);assert.equal(bills[1].total,61000);assert.equal(bills[1].method,'transfer');
 receiptUnavailable=false;
-await dialog.getByRole('button',{name:'Thử lại cùng mã',exact:true}).click();await page.getByRole('heading',{name:'Hóa đơn đã thanh toán',exact:true}).waitFor();assert.equal(attempts.length,requestCount);
-await dialog.getByRole('button',{name:'Đóng',exact:true}).click();if(await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).isVisible())await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).click();
 await page.getByRole('button',{name:/^Bàn 3 /}).click();await page.getByRole('button',{name:'Thanh toán',exact:true}).click();
 stale=true;await dialog.getByRole('button',{name:'Xác nhận thu tiền mặt',exact:true}).click();await dialog.getByText('Danh sách món đã thay đổi.',{exact:false}).waitFor();
 assert.equal(bills.length,2);assert.equal(await dialog.locator('.payment-amount>strong').count(),0);assert.match(await dialog.locator('.payment-amount').innerText(),/Kiểm tra lại đơn/);assert.equal(await page.evaluate(()=>localStorage.getItem('goc-pho-payment-v1:payment-test-user')),null);
 await dialog.getByRole('button',{name:'Đóng',exact:true}).click();
 await management('Hóa đơn gần đây');await page.getByRole('button',{name:/^#1 /}).click();await page.getByRole('heading',{name:'Hóa đơn đã thanh toán',exact:true}).waitFor();
-assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+assert.equal(receiptReads,1);assert.match(await dialog.innerText(),/Không hành/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 await dialog.getByRole('button',{name:'Đóng',exact:true}).click();
 role='phuc_vu';await page.reload();await page.getByRole('button',{name:/^Bàn 3 /}).click();assert.equal(await page.getByRole('button',{name:'Thanh toán',exact:true}).count(),1);
 assert.deepEqual(errors,[]);
-console.log('PASS: cash validation, no discount entry, change, persisted retry after lost payment response, no duplicate invoice, transfer, receipt-only retry, stale-item rejection, kitchen retains paid orders, empty table, recent receipts, receipt retained without print, mobile width, service can pay without finance administration. All network mocked; no live payments.');
+console.log('PASS: cash validation, no discount entry, change, persisted retry after lost payment response, no duplicate invoice, transfer without fetching receipts, stale-item rejection, kitchen retains paid orders, empty table, recent receipts, manual receipt history retained without print, mobile width, service can pay without finance administration. All network mocked; no live payments.');
 }finally{await browser.close();}
