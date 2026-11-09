@@ -14,9 +14,9 @@ button.primary,.primary{background:linear-gradient(135deg,#ff8610,#f35b00);borde
 .overview-stat strong>.pos-icon{width:25px;height:25px;color:#ff7300}
 .overview-stat:last-child strong>.pos-icon{color:#6a2c0d}
 .overview-stat span{color:#633216;font-weight:500}
-.table-card{border:1px solid #e6d0c0;border-radius:20px;box-shadow:0 3px 5px #7c2d1210;background:linear-gradient(130deg,#fff0dc,#fff7ed);transition:background .15s,box-shadow .15s,transform .15s}
-.table-card.is-empty{background:linear-gradient(140deg,#fff,#fdfdfd);border-color:#e5d1c3}
-.table-card.is-cooking,.table-card.is-ready{background:linear-gradient(135deg,#fff0db,#fff6ec);border-color:#fbcda4}
+.table-card{border:1px solid #e6d0c0;border-radius:20px;box-shadow:0 3px 5px #7c2d1210;background:var(--table-surface);--table-surface:linear-gradient(130deg,#fff0dc,#fff7ed);transition:background .15s,box-shadow .15s,transform .15s}
+.table-card.is-empty{--table-surface:linear-gradient(140deg,#fff,#fdfdfd);background:var(--table-surface);border-color:#e5d1c3}
+.table-card.is-cooking,.table-card.is-ready{--table-surface:linear-gradient(135deg,#fff0db,#fff6ec);background:var(--table-surface);border-color:#fbcda4}
 .table-card-heading strong{color:#52250e;font-weight:800;letter-spacing:-.4px}
 .table-card-icon svg{width:36px;height:36px;stroke-width:1.8}
 .table-card.is-empty .table-card-icon{color:#626771}
@@ -24,7 +24,7 @@ button.primary,.primary{background:linear-gradient(135deg,#ff8610,#f35b00);borde
 .table-card .table-state{display:flex;align-items:center;justify-content:center;gap:5px;margin:0;background:transparent;border-radius:6px;padding:0;color:#9a470f;font-weight:500}
 .table-card .table-state>.pos-icon{width:19px;height:19px;color:#f97316}
 .table-card.is-empty .table-state{background:#f1f2f4;padding:3px 7px;color:#747985}
-.table-card.is-priority{background:linear-gradient(145deg,#ff8911,#ff7100 55%,#e85500);border-color:#f9a451;box-shadow:0 3px 7px #c95c0026}
+.table-card.is-priority{--table-surface:linear-gradient(145deg,#ff8911,#ff7100 55%,#e85500);background:var(--table-surface);border-color:#f9a451;box-shadow:0 3px 7px #c95c0026}
 .table-card.is-priority .table-card-heading strong,.table-card.is-priority .table-total,.table-card.is-priority .table-state,.table-card.is-priority .table-card-icon,.table-card.is-priority .table-state>.pos-icon{color:white}
 .table-card:hover:not(:disabled){box-shadow:0 5px 15px #8a43101a;border-color:#fb9b54}
 .table-filters button{font-weight:650;color:#28170d}
@@ -139,3 +139,6 @@ button.primary,.primary{background:linear-gradient(135deg,#ff8610,#f35b00);borde
  .sync-tools>button{display:grid;place-items:center;width:34px;height:34px;min-height:34px;padding:7px;border:1px solid #ead6c3;border-radius:50%;background:#fffdfb;color:#6a3116}
  .sync-tools>button>span{display:none}
 }
+
+/* Preserve each table state surface when generic button feedback is active. */
+.table-card:is(:hover,:active,:focus-visible):not(:disabled){background:var(--table-surface)}
