@@ -41,7 +41,6 @@ export default forwardRef<MenuGroupHandle,Props>(function MenuGroupPanel({userId
    <form className="menu-group-form" onSubmit={e=>{e.preventDefault();void save();}}>
     <fieldset disabled={disabled||busy||!!pending||storageError||!catalog}>
      <label>Tên nhóm món<input ref={input} required maxLength={80} value={name} onChange={e=>setName(e.target.value)} placeholder="Ví dụ: Canh bún"/></label>
-     <label>Loại nhóm<select value={category} onChange={e=>setCategory(e.target.value)}><option value="bun">Món chính</option><option value="an_them">Món phụ</option><option value="do_uong">Đồ uống</option></select></label>
     </fieldset>
     {failure&&<p role="alert">{failure}</p>}
     {pending&&<p role="status">Nhóm “{pending.name}” đang chờ xác nhận.</p>}

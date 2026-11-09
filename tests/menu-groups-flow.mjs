@@ -53,7 +53,7 @@ try{
    await p.getByRole('button',{name:'Thêm món mới',exact:true}).click();
    await p.getByLabel('Tên món',{exact:true}).fill('Món đang nhập');await p.getByLabel('Giá bán (đồng)',{exact:true}).fill('45000');
    const add=p.getByRole('button',{name:'Thêm nhóm món',exact:true});await p.waitForFunction(()=>{const b=document.querySelector('.menu-group-add');return b&&!b.disabled;});
-   await add.click();const dialog=p.getByRole('dialog',{name:'Thêm nhóm món',exact:true});await dialog.waitFor();
+   await add.click();const dialog=p.getByRole('dialog',{name:'Thêm nhóm món',exact:true});await dialog.waitFor();assert.equal(await dialog.getByLabel('Loại nhóm',{exact:true}).count(),0);
    assert.equal(await dialog.evaluate(d=>d.matches(':modal')),true);await p.locator('.menu-edit-form input').first().evaluate(e=>e.focus());assert.equal(await dialog.evaluate(d=>d.contains(document.activeElement)),true,'background form cannot take focus while popup open');
    await p.keyboard.press('Escape');assert.equal(await dialog.isVisible(),false);assert.equal(await add.evaluate(e=>e===document.activeElement),true);
    assert.equal(await p.getByLabel('Tên món',{exact:true}).inputValue(),'Món đang nhập');await add.click();
@@ -67,7 +67,9 @@ try{
    await p.getByRole('button',{name:'Thêm món mới',exact:true}).click();await p.getByLabel('Tên món',{exact:true}).fill('Món nháp giữ nguyên');await p.getByLabel('Giá bán (đồng)',{exact:true}).fill('45000');
    await add.click();await name.fill('Bún đặc biệt');await p.getByRole('button',{name:'Xác nhận',exact:true}).click();await p.getByText('Đã thêm nhóm Bún đặc biệt.',{exact:true}).waitFor();
    assert.equal(await p.getByLabel('Nhóm món',{exact:true}).inputValue(),'group-4');assert.equal(await p.getByLabel('Tên món',{exact:true}).inputValue(),'Món nháp giữ nguyên');assert.equal(await p.getByLabel('Giá bán (đồng)',{exact:true}).inputValue(),'45000');
-   await p.screenshot({path:out+'/group-picker-mobile.png'});await p.getByRole('button',{name:'Đóng chỉnh sửa',exact:true}).click();
+   await p.screenshot({path:out+'/group-picker-mobile.png'});
+   await p.getByLabel('Nhóm món',{exact:true}).selectOption('do_uong');await add.click();await name.fill('Nước mới');await p.getByRole('button',{name:'Xác nhận',exact:true}).click();await p.getByText('Đã thêm nhóm Nước mới.',{exact:true}).waitFor();assert.equal(groups.find(g=>g.name==='Nước mới').category,'do_uong');assert.equal(await p.getByLabel('Nhóm món',{exact:true}).inputValue(),'group-5');
+   await p.getByRole('button',{name:'Đóng chỉnh sửa',exact:true}).click();
 
    assert.equal(await p.getByLabel('Thứ tự hiển thị',{exact:true}).count(),0);
    await p.getByRole('button',{name:'Di chuyển Trà đá',exact:true}).press('ArrowUp');
