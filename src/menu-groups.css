@@ -1,15 +1,19 @@
-.menu-group-panel{margin:0 0 12px;padding:16px;border:1px solid #ecd5c0;border-radius:16px;background:#fff4e5;gap:12px}
-.menu-group-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-.menu-group-heading h3{font-size:16px;color:#54270f;margin:0 0 5px}.menu-group-heading p{font-size:12px;color:#82634f;margin:0}
-.menu-group-heading>button{background:#ffead0;border-color:#e8bb95;color:#a4430a;border-radius:10px}
-.menu-group-tags{display:flex;gap:7px;flex-wrap:wrap}.menu-group-tags>span{padding:5px 10px;background:#fffdf9;border:1px solid #ecd5c0;border-radius:99px;font-size:12px;color:#793d18;overflow-wrap:anywhere;max-width:100%}
-.menu-group-form{max-width:none;margin:0;background:#fffaf3;border-color:#ecd5c0;border-radius:12px}
-.menu-group-form fieldset{min-width:0}.menu-group-form p{font-size:12px;color:#82634f}.menu-group-form input,.menu-group-form select{background:#fffdf9;border-color:#e6c9ae;color:#54270f}
-.menu-group-actions{display:flex;gap:8px;flex-wrap:wrap}.menu-group-actions>button{margin:0}
-.menu-group-panel>p{margin:0;font-size:13px}.menu-group-panel aside{padding:12px;border:1px solid #e8bb95;border-radius:10px;background:#fffaf3}
-@media(max-width:600px){.menu-group-panel{padding:12px}.menu-group-heading>button{width:100%}.menu-group-actions>button{flex:1}}
-
-.menu-group-heading>button:hover:not(:disabled){background:#ffe2bc;border-color:#dfad7e}
+.menu-group-picker{display:grid;grid-template-columns:minmax(0,260px) 44px;gap:8px;align-items:center;width:min(100%,312px)}
+.menu-group-picker>select{width:100%;margin:0;min-height:44px;padding:8px 30px 8px 10px;border-radius:10px}
+.menu-group-picker>.menu-group-add{display:grid;place-items:center;width:44px;min-height:44px;margin:0;padding:0;background:#ffead0;border:1px solid #e8bb95;border-radius:10px;color:#a4430a;font-size:26px;line-height:1}
+.menu-group-picker>.menu-group-add:hover:not(:disabled){background:#ffe2bc;border-color:#dfad7e}
+.menu-group-load-error,.menu-group-message{font-size:12px;color:#82634f;margin:8px 0}
+.menu-group-dialog{width:360px;max-width:calc(100vw - 28px);max-height:calc(100dvh - 28px);overflow:auto;margin:auto;padding:20px;border:1px solid #e8cbb3;border-radius:18px;background:#fff8ee;color:#54270f;box-shadow:0 16px 60px #54270f40}
+.menu-group-dialog::backdrop{background:#3f230c66}
+.menu-group-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.menu-group-dialog h2{margin:0;font-size:19px;line-height:1.4}
+.menu-group-dialog header>button{width:38px;min-height:38px;padding:0;border-radius:50%;border-color:#ecd5c0;background:#fffdfa;color:#793d18;font-size:23px}
+.menu-group-form{max-width:none;margin:0;padding:0;border:0;background:transparent}
+.menu-group-form fieldset{min-width:0}.menu-group-form label{margin:12px 0;color:#54270f;font-size:13px}
+.menu-group-form input,.menu-group-form select{background:#fffdfa;border-color:#e6c9ae;color:#54270f;font-size:16px}
+.menu-group-form p{font-size:13px;color:#82634f}.menu-group-form p[role=alert]{color:#a73519}
+.menu-group-actions{display:flex;gap:8px;margin-top:20px}.menu-group-actions>button{flex:1;min-width:0;margin:0;min-height:44px;border-radius:10px}
 .menu-order-actions{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
 .menu-management .sortable-tables .sortable-table-name{min-width:0;flex:1}
 .menu-management .table-drag-handle{flex:none;color:#a4430a;background:#fff0dd;border-color:#e8bb95}
+@media(max-width:360px){.menu-group-dialog{padding:16px}.menu-group-actions{flex-wrap:wrap}.menu-group-actions>button{flex-basis:100%}}

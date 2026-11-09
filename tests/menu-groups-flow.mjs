@@ -49,12 +49,26 @@ try{
   await p.goto(process.env.POS_TEST_URL||'http://localhost:5173');await p.getByLabel('Tên đăng nhập',{exact:true}).fill(role+'@example.test');await p.getByLabel('Mật khẩu',{exact:true}).fill('fake-password');await p.getByRole('button',{name:'Đăng nhập',exact:true}).click();
   if(role==='chu'){
    await p.locator('.management-menu summary').click();await p.getByRole('button',{name:'Quản lý thực đơn',exact:true}).click();
-   const add=p.getByRole('button',{name:'Thêm nhóm món',exact:true});await p.waitForFunction(()=>!document.querySelector('.menu-group-heading>button')?.disabled);await add.click();
-   const name=p.getByLabel('Tên nhóm món',{exact:true}),save=p.getByRole('button',{name:'Lưu nhóm món',exact:true});assert.equal(await save.isDisabled(),true);
+   assert.equal(await p.locator('.menu-group-panel').count(),0);
+   await p.getByRole('button',{name:'Thêm món mới',exact:true}).click();
+   await p.getByLabel('Tên món',{exact:true}).fill('Món đang nhập');await p.getByLabel('Giá bán (đồng)',{exact:true}).fill('45000');
+   const add=p.getByRole('button',{name:'Thêm nhóm món',exact:true});await p.waitForFunction(()=>{const b=document.querySelector('.menu-group-add');return b&&!b.disabled;});
+   await add.click();const dialog=p.getByRole('dialog',{name:'Thêm nhóm món',exact:true});await dialog.waitFor();
+   assert.equal(await dialog.evaluate(d=>d.matches(':modal')),true);await p.locator('.menu-edit-form input').first().evaluate(e=>e.focus());assert.equal(await dialog.evaluate(d=>d.contains(document.activeElement)),true,'background form cannot take focus while popup open');
+   await p.keyboard.press('Escape');assert.equal(await dialog.isVisible(),false);assert.equal(await add.evaluate(e=>e===document.activeElement),true);
+   assert.equal(await p.getByLabel('Tên món',{exact:true}).inputValue(),'Món đang nhập');await add.click();
+   await p.screenshot({path:out+'/group-popup-mobile.png'});
+   const name=p.getByLabel('Tên nhóm món',{exact:true}),save=p.getByRole('button',{name:'Xác nhận',exact:true});assert.equal(await save.isDisabled(),true);
    await name.fill('Canh bún');await save.click();await p.getByRole('button',{name:'Thử lại tạo nhóm cùng mã',exact:true}).waitFor();assert.equal(await p.getByRole('button',{name:'Đăng xuất',exact:true}).isDisabled(),true);
    await p.reload();await p.getByRole('button',{name:'Mở quản lý thực đơn',exact:true}).click();await p.getByRole('button',{name:'Thử lại tạo nhóm cùng mã',exact:true}).click();await p.getByText('Đã thêm nhóm Canh bún.',{exact:true}).waitFor();assert.equal(creates[0].p_request_id,creates[1].p_request_id);assert.equal(groups.filter(g=>g.name==='Canh bún').length,1);
+   await p.getByRole('button',{name:'Thêm món mới',exact:true}).click();
    await add.click();await name.fill('CANH BÚN');await save.click();await p.getByText('Tên nhóm món đã tồn tại.',{exact:true}).waitFor();assert.equal(await p.getByRole('button',{name:'Thử lại tạo nhóm cùng mã',exact:true}).count(),0);await p.getByRole('button',{name:'Hủy thêm nhóm',exact:true}).click();
    await p.getByRole('button',{name:'Sửa Canh bún truyền thống',exact:true}).click();await p.getByLabel('Nhóm món',{exact:true}).selectOption({label:'Canh bún'});await p.getByRole('button',{name:'Lưu thực đơn',exact:true}).click();await p.getByRole('button',{name:'Thử lại cùng mã cập nhật',exact:true}).waitFor();await p.getByRole('button',{name:'Thử lại cùng mã cập nhật',exact:true}).click();await p.getByText('Đã lưu thực đơn.',{exact:true}).waitFor();assert.equal(saves[0].p_request_id,saves[1].p_request_id);assert.equal(menu[0].version,2);assert.equal(menu[0].price,58000);
+   await p.getByRole('button',{name:'Thêm món mới',exact:true}).click();await p.getByLabel('Tên món',{exact:true}).fill('Món nháp giữ nguyên');await p.getByLabel('Giá bán (đồng)',{exact:true}).fill('45000');
+   await add.click();await name.fill('Bún đặc biệt');await p.getByRole('button',{name:'Xác nhận',exact:true}).click();await p.getByText('Đã thêm nhóm Bún đặc biệt.',{exact:true}).waitFor();
+   assert.equal(await p.getByLabel('Nhóm món',{exact:true}).inputValue(),'group-4');assert.equal(await p.getByLabel('Tên món',{exact:true}).inputValue(),'Món nháp giữ nguyên');assert.equal(await p.getByLabel('Giá bán (đồng)',{exact:true}).inputValue(),'45000');
+   await p.screenshot({path:out+'/group-picker-mobile.png'});await p.getByRole('button',{name:'Đóng chỉnh sửa',exact:true}).click();
+
    assert.equal(await p.getByLabel('Thứ tự hiển thị',{exact:true}).count(),0);
    await p.getByRole('button',{name:'Di chuyển Trà đá',exact:true}).press('ArrowUp');
    await p.getByRole('button',{name:'Lưu thứ tự món',exact:true}).click();await p.getByRole('button',{name:'Thử lại cùng mã sắp xếp món',exact:true}).waitFor();
@@ -76,5 +90,5 @@ try{
   await p.getByRole('button',{name:'Phục vụ',exact:true}).click();await p.getByRole('button',{name:/^Bàn 1 /}).click();await p.getByRole('button',{name:'Canh bún',exact:true}).click();assert.deepEqual(await p.locator('.pos-product-copy h2').allTextContents(),['Canh bún truyền thống']);await p.getByRole('button',{name:'Món chính',exact:true}).click();assert.equal(await p.locator('.pos-product-row').count(),0);await p.getByRole('button',{name:'Đồ uống',exact:true}).click();assert.deepEqual(await p.locator('.pos-product-copy h2').allTextContents(),['Trà đá']);
   assert.deepEqual(errors,[]);await c.close();
  }
- console.log('PASS groups UI: Owner create/assign; duplicate-name validation, durable create/item retry including reload, dynamic tabs/filter shared by 3 roles, main/drink semantics preserved, 375–1440 layout; keyboard/mouse/touch item ordering, cancel and reorder retry/reload; no production writes.');
+ console.log('PASS groups UI: Owner create/assign; duplicate-name validation, durable create/item retry including reload, dynamic tabs/filter shared by 3 roles, main/drink semantics preserved, 375–1440 layout; compact + picker, modal Escape/focus trap, auto-selection and preserved draft; keyboard/mouse/touch item ordering, cancel and reorder retry/reload; no production writes.');
 }finally{await browser.close();}
