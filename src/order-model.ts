@@ -8,7 +8,11 @@ export function tableStatus(sessions:TableSession[],tableId:number){
  const orders=sessions.filter(s=>s.table_id===tableId).flatMap(s=>s.orders).filter(o=>o.order_items.some(i=>!i.cancelled_at));
  return !orders.length?(tableId<0?'Chưa gọi món':'Trống'):orders.some(o=>o.kitchen_relevant&&o.status==='cooking')?'Bếp đang làm':'Đã ra món';
 }
-export function kitchenLines(order:Order){return order.order_items.filter(i=>i.category!=='do_uong'&&!i.cancelled_at);}
+export function kitchenLines(order:Order){
+ // Stable sorting keeps the existing order within each group and leaves stored lines unchanged.
+ return order.order_items.filter(i=>i.category!=='do_uong'&&!i.cancelled_at)
+  .sort((a,b)=>Number(b.category==='bun')-Number(a.category==='bun'));
+}
 export function fifo<T extends Order>(orders:T[]){return [...orders].sort((a,b)=>a.created_at.localeCompare(b.created_at)||a.id.localeCompare(b.id));}
 
 export const placeLabel=(id:number)=>id<0?`Mang về #${-id}`:`Bàn ${id}`;
