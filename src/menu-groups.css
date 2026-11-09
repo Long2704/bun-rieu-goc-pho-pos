@@ -17,3 +17,6 @@
 .menu-management .sortable-tables .sortable-table-name{min-width:0;flex:1}
 .menu-management .table-drag-handle{flex:none;color:#a4430a;background:#fff0dd;border-color:#e8bb95}
 @media(max-width:360px){.menu-group-dialog{padding:16px}.menu-group-actions{flex-wrap:wrap}.menu-group-actions>button{flex-basis:100%}}
+.menu-group-picker{grid-template-columns:minmax(0,260px) 44px 44px;width:min(100%,364px)}
+.menu-group-picker>.menu-group-settings{display:grid;place-items:center;margin:0;width:44px;min-height:44px;padding:0;border:1px solid #e8bb95;border-radius:10px;background:#fff3e2;color:#a4430a;font-size:22px}
+.menu-group-kitchen{margin-top:18px!important}.menu-group-kitchen input{accent-color:#e96a0b}
