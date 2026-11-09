@@ -23,6 +23,8 @@ const PaymentPanel=forwardRef<PaymentHandle,Props>(function PaymentPanel({compac
  useEffect(()=>{onPendingAmount?.(pending?{total:pending.total,tableId:pending.tableId}:null);},[pending?.total,pending?.tableId,onPendingAmount]);
  useEffect(()=>{onPending(!!pending||storageError||busy);},[pending,storageError,busy,onPending]);
  useEffect(()=>{if(open){const details=dialog.current?.querySelector<HTMLDetailsElement>('.payment-items');if(details)details.open=true;const body=dialog.current?.querySelector('.payment-body');if(body)body.scrollTop=0;}if(open&&!dialog.current?.open)dialog.current?.showModal();else if(!open&&dialog.current?.open)dialog.current.close();},[open]);
+ // Chờ render dữ liệu bàn mới trước khi quyết định quay về sơ đồ bàn.
+ useEffect(()=>{if(!busy&&!pending&&!open&&paidContext.current){const paid=paidContext.current;paidContext.current=null;onClosePaid?.(paid.sessionId,paid.tableId);}},[busy,pending,open,onClosePaid]);
  const lines=pending?.items??draft?.items??[];
  const gross=lines.reduce((s,i)=>s+i.price*i.qty,0);
  const total=pending?.total??gross;
@@ -68,23 +70,22 @@ const PaymentPanel=forwardRef<PaymentHandle,Props>(function PaymentPanel({compac
     if(mounted.current)setPending(attempt);
    }
    await onPaid();
-   try{await loadReceipt(attempt.billId!);}catch{throw new Error('Đã thanh toán thành công nhưng chưa tải được hóa đơn. Bấm Thử lại cùng mã để tải hóa đơn, không thu thêm tiền.');}
    localStorage.removeItem(key);
    paidContext.current={sessionId:attempt.sessionId,tableId:attempt.tableId};
-   if(mounted.current)setPending(null);
+   if(mounted.current){setPending(null);setDraft(null);setReceipt(null);setOpen(false);}
   }catch(e){if(mounted.current)setError(e instanceof Error?e.message:'Chưa xác nhận thanh toán. Thử lại cùng mã.');}
   finally{lock.current=false;if(mounted.current)setBusy(false);}
  }
  async function reopen(id:string){if(busy||pending)return;paidContext.current=null;setBusy(true);setError('');try{await loadReceipt(id);}catch{setError('Chưa tải được hóa đơn. Vui lòng thử lại.');onReceiptError?.('Chưa tải được hóa đơn. Vui lòng thử lại.');}finally{setBusy(false);}}
  useEffect(()=>{if(receiptRequest&&canPay)void reopen(receiptRequest.id);},[receiptRequest?.key]);
- function close(){if(busy)return;setOpen(false);const paid=paidContext.current;if(receipt&&paid&&!pending){paidContext.current=null;onClosePaid?.(paid.sessionId,paid.tableId);}}
+ function close(){if(busy)return;setOpen(false);}
  if(!canPay)return null;
  return <section className={`cashier-panel${compact?' compact-payment-controller':''}`} aria-label="Thanh toán">
  {table&&(billNumbers.length>1||billNo!==1)&&<><label htmlFor="pay-bill-number">Bill thanh toán</label><select id="pay-bill-number" value={billNo} disabled={hasDraft||!!pending||storageError||busy} onChange={e=>{if(current)setChosen({sessionId:current.id,billNo:Number(e.target.value)});}}>{billNumbers.map(b=><option key={b} value={b}>Bill {b} · {money(unpaid.filter(i=>(i.bill_no??1)===b).reduce((s,i)=>s+i.price*i.qty,0))}</option>)}</select></>}
  <div className="cashier-actions">{table&&<button className="primary" disabled={!payable.length||hasDraft||!!pending||storageError||busy} onClick={()=>start()}>Thanh toán {table.name}{billNumbers.length>1||billNo!==1?` · Bill ${billNo}`:''}</button>}</div>
  {table&&hasDraft&&<p>Gửi hoặc xóa các món đang chọn trước khi thanh toán.</p>}
  {storageError&&<aside role="alert">Không đọc được dữ liệu thanh toán chờ. Chưa thể thanh toán; không xóa dữ liệu trình duyệt.</aside>}
- {pending&&<aside role="status"><strong>{pending.billId?'Đã thanh toán, chờ tải hóa đơn':'Thanh toán chờ xác nhận'} — {pending.tableName??placeLabel(pending.tableId)} · Bill {pending.billNo??1}</strong><p>{money(pending.total)} · {pending.method==='cash'?'Tiền mặt':'Chuyển khoản'}. Giữ nguyên mã yêu cầu, không thu tiền lần nữa.</p><button disabled={busy} onClick={()=>{setReceipt(null);setOpen(true);void pay();}}>{busy?'Đang xử lý…':'Thử lại cùng mã'}</button></aside>}
+ {pending&&<aside role="status"><strong>{pending.billId?'Đã thanh toán, chờ đồng bộ':'Thanh toán chờ xác nhận'} — {pending.tableName??placeLabel(pending.tableId)} · Bill {pending.billNo??1}</strong><p>{money(pending.total)} · {pending.method==='cash'?'Tiền mặt':'Chuyển khoản'}. Giữ nguyên mã yêu cầu, không thu tiền lần nữa.</p><button disabled={busy} onClick={()=>{setReceipt(null);setOpen(true);void pay();}}>{busy?'Đang xử lý…':'Thử lại cùng mã'}</button></aside>}
  {error&&<aside role="alert">{error}</aside>}
  {createPortal(<dialog ref={dialog} className={`payment-dialog payment-sheet${receipt?' has-receipt':''}`} aria-labelledby="payment-dialog-title" onCancel={e=>{if(busy)e.preventDefault();else close();}}>
  <header className="payment-header"><div><h2 id="payment-dialog-title">{receipt?'Hóa đơn đã thanh toán':`Thanh toán ${pending?.tableName??draft?.tableName??table?.name??placeLabel(pending?.tableId??draft?.tableId??table?.id??0)}`}</h2>{!receipt&&(pending||draft)&&<p>Bill {pending?.billNo??draft?.billNo??1}</p>}</div><button type="button" disabled={busy} onClick={close}>Đóng</button></header>
@@ -97,7 +98,7 @@ const PaymentPanel=forwardRef<PaymentHandle,Props>(function PaymentPanel({compac
  <div className="payment-methods" role="group" aria-label="Hình thức thanh toán"><button type="button" aria-pressed={method==='cash'} onClick={()=>setMethod('cash')}>Tiền mặt</button><button type="button" aria-pressed={method==='transfer'} onClick={()=>setMethod('transfer')}>Chuyển khoản</button></div>
  {method==='cash'?<><label className="payment-cash-label" htmlFor="payment-cash">Tiền khách đưa</label><div className="payment-cash-input"><input id="payment-cash" inputMode="numeric" autoComplete="off" placeholder="0" value={cash} onFocus={e=>{if(pending||busy)return;setCash('0');e.currentTarget.value='0';e.currentTarget.select();}} onClick={e=>{if(cash==='0')e.currentTarget.select();}} onBlur={()=>{if(!pending&&!busy&&enteredCash!==null&&enteredCash<total)setCash(String(total));}} onChange={e=>setCash(e.target.value)}/><span aria-hidden="true">đ</span></div>{cashNumber!==null&&cashNumber>=total?<div className="payment-change"><span>Tiền thối</span><strong>{money(cashNumber-total)}</strong></div>:<p className="payment-input-error" role="alert">{cashNumber===null?'Nhập số tiền hợp lệ.':'Tiền khách đưa chưa đủ.'}</p>}</>:<p className="payment-transfer-note">Chỉ xác nhận sau khi đã kiểm tra tiền vào tài khoản quán.</p>}
  </fieldset></form>}
- {pending&&<p className="payment-pending-note" role="status">{pending.billId?'Đã thanh toán, chờ tải hóa đơn. Không thu thêm tiền.':'Đang chờ xác nhận thanh toán. Thử lại cùng mã, không thu tiền lần nữa.'}</p>}
+ {pending&&<p className="payment-pending-note" role="status">{pending.billId?'Đã thanh toán, chờ đồng bộ. Không thu thêm tiền.':'Đang chờ xác nhận thanh toán. Thử lại cùng mã, không thu tiền lần nữa.'}</p>}
  {error&&<p className="payment-input-error" role="alert">{error}</p>}
  </div>
  <footer className="payment-footer">{pending?<button className="primary" type="button" disabled={busy} onClick={()=>void pay()}>{busy?'Đang xử lý…':'Thử lại cùng mã'}</button>:<button className="primary" disabled={busy||!valid||!draft} type="submit" form="payment-confirm-form">{busy?'Đang xử lý…':method==='cash'?'Xác nhận thu tiền mặt':'Xác nhận đã nhận chuyển khoản'}</button>}</footer>
