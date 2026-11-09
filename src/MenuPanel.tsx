@@ -1,3 +1,4 @@
+import Toast from './Toast';
 import {useEffect,useRef,useState} from 'react';
 import {supabase} from './supabase';
 import {defaultGroups} from './menu-groups';
@@ -96,6 +97,6 @@ export default function MenuPanel({userId,disabled,onPending,onSaved,active,cata
  <DraggableTables rows={items} helpId="menu-sort-help" disabled={disabled||busy||!!pending||!!orderPending||storageError||!!edit||groupPending||!catalog} onChange={next=>{setItems(next);setError('');setMessage('');}} render={i=><><div className="sortable-table-name"><h3>{i.name}</h3><p>{i.price.toLocaleString('vi-VN')}đ · {groups.find(g=>g.id===(catalog?.assignments[i.id]??i.category))?.name}{(!i.is_active||i.is_out)&&<span className="menu-item-state">{!i.is_active?'Ngừng bán':'Hết món'}</span>}</p></div><button className="menu-edit-button" aria-label={`Sửa ${i.name}`} title={`Sửa ${i.name}`} disabled={disabled||busy||!!pending||storageError||groupPending||unavailable||orderDirty||!!orderPending} onClick={()=>start(i)}>Sửa</button></>}/>
 
  {!busy&&!items.length&&!error&&<p>Chưa có món trong thực đơn.</p>}
- </>}{error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+ </>}{error&&<p role="alert">{error}</p>}{message&&<Toast message={message}/>}
  </section>;
 }

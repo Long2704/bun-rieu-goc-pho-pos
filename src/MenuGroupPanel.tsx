@@ -1,3 +1,4 @@
+import Toast from './Toast';
 import {forwardRef,useEffect,useImperativeHandle,useRef,useState} from 'react';
 import {supabase} from './supabase';
 import {defaultGroups} from './menu-groups';
@@ -38,7 +39,7 @@ export default forwardRef<MenuGroupHandle,Props>(function MenuGroupPanel({userId
  return <>
   {storageError&&<p role="alert">Không đọc được yêu cầu tạo nhóm đang chờ. Không xóa dữ liệu trình duyệt; liên hệ hỗ trợ.</p>}
   {pending&&!open&&<aside role="status"><p>Nhóm “{pending.name}” đang chờ xác nhận.</p><button type="button" disabled={busy} onClick={()=>setOpen(true)}>Mở nhóm món đang chờ</button></aside>}
-  {message&&<p role="status" className="menu-group-message">{message}</p>}
+  {message&&<Toast message={message}/>}
   <dialog ref={dialog} className="menu-group-dialog" aria-labelledby="menu-group-title" onCancel={e=>{e.preventDefault();if(!busy)setOpen(false);}}>
    <header><h2 id="menu-group-title">{editing?'Thiết lập nhóm món':'Thêm nhóm món'}</h2><button type="button" aria-label="Đóng thêm nhóm món" disabled={busy} onClick={()=>setOpen(false)}>×</button></header>
    <form className="menu-group-form" onSubmit={e=>{e.preventDefault();void save();}}>

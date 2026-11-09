@@ -1,3 +1,4 @@
+import Toast from './Toast';
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {supabase} from './supabase';
@@ -38,8 +39,8 @@ export default function EmployeeDelete({employee,userId,onClose,onChanged}:{empl
   finally{lock.current=false;setBusy(false);}
  }
  return <>
-  {!visible&&message&&<p role="status">{message}</p>}
+  {!visible&&message&&(message.startsWith('Đã ')?<Toast message={message}/>:<p role="status">{message}</p>)}
   {record?.submitted&&!visible&&<aside className="notice">Có yêu cầu xóa tài khoản chờ xác nhận. <button onClick={()=>setVisible(true)}>Mở yêu cầu xóa</button></aside>}
-  {createPortal(<dialog ref={dialog} className="confirm-dialog employee-editor" aria-label="Xóa tài khoản nhân viên" onCancel={e=>{e.preventDefault();close();}}>{record&&<><h2>Xóa tài khoản?</h2><p><strong>{record.name}</strong></p><p>Nhân viên sẽ không đăng nhập được nữa và bị ẩn khỏi danh sách. Không thể khôi phục quyền đăng nhập bằng nút mở khóa.</p><p>Đơn hàng, thanh toán và nhật ký cũ vẫn được giữ để đối chiếu.</p>{message&&<p role="status">{message}</p>}<div className="confirm-dialog-actions"><button disabled={busy} onClick={close}>Đóng</button>{record.submitted&&<button disabled={busy} onClick={()=>void check(record)}>Kiểm tra lại</button>}<button className="danger" disabled={busy} onClick={()=>void apply()}>{busy?'Đang xử lý…':record.submitted?'Tiếp tục xóa':'Xác nhận xóa tài khoản'}</button></div></>}</dialog>,document.body)}
+  {createPortal(<dialog ref={dialog} className="confirm-dialog employee-editor" aria-label="Xóa tài khoản nhân viên" onCancel={e=>{e.preventDefault();close();}}>{record&&<><h2>Xóa tài khoản?</h2><p><strong>{record.name}</strong></p><p>Nhân viên sẽ không đăng nhập được nữa và bị ẩn khỏi danh sách. Không thể khôi phục quyền đăng nhập bằng nút mở khóa.</p><p>Đơn hàng, thanh toán và nhật ký cũ vẫn được giữ để đối chiếu.</p>{message&&(message.startsWith('Đã ')?<Toast message={message}/>:<p role="status">{message}</p>)}<div className="confirm-dialog-actions"><button disabled={busy} onClick={close}>Đóng</button>{record.submitted&&<button disabled={busy} onClick={()=>void check(record)}>Kiểm tra lại</button>}<button className="danger" disabled={busy} onClick={()=>void apply()}>{busy?'Đang xử lý…':record.submitted?'Tiếp tục xóa':'Xác nhận xóa tài khoản'}</button></div></>}</dialog>,document.body)}
  </>;
 }

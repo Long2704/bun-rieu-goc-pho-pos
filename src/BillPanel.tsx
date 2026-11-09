@@ -1,3 +1,4 @@
+import Toast from './Toast';
 import {placeLabel} from './order-model';
 import PosIcon from './PosIcon';
 import {useEffect,useRef,useState} from 'react';
@@ -50,6 +51,6 @@ export default function BillPanel({userId,table,sessions,disabled,onPending,onCh
  <p>Đã chọn {ids.length} dòng · {money(draft.items.filter(i=>ids.includes(i.id)).reduce((sum,i)=>sum+i.price*i.qty,0))}</p>
  <label htmlFor="bill-target">Chuyển sang</label><select id="bill-target" value={to} onChange={e=>setTo(e.target.value)}><option value="0">Bill mới</option>{targets.map(b=><option key={b} value={b}>Bill {b}</option>)}</select>
  <button type="submit" className="primary" disabled={!ids.length||ids.length>500||(to!=='0'&&!targets.includes(Number(to)))}>Xác nhận tách/gộp bill</button></fieldset><button type="button" disabled={busy} onClick={()=>setDraft(null)}>Đóng tách/gộp bill</button></form>}
- {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+ {error&&<p role="alert">{error}</p>}{message&&<Toast message={message}/>}
  </section>;
 }

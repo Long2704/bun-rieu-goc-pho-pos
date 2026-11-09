@@ -1,3 +1,4 @@
+import Toast from './Toast';
 import PosIcon from './PosIcon';
 import {useEffect,useRef,useState} from 'react';
 import {supabase} from './supabase';
@@ -44,7 +45,7 @@ export default function TransferPanel({userId,table,tables,sessions,disabled,onP
  {table&&current&&disabled&&!pending&&<p>Gửi hoặc xóa món đang chọn ở các bàn, xử lý yêu cầu chờ và đồng bộ trước khi chuyển bàn.</p>}
  {storageError&&<p role="alert">Không đọc được dữ liệu chuyển bàn chờ. Không xóa dữ liệu trình duyệt; liên hệ hỗ trợ.</p>}
  {pending&&<aside role="status"><strong>Chuyển bàn chờ xác nhận: Bàn {pending.from} → Bàn {pending.to}</strong><p>Giữ nguyên mã để tránh chuyển nhầm phiên khách.</p><button disabled={busy} onClick={()=>void transfer()}>{busy?'Đang chuyển…':'Thử lại cùng mã chuyển bàn'}</button></aside>}
- {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+ {error&&<p role="alert">{error}</p>}{message&&<Toast message={message}/>}
  {open&&!pending&&current&&<form className="transfer-form" onSubmit={e=>{e.preventDefault();void transfer();}}><h3>Chuyển toàn bộ {table?.name}</h3><p>Giữ nguyên món và trạng thái bếp. Bàn đích có đơn sẽ nhận thêm các bill riêng từ bàn này. Hóa đơn đã trả giữ nguyên.</p><label htmlFor="transfer-target">Bàn đích</label><select id="transfer-target" value={to} disabled={disabled||busy} onChange={e=>{setTo(e.target.value);setTargetSessionId(sessions.find(s=>s.table_id===Number(e.target.value))?.id??null);}}><option value="">Chọn bàn đích</option>{available.map(t=><option key={t.id} value={t.id}>{t.name}{sessions.some(s=>s.table_id===t.id)?' · Đang có đơn':' · Trống'}</option>)}</select>{!available.length&&<p>Không có bàn đích phù hợp.</p>}<button className="primary" disabled={disabled||busy||!available.some(t=>t.id===Number(to))} type="submit">Xác nhận chuyển bàn</button><button type="button" onClick={()=>setOpen(false)}>Đóng chuyển bàn</button></form>}
  </section>;
 }
