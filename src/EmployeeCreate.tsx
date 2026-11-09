@@ -1,8 +1,15 @@
 import Toast from './Toast';
-import {useRef,useState} from 'react';
+import {useId,useRef,useState} from 'react';
 import {supabase} from './supabase';
 type Draft={request_id:string;name:string;username?:string;staff_code?:string;email?:string;role:string};
+const usernameHelp='Tên đăng nhập cần 3–40 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang; bắt đầu bằng chữ hoặc số. Ví dụ: bo01.';
+function inputError(input:Draft){
+ if(!input.name.trim()||input.name.trim().length>100)return 'Tên nhân viên cần từ 1 đến 100 ký tự.';
+ if(input.username!==undefined&&!/^[a-z0-9][a-z0-9_.-]{2,39}$/.test(input.username.trim().toLowerCase()))return usernameHelp;
+ return '';
+}
 export default function EmployeeCreate({userId,onCreated}:{userId:string;onCreated:()=>void}){
+ const usernameHelpId=useId();
  const key=`pos:employee-create:${userId}`;
  const [draft,setDraft]=useState<Draft|null>(()=>{
   try{const value=JSON.parse(localStorage.getItem(key)||'null');return value&&typeof value.request_id==='string'&&typeof value.name==='string'&&(typeof value.username==='string'||typeof value.staff_code==='string'&&typeof value.email==='string')&&['phuc_vu','bep'].includes(value.role)?value:null;}catch{return null;}
@@ -13,13 +20,31 @@ export default function EmployeeCreate({userId,onCreated}:{userId:string;onCreat
  async function send(check=false,cancel=false){
   if(!supabase||lock.current)return;
   const input=draft??{request_id:crypto.randomUUID(),name:name.trim(),username:username.trim().toLowerCase(),role};
+  if(!cancel){
+   const invalid=inputError(input);
+   if(invalid){setMessage(invalid+(draft?' Bấm Hủy yêu cầu để sửa lại thông tin.':''));return;}
+   if(!check&&(password.length<6||password.length>12)){setMessage('Mật khẩu tạm cần từ 6 đến 12 ký tự.');return;}
+  }
   lock.current=true;setBusy(true);setMessage('');
   try{
+   if(cancel){
+    // Hủy theo mã yêu cầu đã lưu, không phụ thuộc tên đăng nhập hoặc mật khẩu.
+    // RPC hiện có xác minh quyền Owner và giữ nguyên tài khoản đã tạo.
+    const result=await supabase.rpc('cancel_employee_creation',{p_request_id:input.request_id}).abortSignal(AbortSignal.timeout(15000));
+    setPassword('');
+    if(result.error||(!result.data?.completed&&!result.data?.released)){
+     setMessage('Chưa xác nhận hủy yêu cầu. Thông tin vẫn được giữ; bấm Hủy yêu cầu để thử lại.');return;
+    }
+    localStorage.removeItem(key);setDraft(null);
+    if(result.data.completed){setOpen(false);setName('');setUsername('');setMessage('Đã tạo nhân viên. Tài khoản được giữ nguyên.');onCreated();return;}
+    setName(input.name);setUsername(input.username??'');setRole(input.role);
+    setMessage('Đã hủy yêu cầu. Bạn có thể sửa thông tin và tạo lại.');return;
+   }
    // Chỉ giữ thông tin yêu cầu để phục hồi. Không lưu mật khẩu.
    try{localStorage.setItem(key,JSON.stringify(input));}
    catch{setMessage('Không lưu được yêu cầu trên thiết bị. Cho phép lưu trữ rồi thử lại.');return;}
    setDraft(input);
-   const result=await supabase.functions.invoke('staff-admin',{body:{...input,action:cancel?'cancel_creation':check?'check_creation':'create_employee',...(!check?{password}:{})}});
+   const result=await supabase.functions.invoke('staff-admin',{body:{...input,action:check?'check_creation':'create_employee',...(!check?{password}:{})}});
    setPassword('');
    let body=result.data;
    if(result.error){
@@ -27,7 +52,7 @@ export default function EmployeeCreate({userId,onCreated}:{userId:string;onCreat
     if(body?.pending!==false&&!body?.error)throw new Error('Chưa xác nhận kết quả. Bấm Kiểm tra lại trước khi tạo lại.');
    }
    if(body?.ok===true){localStorage.removeItem(key);setDraft(null);setOpen(false);setName('');setUsername('');setMessage('Đã tạo nhân viên. Cấp tên đăng nhập và mật khẩu tạm cho đúng nhân viên; nhân viên phải đổi ở lần đăng nhập đầu.');onCreated();return;}
-   if(body?.released===true){localStorage.removeItem(key);setDraft(null);}
+   if(body?.released===true){localStorage.removeItem(key);setDraft(null);setName(input.name);setUsername(input.username??'');setRole(input.role);}
    setMessage(typeof body?.error==='string'?body.error:typeof body?.message==='string'?body.message:'Chưa xác nhận kết quả. Bấm Kiểm tra lại.');
   }catch{setPassword('');setMessage('Chưa xác nhận kết quả hoặc không lưu được yêu cầu. Bấm Kiểm tra lại; không tạo yêu cầu khác.');}
   finally{lock.current=false;setBusy(false);}
@@ -39,7 +64,8 @@ export default function EmployeeCreate({userId,onCreated}:{userId:string;onCreat
    <h3>Thêm nhân viên</h3>
    <fieldset disabled={busy||!!draft}>
     <label>Tên nhân viên<input required maxLength={100} value={draft?.name??name} onChange={e=>setName(e.target.value)}/></label>
-    <label>Tên đăng nhập<input required pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,39}" autoCapitalize="none" autoComplete="off" spellCheck={false} maxLength={40} value={draft?.username??(draft?'Yêu cầu cũ':username)} onChange={e=>setUsername(e.target.value)}/></label>
+    <label>Tên đăng nhập<input required minLength={3} pattern={'[A-Za-z0-9][A-Za-z0-9_.\\-]{2,39}'} title={usernameHelp} aria-describedby={usernameHelpId} autoCapitalize="none" autoComplete="off" spellCheck={false} maxLength={40} value={draft?.username??(draft?'Yêu cầu cũ':username)} onChange={e=>setUsername(e.target.value)}/></label>
+    <small id={usernameHelpId}>{usernameHelp}</small>
     <label>Vai trò nhân viên<select aria-label="Vai trò nhân viên" value={draft?.role??role} onChange={e=>setRole(e.target.value)}><option value="phuc_vu">Waiter — Phục vụ</option><option value="bep">Kitchen — Bếp</option></select></label>
    </fieldset>
    <label>Mật khẩu tạm<input type="password" autoComplete="new-password" required minLength={6} maxLength={12} disabled={busy} value={password} onChange={e=>setPassword(e.target.value)}/></label>
