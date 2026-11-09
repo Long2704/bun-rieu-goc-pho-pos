@@ -236,6 +236,7 @@ function App(){
    if(!lastRefreshOk.current){setError('Đơn đã được lưu nhưng chưa đồng bộ. Giữ nguyên mã và bấm Thử gửi lại để kiểm tra; không tạo đơn mới.');return;}
    try{localStorage.removeItem(storageKey(user));}catch{/* Retained request ID is safe to retry after reload. */}
    setPending(null);setPosScreen('order');setDrafts(d=>({...d,[payload!.tableId]:{}}));setNotes(n=>({...n,[payload!.tableId]:{}}));
+   setSelected(null);setView('service');setTableSearch('');setTableFilter('all');
    setMessage(`Đã lưu đơn ${tables.find(t=>t.id===payload.tableId)?.name??placeLabel(payload.tableId)}.`);
   }catch(e){if(identity.current===user)setError(rejectedByMenu?(e instanceof Error?e.message:'Thực đơn đã thay đổi. Kiểm tra lại trước khi gửi.'):`Chưa xác nhận gửi đơn: ${e instanceof Error?e.message:'Lỗi kết nối'}. Giữ nguyên đơn và bấm Thử gửi lại; không tạo đơn mới.`);}
   finally{sendLock.current=false;setSending(false);}
