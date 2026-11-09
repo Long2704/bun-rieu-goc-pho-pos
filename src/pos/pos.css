@@ -1078,3 +1078,17 @@ button.primary:hover:not(:disabled),.primary:hover:not(:disabled) {
 .kitchen-card .item-note {display:block;width:fit-content;max-width:100%;margin:3px 0 2px;padding:1px 0 1px 7px;border-left:2px solid #efc7a0;border-radius:0;background:transparent;color:#8b654a;font-size:12px;font-weight:400;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere}
 @keyframes pos-toast-in {from {opacity:0;translate:0 -5px}to {opacity:1;translate:0 0}}
 @media(prefers-reduced-motion:reduce){.pos-toast{animation:none}}
+
+.swipe-order .kitchen-card{transition:transform .28s cubic-bezier(.22,1,.36,1);transform:translate3d(0,0,0)}
+.swipe-order.is-dragging .kitchen-card,.swipe-order.is-waiting .kitchen-card{transition:none;will-change:transform}
+.swipe-order.is-leaving{pointer-events:none}
+.swipe-order.is-leaving .kitchen-card{will-change:transform,opacity}
+.swipe-order-backdrop{background:linear-gradient(100deg,#25986c,#2ca57b)}
+.pos-product-list{animation:pos-category-in .2s cubic-bezier(.22,1,.36,1)}
+@keyframes pos-category-in{from{opacity:.3;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}
+::view-transition-group(pos-table-panel){animation-duration:.34s;animation-timing-function:cubic-bezier(.22,1,.36,1);overflow:clip;border-radius:20px}
+::view-transition-old(pos-table-panel){animation:pos-panel-out .17s ease-out both}
+::view-transition-new(pos-table-panel){animation:pos-panel-in .26s ease-out both}
+@keyframes pos-panel-out{to{opacity:0}}
+@keyframes pos-panel-in{from{opacity:0}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.swipe-order .kitchen-card{transition:none}.pos-product-list{animation:none}::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation-duration:0s!important}}

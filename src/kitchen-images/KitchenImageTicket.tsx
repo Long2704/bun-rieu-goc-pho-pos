@@ -4,7 +4,7 @@ import PrivateImage from './PrivateImage';
 import KitchenImageZoom from './KitchenImageZoom';
 import type {PrivateImages} from './private-images';
 import type {ImageTicket} from './types';
-export default function KitchenImageTicket({ticket,cache,disabled,onComplete}:{ticket:ImageTicket;cache:PrivateImages;disabled:boolean;onComplete:()=>Promise<void>}){
+export default function KitchenImageTicket({ticket,cache,disabled,onComplete}:{ticket:ImageTicket;cache:PrivateImages;disabled:boolean;onComplete:(beforeRemove?:()=>Promise<void>)=>Promise<boolean>}){
  const [zoom,setZoom]=useState(false);const start=useRef<{x:number;y:number;moved:boolean}|null>(null);
  return <><SwipeOrderCard className="kitchen-card kitchen-image-ticket" disabled={disabled} onComplete={onComplete}>
   <div className="order-heading"><h2>Phiếu ảnh</h2><span>{new Date(ticket.created_at).toLocaleString('vi-VN')} · {Math.max(0,Math.floor((Date.now()-Date.parse(ticket.created_at))/60000))} phút</span></div>
