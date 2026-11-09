@@ -1048,3 +1048,16 @@ button.primary:hover:not(:disabled),.primary:hover:not(:disabled) {
 .pos-saved-source small{display:block;color:#777;font-size:11px;margin-top:4px}
 .pos-saved-source p{font-size:12px;color:#777;margin:4px 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .pos-saved-source>.cancel-line-button{display:block;margin:6px 0 0 auto}
+
+.pos-exit-order-dialog {
+  background:#fff8ee;
+  color:#54260d;
+  border:1px solid #eed5bd;
+  border-radius:24px;
+  padding:24px;
+}
+.pos-exit-order-dialog h2 {font-size:20px;margin:0 0 12px}
+.pos-exit-order-dialog p {font-size:16px;line-height:1.6;color:#805c42;margin:0}
+.pos-exit-order-dialog .confirm-dialog-actions {display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px}
+.pos-exit-order-dialog .confirm-dialog-actions button {min-height:48px;border-radius:999px}
+.pos-exit-order-dialog .confirm-dialog-actions button:first-child {background:#eee8e1;border-color:#eee8e1;color:#54260d}
