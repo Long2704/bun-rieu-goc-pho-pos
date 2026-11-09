@@ -2,7 +2,7 @@
 
 ## Dùng trong app
 
-Owner → Quản lý → Quản lý thực đơn → **Thêm nhóm món**. Nhập tên nhóm (1–80 ký tự) và chọn loại **Món chính**, **Món phụ** hoặc **Đồ uống**, sau đó **Lưu nhóm món**. Nhóm mới được lưu chung trong database, không chỉ trên thiết bị hiện tại. Không cho trùng tên, không phân biệt hoa/thường.
+Owner → Quản lý → Quản lý thực đơn → **Thêm món mới** (hoặc Sửa món) → dấu **+** cạnh ô chọn **Nhóm món**. Pop-up mở để nhập tên nhóm (1–80 ký tự), chọn loại **Món chính**, **Món phụ** hoặc **Đồ uống**, rồi bấm **Xác nhận**. Nhóm mới được chọn sẵn cho món đang nhập; tên và giá món nháp được giữ nguyên. Không có khung quản lý nhóm riêng ở đầu trang. Hủy/Escape đóng pop-up mà không tạo nhóm; tác vụ đã gửi nhưng chưa xác nhận vẫn được giữ để thử lại. Nhóm mới được lưu chung trong database, không chỉ trên thiết bị hiện tại. Không cho trùng tên, không phân biệt hoa/thường.
 
 Khi thêm/sửa món, chọn nhóm vừa tạo trong **Nhóm món**. Trên màn hình gọi món, các nhóm xuất hiện thành tab lọc. Món cũ chưa gán nhóm riêng vẫn ở ba nhóm mặc định.
 
@@ -37,3 +37,5 @@ Frontend tương thích database cũ: thiếu RPC chỉ hiện thông báo cần
 - `node tests/menu-groups-sql.mjs`: migration menu thật trong PGlite với fixture Auth/quyền; RLS, Owner-only, staff đọc, tên trùng, validation, replay, stale version, snapshot cũ, nhóm đồ uống không vào bếp, thứ tự và replay sau chỉnh sửa mới.
 - `POS_TEST_URL=http://localhost:5173 node tests/menu-groups-flow.mjs`: Chromium/API mock, 3 vai trò, tạo/gán nhóm, reload/retry tạo/sửa/sắp xếp, filter; bàn phím/chuột/cảm ứng CDP và 375–1440px.
 - Hồi quy menu SQL, bếp món chính trước, kéo thứ tự bàn, thanh toán và gọi thêm. API giả; không tạo giao dịch hoặc cấu hình thử trên Supabase thật. Chưa kiểm iPhone vật lý.
+
+Giao diện pop-up dùng native modal để chặn tương tác nền, hỗ trợ Escape và trả focus khi hủy. Chỉ thay frontend, không cần chạy lại SQL nhóm món nếu đã cài. Kiểm tra thêm nút +, modal/focus, tự chọn nhóm mới, giữ tên/giá nháp và retry sau reload.

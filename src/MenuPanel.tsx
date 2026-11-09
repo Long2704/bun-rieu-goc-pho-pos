@@ -3,6 +3,8 @@ import {supabase} from './supabase';
 import {defaultGroups} from './menu-groups';
 import type {GroupCatalog} from './menu-groups';
 import MenuGroupPanel from './MenuGroupPanel';
+import type {MenuGroupHandle} from './MenuGroupPanel';
+import type {MenuGroup} from './menu-groups';
 import DraggableTables from './DraggableTables';
 type MenuOrderAttempt={requestId:string;expected:{id:string;version:number;sort:number}[];ordered:string[]};
 type MenuItem={id:string;name:string;price:number;category:string;is_active:boolean;is_out:boolean;sort:number;version:number};
@@ -11,7 +13,10 @@ type Attempt={groupId?:string;requestId:string;itemId:string;version:number;name
 const integer=(s:string)=>/^\d+$/.test(s)?Number(s):NaN;
 const asEdit=(p:Attempt):Edit=>({groupId:p.groupId??p.category,id:p.itemId,version:p.version,name:p.name,price:String(p.price),category:p.category,active:p.active,out:p.out,sort:String(p.sort)});
 export default function MenuPanel({userId,disabled,onPending,onSaved,active,catalog,groupError,onGroupsSaved}:{catalog:GroupCatalog|null;groupError:string;onGroupsSaved:()=>Promise<void>;userId:string;disabled:boolean;onPending:(v:boolean)=>void;onSaved:()=>Promise<void>;active?:boolean}){
- const groups=catalog?.groups??defaultGroups;
+ const [createdGroup,setCreatedGroup]=useState<MenuGroup|null>(null);
+ const availableGroups=catalog?.groups??defaultGroups;
+ const groups=createdGroup&&!availableGroups.some(g=>g.id===createdGroup.id)?[...availableGroups,createdGroup]:availableGroups;
+ const groupDialog=useRef<MenuGroupHandle>(null);
  const [groupPending,setGroupPending]=useState(false);
  const unavailable=!!groupError&&!groupError.includes('Cần cập nhật cơ sở dữ liệu');
  const orderKey=`goc-pho-menu-order-v1:${userId}`;
@@ -71,14 +76,14 @@ export default function MenuPanel({userId,disabled,onPending,onSaved,active,cata
  {active===undefined&&<button disabled={busy} aria-expanded={open} onClick={()=>{if(open&&!pending)setOpen(false);else void load();}}>Quản lý thực đơn</button>}
  {storageError&&<p role="alert">Không đọc được cập nhật thực đơn chờ. Không xóa dữ liệu trình duyệt; liên hệ hỗ trợ.</p>}
  {pending&&<aside role="status"><strong>Cập nhật thực đơn chờ xác nhận: {pending.name}</strong><p>{pending.price.toLocaleString('vi-VN')}đ · Giữ nguyên mã để tránh tạo trùng món.</p><button disabled={busy} onClick={()=>void save()}>{busy?'Đang lưu…':'Thử lại cùng mã cập nhật'}</button></aside>}
- <div hidden={!open}><MenuGroupPanel userId={userId} catalog={catalog} error={groupError} disabled={disabled||busy||!!pending||storageError||orderDirty||!!orderPending} onPending={setGroupPending} onSaved={onGroupsSaved}/></div>
+ <MenuGroupPanel ref={groupDialog} active={open&&active!==false} userId={userId} catalog={catalog} disabled={disabled||busy||!!pending||storageError||orderDirty||!!orderPending} onPending={setGroupPending} onSaved={onGroupsSaved} onCreated={group=>{setCreatedGroup(group);setEdit(current=>current?{...current,groupId:group.id,category:group.category}:current);}}/>
  {open&&<>{active===undefined&&<h2>Quản lý thực đơn</h2>}
  {disabled&&!pending&&<p>Xử lý các yêu cầu chờ và gửi hoặc xóa món đang chọn trước khi sửa thực đơn.</p>}
  <button disabled={disabled||busy||!!pending||storageError||groupPending||unavailable||orderDirty||!!orderPending} onClick={()=>start()}>Thêm món mới</button>
  {edit&&<form className="menu-edit-form" onSubmit={e=>{e.preventDefault();void save();}}><h3>{edit.version===0?'Thêm món mới':'Sửa món'}</h3><fieldset disabled={disabled||busy||!!pending||storageError||groupPending||unavailable||orderDirty||!!orderPending}>
  <label>Tên món<input maxLength={120} required value={edit.name} onChange={e=>setEdit({...edit,name:e.target.value})}/></label>
  <label>Giá bán (đồng)<input inputMode="numeric" required value={edit.price} onChange={e=>setEdit({...edit,price:e.target.value})}/></label>
- <label htmlFor="edit-category">Nhóm món</label><select id="edit-category" value={edit.groupId??edit.category} onChange={e=>{const group=groups.find(g=>g.id===e.target.value);if(group)setEdit({...edit,category:group.category,groupId:group.id});}}>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select>
+ <label htmlFor="edit-category">Nhóm món</label><div className="menu-group-picker"><select id="edit-category" value={edit.groupId??edit.category} onChange={e=>{const group=groups.find(g=>g.id===e.target.value);if(group)setEdit({...edit,category:group.category,groupId:group.id});}}>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><button className="menu-group-add" type="button" aria-label="Thêm nhóm món" title="Thêm nhóm món" aria-haspopup="dialog" disabled={!catalog} onClick={()=>groupDialog.current?.open(edit.category)}>+</button></div>{groupError&&<p role="status" className="menu-group-load-error">{groupError} <button type="button" onClick={()=>void onGroupsSaved()}>Tải lại nhóm</button></p>}
  <label className="checkbox-label"><input type="checkbox" checked={edit.active} onChange={e=>setEdit({...edit,active:e.target.checked})}/>Đang bán</label>
  <label className="checkbox-label"><input type="checkbox" checked={edit.out} onChange={e=>setEdit({...edit,out:e.target.checked})}/>Hết món tạm thời</label>
  {!valid&&<p role="alert">Nhập tên món và giá nguyên từ 0 đến 10.000.000đ, không dấu phân cách.</p>}
