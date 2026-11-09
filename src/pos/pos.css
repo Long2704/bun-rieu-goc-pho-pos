@@ -1061,3 +1061,7 @@ button.primary:hover:not(:disabled),.primary:hover:not(:disabled) {
 .pos-exit-order-dialog .confirm-dialog-actions {display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px}
 .pos-exit-order-dialog .confirm-dialog-actions button {min-height:48px;border-radius:999px}
 .pos-exit-order-dialog .confirm-dialog-actions button:first-child {background:#eee8e1;border-color:#eee8e1;color:#54260d}
+
+.kitchen-cancelled-line {color:#8b7d72}
+.kitchen-cancelled-line>strong,.kitchen-cancelled-line .item-note {text-decoration:line-through}
+.kitchen-cancelled-label {display:inline-block;margin-left:10px;font-size:12px;font-weight:600;text-decoration:none}

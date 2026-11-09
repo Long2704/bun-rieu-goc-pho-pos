@@ -83,6 +83,7 @@ Các bài kiểm thử trình duyệt nằm trong [tests/](tests/), cần dev se
 | Cài app lên điện thoại, nhận cập nhật | [PWA và màn hình chính](docs/pwa-home-screen.md) |
 | Thanh toán tiền mặt/chuyển khoản | [Giao diện thanh toán](docs/payment-interface.md) |
 | Thanh toán món không gửi bếp | [Lưu món và thanh toán](docs/non-kitchen-checkout.md) |
+| Hủy món và giữ thông báo cho bếp | [Món hủy trên phiếu bếp](docs/kitchen-cancelled-items.md) |
 | Gọi thêm từ món đã gửi | [Gọi thêm món](docs/reorder-from-saved.md) |
 | Tài khoản và tên đăng nhập | [Quản lý tài khoản](docs/username-accounts-029.md) |
 | Quên mật khẩu | [Khôi phục mật khẩu](docs/password-recovery.md) |
