@@ -1,5 +1,7 @@
 # Thanh toán món không gửi bếp
 
+Món thuộc nhóm không gửi bếp không có ô nhập ghi chú món, kể cả khi gọi thêm từ món đã lưu. Ngoài sơ đồ bàn, dòng **Có món chưa xác nhận** chỉ xuất hiện khi còn món cần gửi bếp chưa được gửi; số tiền vẫn tính cả phần món không gửi bếp. Ghi chú đã lưu trong đơn cũ vẫn được giữ.
+
 - Nếu phần món vừa thêm chỉ có món thuộc nhóm **không gửi bếp**, bấm **Thanh toán**. App lưu toàn bộ phần thêm, đồng bộ lại bàn, rồi mở cửa sổ thanh toán. Chưa xác nhận thu tiền thì chưa ghi nhận thanh toán.
 - Nếu phần thêm có bất kỳ món cần bếp làm, phải bấm **Gửi bếp**. Gửi thành công trở về sơ đồ bàn.
 - Những món đã gửi bếp trước đó không bắt bạn gửi lại khi chỉ thêm khăn/nước/nhóm khác không gửi bếp.
