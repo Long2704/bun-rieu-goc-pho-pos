@@ -25,3 +25,5 @@ POS reference, cancellation, payment và staff-table-cancellation UI suites dùn
 ## Phát hành / quay lại
 
 Chỉ frontend, không cần SQL hoặc Edge Function. Revert commit rồi build/deploy PWA để quay lại. Không xóa localStorage có request đang chờ, không sửa đơn/bill cũ. Hoàn tất thao tác và nhận bản mới sau khi đóng các cửa sổ POS cũ. Phần chọn chưa gửi vẫn chỉ nằm trong bộ nhớ phiên như trước; UUID/payload đã bấm Gửi được lưu theo cơ chế cũ.
+
+Sau khi Gửi bếp được server xác nhận và đồng bộ thành công, app tự về sơ đồ bàn, xóa bộ lọc/tìm bàn để chọn bàn tiếp theo. Gửi lỗi, mất phản hồi hoặc chưa đồng bộ vẫn giữ màn hình/giỏ/mã yêu cầu để thử lại; không tự điều hướng ở các nhánh đó.
