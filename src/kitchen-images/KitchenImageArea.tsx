@@ -26,11 +26,12 @@ function AuthorizedImages({userId,canUpload,canComplete,online,history,normalCar
   if(history){setTickets([]);setReady(true);setHasMore(false);setError('');return;}
   if(!supabase||!online)return;let active=true,inFlight=false;
   async function refresh(){
+   if(completeLock.current)return;
    if(inFlight||!active||!supabase)return;inFlight=true;
    try{
     const order='created_at';
     const {data,error:failure}=await supabase.from('kitchen_image_tickets').select(imageTicketFields).eq('status','cooking').order(order,{ascending:true}).order('id',{ascending:true}).range(0,limit);
-    if(!active)return;
+    if(!active||completeLock.current)return;
     if(failure)throw failure;
     const next=((data??[]).slice(0,limit) as ImageTicket[]).filter(t=>!confirmedDone.current.has(t.id));
     setTickets(old=>JSON.stringify(old)===JSON.stringify(next)?old:next);setHasMore((data?.length??0)>limit);setReady(true);setError('');
@@ -40,8 +41,8 @@ function AuthorizedImages({userId,canUpload,canComplete,online,history,normalCar
   void refresh();const timer=setInterval(()=>{if(document.visibilityState==='visible')void refresh();},5000);
   return()=>{active=false;clearInterval(timer);};
  },[history,limit,online,revision]);
- async function complete(id:string){
-  if(completeLock.current||!online||!navigator.onLine||!supabase||!canComplete)return;
+ async function complete(id:string,beforeRemove?:()=>Promise<void>){
+  if(completeLock.current||!online||!navigator.onLine||!supabase||!canComplete)return false;
   completeLock.current=true;setBusy(id);setError('');
   try{
    const begun=await supabase.rpc('begin_kitchen_image_completion',{p_ticket_id:id});
@@ -55,13 +56,14 @@ function AuthorizedImages({userId,canUpload,canComplete,online,history,normalCar
     if(finished.error||finished.data?.id!==id||finished.data?.purged!==true)throw storageError??finished.error??new Error();
     paths.forEach((path:string)=>cache.remove(path));
    }
-   if(alive.current){confirmedDone.current.add(id);setTickets(old=>old.filter(t=>t.id!==id));reload();}
-  }catch{if(alive.current)setError('Chưa xác nhận hoàn thành. Phiếu được giữ lại; thử lại khi có mạng.');}
+   await beforeRemove?.();
+   if(alive.current){confirmedDone.current.add(id);setTickets(old=>old.filter(t=>t.id!==id));reload();}return true;
+  }catch{if(alive.current)setError('Chưa xác nhận hoàn thành. Phiếu được giữ lại; thử lại khi có mạng.');return false;}
   finally{completeLock.current=false;if(alive.current)setBusy('');}
  }
  const cards=[
   ...normalCards.map(card=>({key:`order:${card.id}`,created_at:card.created_at,content:card.content})),
-  ...(history?[]:tickets).map(ticket=>({key:`image:${ticket.id}`,created_at:ticket.created_at,content:<KitchenImageTicket ticket={ticket} cache={cache} disabled={!online||!canComplete||!!busy||!!error||history} onComplete={()=>complete(ticket.id)}/>})),
+  ...(history?[]:tickets).map(ticket=>({key:`image:${ticket.id}`,created_at:ticket.created_at,content:<KitchenImageTicket ticket={ticket} cache={cache} disabled={!online||!canComplete||!!busy||!!error||history} onComplete={beforeRemove=>complete(ticket.id,beforeRemove)}/>})),
  ];
  if(!history)cards.sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.key.localeCompare(b.key));
  return <>

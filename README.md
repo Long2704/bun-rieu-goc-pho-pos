@@ -91,6 +91,7 @@ Các bài kiểm thử trình duyệt nằm trong [tests/](tests/), cần dev se
 | Excel theo khung giờ và dọn lịch sử | [Báo cáo và lịch dọn](docs/ios-seconds-excel-weekly-retention.md) |
 | Phiếu ảnh hoàn thành được xóa | [Ảnh tạm cho bếp](docs/temporary-kitchen-images-and-trial-reset.md) |
 | Pop-up 2 giây và ghi chú bếp | [Thông báo thao tác](docs/transient-notifications.md) |
+| Hiệu ứng vuốt và mở/đóng bàn | [Chuyển động giao diện](docs/ui-motion.md) |
 | Giao diện và hình nền | [Bố cục kem–cam](docs/reference-restaurant-layout.md) |
 | Chi tiết các phiên bản cũ | [README cũ để tra cứu](docs/legacy-readme.md) |
 
