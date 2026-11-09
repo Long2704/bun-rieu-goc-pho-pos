@@ -1,5 +1,5 @@
 export type MenuGroup={id:string;name:string;category:string;sort:number;version?:number;send_to_kitchen?:boolean};
-export type GroupCatalog={kitchen_settings?:boolean;groups:MenuGroup[];assignments:Record<string,string>};
+export type GroupCatalog={non_kitchen_checkout?:boolean;kitchen_settings?:boolean;groups:MenuGroup[];assignments:Record<string,string>};
 export const defaultGroups:MenuGroup[]=[{id:'bun',name:'Món chính',category:'bun',sort:10},{id:'an_them',name:'Món thêm',category:'an_them',sort:20},{id:'do_uong',name:'Đồ uống',category:'do_uong',sort:30}];
 export function isGroupCatalog(value:unknown):value is GroupCatalog{
  if(!value||typeof value!=='object')return false;
