@@ -1,3 +1,4 @@
+import {checkDailySalesRetention} from './daily-sales-retention.mjs';
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 export async function checkWeeklySalesAndSlots(db,owner){
@@ -89,4 +90,5 @@ export async function checkWeeklySalesAndSlots(db,owner){
   console.log('PASS 037–039 full business fixture: every hour boundary/microsecond once, partial and multi-day sums; weekly 7-day cutoff, recent/open/unfinished/merged-session protection, FK atomic rollback, anti-replay, Owner/anon/role gates, pause/repeat and invoice number continuity; install never deletes.');
  }finally{await db.exec('rollback;reset role');}
  assert.deepEqual(await snapshot(financial),before);
+ await checkDailySalesRetention(db,owner);
 }

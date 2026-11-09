@@ -25,7 +25,7 @@ Bấm **Xuất Excel · tất cả khung** một lần để nhận file `.xlsx`
 
 - Biểu đồ ngày so sánh kỳ trước có cùng độ dài. Đường kỳ trước hiển thị khi chọn trọn ngày; tổng kỳ trước vẫn được tính khi chọn giờ tùy ý.
 - Món bán chạy xếp theo tiền món trước giảm giá hóa đơn. Doanh thu chưa trừ giá vốn/chi phí nên không phải lợi nhuận.
-- Dữ liệu đã bị dọn theo lịch giữ 7 ngày không còn trong báo cáo. Kỳ trước bằng 0 có thể do lịch sử đã được dọn; không nên hiểu là quán không bán được.
+- Lịch dọn chạy mỗi ngày lúc 03:00 Việt Nam, giữ hôm nay và 6 ngày trước; đơn chưa thanh toán hoặc bếp chưa xong vẫn được giữ. Dữ liệu đã bị dọn theo lịch giữ 7 ngày không còn trong báo cáo. Kỳ trước bằng 0 có thể do lịch sử đã được dọn; không nên hiểu là quán không bán được.
 - **Vận hành hiện tại** dùng lần đồng bộ gần nhất, không chịu bộ lọc báo cáo. Phiếu bếp tại đây chỉ gồm món gọi trên app, chưa gồm phiếu ảnh.
 
 ## Dữ liệu
