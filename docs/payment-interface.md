@@ -23,3 +23,5 @@ Yêu cầu đang chờ từ phiên bản cũ vẫn giữ toàn bộ payload gố
 ## Phát hành và quay lại
 
 Chỉ frontend; không cần SQL hoặc Edge Function. Phát hành qua main/Vercel/PWA hiện có. Hoàn tất thao tác đang chờ, nhận thông báo bản mới rồi đóng mọi cửa sổ POS và mở lại. Nếu cần rollback, revert commit giao diện, build/deploy lại với cơ chế worker hiện có; không xóa localStorage hoặc dữ liệu đơn/hóa đơn. Cả phiên bản trước và mới đều hiểu cấu trúc pending payment hiện tại.
+
+Sau khi vừa thanh toán thành công hết phiên bàn, đóng hóa đơn bằng Đóng/Escape đưa về sơ đồ bàn nếu đồng bộ xác nhận phiên đã đóng, không có giỏ nháp hoặc phiên khách mới ở bàn đó. Thanh toán một bill mà còn bill khác giữ màn hình bàn. Đóng cửa sổ chưa thanh toán hoặc xem lại hóa đơn lịch sử không tự điều hướng. Kiểm tra tự động có cả nhánh thanh toán hết và thanh toán một phần.

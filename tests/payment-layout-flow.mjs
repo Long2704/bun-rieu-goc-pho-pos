@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
- for(const scenario of ['owner-ui','waiter-ui','kitchen-ui','split-ui','legacy-owner','legacy-waiter','cash-zero','cash-short','cash-empty']){
+ for(const scenario of ['owner-ui','waiter-ui','kitchen-ui','split-ui','legacy-owner','legacy-waiter','cash-zero','cash-short','cash-empty','cash-partial']){
   const role=scenario.includes('waiter')?'phuc_vu':scenario.includes('kitchen')?'bep':'chu';
   const context=await browser.newContext({viewport:{width:390,height:844}});
   const raw=[['a','Bún riêu truyền thống',58000,2,'1 ít bún, 1 nhiều bún'],['b','Bún riêu đầy đủ',65000,1,'không ngò'],['c','Bún riêu góc phố',80000,1,''],['d','Trà đá',3000,1,''],['e','Sữa đậu nành',15000,1,''],['f','Chả ốc',12000,1,'']];
   const items=raw.map(([id,name,price,qty,note])=>({id,name,price,qty,note,category:id==='d'||id==='e'?'do_uong':'bun',paid:false,bill_no:1,cancelled_at:null}));
-  if(scenario==='split-ui')items[0].bill_no=2;
+  if(scenario==='split-ui'||scenario==='cash-partial')items[0].bill_no=2;
   const legacy=scenario.startsWith('legacy');const attempt={requestId:'60000000-0000-0000-0000-000000000034',sessionId:'session',tableId:4,tableName:'Bàn 4',billNo:1,itemIds:items.map(i=>i.id),items,method:'cash',discountType:'percent',discountValue:10,gross:291000,discount:29100,total:261900,cash:300000};
   if(legacy)await context.addInitScript(({attempt})=>localStorage.setItem('goc-pho-payment-v1:payment-ui-test',JSON.stringify(attempt)),{attempt});
   let calls=[],closed=false,releasePayment;
@@ -21,8 +21,8 @@ try{
    else if(path==='/rest/v1/menu_items')body=[];
    else if(path==='/rest/v1/table_sessions')body=closed?[]:[{id:'session',table_id:4,orders:[{id:'order',request_id:'order-request',session_id:'session',status:'cooking',kitchen_relevant:true,created_at:new Date().toISOString(),order_items:items}]}];
    else if(path==='/rest/v1/orders')body=[];
-   else if(path.endsWith('/pay_bill')){calls.push(req.postDataJSON());if(scenario.startsWith('cash-')){assert.equal(calls[0].p_cash_received,291000);assert.equal(calls[0].p_discount_value,0);closed=true;return route.fulfill({json:'bill'});}assert.equal(scenario,'legacy-owner');assert.equal(calls[0].p_discount_type,'percent');assert.equal(calls[0].p_discount_value,10);await new Promise(resolve=>releasePayment=resolve);closed=true;body='bill';}
-   else if(path==='/rest/v1/bills')body={id:'bill',invoice_no:1,table_no:4,bill_no:1,gross:291000,discount:scenario.startsWith('cash-')?0:29100,total:scenario.startsWith('cash-')?291000:261900,method:'cash',cash_received:scenario.startsWith('cash-')?291000:300000,change_due:scenario.startsWith('cash-')?0:38100,paid_at:new Date().toISOString(),bill_items:items};
+   else if(path.endsWith('/pay_bill')){calls.push(req.postDataJSON());if(scenario.startsWith('cash-')){assert.equal(calls[0].p_cash_received,scenario==='cash-partial'?175000:291000);assert.equal(calls[0].p_discount_value,0);closed=scenario!=='cash-partial';if(!closed)items.filter(i=>i.bill_no===1).forEach(i=>i.paid=true);return route.fulfill({json:'bill'});}assert.equal(scenario,'legacy-owner');assert.equal(calls[0].p_discount_type,'percent');assert.equal(calls[0].p_discount_value,10);await new Promise(resolve=>releasePayment=resolve);closed=true;body='bill';}
+   else if(path==='/rest/v1/bills')body={id:'bill',invoice_no:1,table_no:4,bill_no:1,gross:scenario==='cash-partial'?175000:291000,discount:scenario.startsWith('cash-')?0:29100,total:scenario==='cash-partial'?175000:scenario.startsWith('cash-')?291000:261900,method:'cash',cash_received:scenario==='cash-partial'?175000:scenario.startsWith('cash-')?291000:300000,change_due:scenario.startsWith('cash-')?0:38100,paid_at:new Date().toISOString(),bill_items:scenario==='cash-partial'?items.filter(i=>i.bill_no===1):items};
    else throw Error('Unexpected '+path);
    await route.fulfill({json:body});
   });
@@ -31,12 +31,12 @@ try{
   if(legacy){await page.getByRole('button',{name:'Thử lại cùng mã',exact:true}).click();}
   else{await page.getByRole('button',{name:'Phục vụ',exact:true}).click();await page.getByRole('button',{name:/^Bàn 4 /}).click();await page.getByRole('button',{name:'Thanh toán',exact:true}).click();}
   const dialog=page.locator('.payment-sheet');await dialog.waitFor();await page.waitForFunction(()=>document.querySelector('.payment-items')?.open===true);assert.ok(await dialog.evaluate(d=>d.querySelector('.payment-items').compareDocumentPosition(d.querySelector('.payment-amount'))&Node.DOCUMENT_POSITION_FOLLOWING));assert.equal(await dialog.getByLabel('Giảm giá',{exact:true}).count(),0);
-  assert.match(await dialog.locator('.payment-amount').innerText(),legacy?/261\.900đ/:scenario==='split-ui'?/175\.000đ/:/291\.000đ/);
+  assert.match(await dialog.locator('.payment-amount').innerText(),legacy?/261\.900đ/:(scenario==='split-ui'||scenario==='cash-partial')?/175\.000đ/:/291\.000đ/);
   if(scenario==='owner-ui')await page.screenshot({path:'/workspace/artifacts/payment-items-first-initial.png'});
   if(scenario==='legacy-owner'){
    assert.equal(await dialog.getByLabel('Tiền khách đưa',{exact:true}).isDisabled(),true);assert.match(await dialog.locator('.payment-amount').innerText(),/29\.100đ/);while(!releasePayment)await new Promise(resolve=>setTimeout(resolve,20));releasePayment();await page.getByRole('heading',{name:'Hóa đơn đã thanh toán',exact:true}).waitFor();assert.equal(calls.length,1);assert.match(await dialog.innerText(),/Giảm giá: 29\.100đ/);assert.match(await dialog.innerText(),/261\.900đ/);
   }else if(scenario==='legacy-waiter'){await dialog.getByRole('alert').filter({hasText:'Yêu cầu chờ có giảm giá'}).waitFor();assert.equal(calls.length,0);}
-  else if(scenario.startsWith('cash-')){const input=dialog.getByLabel('Tiền khách đưa',{exact:true});await input.fill(scenario==='cash-zero'?'0':scenario==='cash-short'?'100000':'');await dialog.getByRole('button',{name:'Xác nhận thu tiền mặt',exact:true}).click();await page.getByRole('heading',{name:'Hóa đơn đã thanh toán',exact:true}).waitFor();assert.equal(calls.length,1);assert.equal(calls[0].p_cash_received,291000);}
+  else if(scenario.startsWith('cash-')){const input=dialog.getByLabel('Tiền khách đưa',{exact:true});await input.fill(scenario==='cash-zero'?'0':scenario==='cash-short'?'100000':'');await dialog.getByRole('button',{name:'Xác nhận thu tiền mặt',exact:true}).click();await page.getByRole('heading',{name:'Hóa đơn đã thanh toán',exact:true}).waitFor();assert.equal(calls.length,1);assert.equal(calls[0].p_cash_received,scenario==='cash-partial'?175000:291000);await dialog.getByRole('button',{name:'Đóng',exact:true}).click();if(scenario==='cash-partial'){assert.equal(await page.locator('.pos-order-workspace').isVisible(),true);assert.equal(await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).isVisible(),true);}else{await page.locator('.table-card').first().waitFor();assert.equal(await page.locator('.pos-order-workspace').count(),0);}}
   else if(scenario==='split-ui'){await dialog.getByLabel('Bill thanh toán',{exact:true}).selectOption('2');assert.match(await dialog.locator('.payment-amount').innerText(),/116\.000đ/);assert.equal(await dialog.getByLabel('Tiền khách đưa',{exact:true}).inputValue(),'116000');assert.equal(calls.length,0);}
   else{
    assert.equal(await dialog.getByLabel('Tiền khách đưa',{exact:true}).inputValue(),'291000');

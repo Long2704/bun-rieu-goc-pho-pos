@@ -40,7 +40,7 @@ await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
 });
 const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
 
-async function management(name){if(await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).isVisible())await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).click();const control=page.locator('.management-menu');if(!await control.evaluate(e=>e.open))await control.locator('summary').click();await page.getByRole('button',{name,exact:true}).click();}
+async function management(name){if(await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).isVisible())if(await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).isVisible())await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).click();const control=page.locator('.management-menu');if(!await control.evaluate(e=>e.open))await control.locator('summary').click();await page.getByRole('button',{name,exact:true}).click();}
 async function tableActions(){const control=page.locator('.table-operations');if(!await control.evaluate(e=>e.open))await control.locator('summary').click();}
 await page.goto('http://localhost:5173');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('test@example.com');await page.getByLabel('Mật khẩu',{exact:true}).fill('fake-test-password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
 await page.getByRole('button',{name:/^Bàn 1 /}).click();await page.getByRole('button',{name:'Thanh toán',exact:true}).click();
@@ -67,7 +67,7 @@ await dialog.getByText('Đã thanh toán thành công nhưng chưa tải đượ
 const requestCount=attempts.length;assert.equal(bills.length,2);assert.equal(bills[1].total,61000);assert.equal(bills[1].method,'transfer');
 receiptUnavailable=false;
 await dialog.getByRole('button',{name:'Thử lại cùng mã',exact:true}).click();await page.getByRole('heading',{name:'Hóa đơn đã thanh toán',exact:true}).waitFor();assert.equal(attempts.length,requestCount);
-await dialog.getByRole('button',{name:'Đóng',exact:true}).click();await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).click();
+await dialog.getByRole('button',{name:'Đóng',exact:true}).click();if(await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).isVisible())await page.getByRole('button',{name:'Quay lại danh sách bàn',exact:true}).click();
 await page.getByRole('button',{name:/^Bàn 3 /}).click();await page.getByRole('button',{name:'Thanh toán',exact:true}).click();
 stale=true;await dialog.getByRole('button',{name:'Xác nhận thu tiền mặt',exact:true}).click();await dialog.getByText('Danh sách món đã thay đổi.',{exact:false}).waitFor();
 assert.equal(bills.length,2);assert.equal(await dialog.locator('.payment-amount>strong').count(),0);assert.match(await dialog.locator('.payment-amount').innerText(),/Kiểm tra lại đơn/);assert.equal(await page.evaluate(()=>localStorage.getItem('goc-pho-payment-v1:payment-test-user')),null);
