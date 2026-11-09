@@ -1092,3 +1092,32 @@ button.primary:hover:not(:disabled),.primary:hover:not(:disabled) {
 @keyframes pos-panel-out{to{opacity:0}}
 @keyframes pos-panel-in{from{opacity:0}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){.swipe-order .kitchen-card{transition:none}.pos-product-list{animation:none}::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation-duration:0s!important}}
+
+.pos-bill-group{display:block;margin:0 0 18px;border:1px solid #ebceb2;border-radius:16px;overflow:hidden;background:#fffaf4}
+.pos-bill-single{display:block}
+.pos-bill-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;padding:14px 16px;background:#ffedd9;border-bottom:1px solid #eed3b9}
+.pos-bill-heading h2{margin:0;color:#783715;font-size:17px}
+.pos-bill-heading span{display:block;margin-top:4px;font-size:12px;color:#927258}
+.pos-bill-heading>strong{font-size:18px;color:#b64a08}
+.pos-bill-heading button{margin-left:auto;min-height:36px;background:#fffaf4;color:#a34913;border-color:#e8bf98}
+.pos-bill-group .pos-saved-line{margin:0 12px;padding-left:0;padding-right:0}
+.pos-add-to-bill{min-height:36px;font-size:12px;color:#aa4c13;background:#fff1df;border-color:#edc69e}
+.bill-move-form{background:#fff8ef;border:1px solid #edcfb2;border-radius:14px;padding:16px}
+.bill-move-form fieldset{min-width:0}
+.bill-move-form .checkbox-label{display:flex;align-items:center;gap:10px;margin:8px 0;padding:12px;border:1px solid #edd6c0;border-radius:10px;background:#fffdf9}
+.bill-move-form .checkbox-label input{flex:none}
+.bill-move-form .checkbox-label span{min-width:0;overflow-wrap:anywhere}
+.bill-move-form .checkbox-label:has(input:checked){background:#ffead2;border-color:#ef9e51}
+.bill-source-summary,.bill-selected-summary{padding:10px 12px;background:#ffedd9;border-radius:10px;color:#79421f}
+.bill-select-actions{display:flex;gap:8px;flex-wrap:wrap}
+.bill-select-actions button{font-size:12px;min-height:34px}
+.bill-move-preview{padding:12px;border:1px solid #edcfb2;border-radius:10px;margin:12px 0;background:#fffdf9}
+.bill-move-preview p{display:flex;justify-content:space-between;gap:12px;margin:0;flex-wrap:wrap}
+.bill-move-form select{max-width:100%}
+
+.bill-transfer-dialog{background:#fff8ee;color:#54260d;border-color:#edcfb2;border-radius:20px}
+.bill-transfer-items{padding:0;list-style:none;max-height:30dvh;overflow:auto}
+.bill-transfer-items li{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;padding:8px 0;border-bottom:1px solid #edd8c5}
+.bill-transfer-items small{flex-basis:100%;color:#89664a}
+.bill-transfer-recovery{position:fixed;z-index:100;bottom:100px;left:16px;right:16px;background:#fff3df;border:1px solid #e9bf91;border-radius:12px;padding:12px;box-shadow:0 4px 16px #54260d20}
+.pos-bill-heading button{margin-left:0}
