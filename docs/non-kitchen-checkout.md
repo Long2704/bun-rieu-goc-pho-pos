@@ -9,6 +9,15 @@ Món thuộc nhóm không gửi bếp không có ô nhập ghi chú món, kể c
 - Mất mạng hoặc chưa nhận được xác nhận: giữ nguyên yêu cầu, bấm **Thử gửi lại**. Không tạo đơn mới. Sau khi xác nhận và đồng bộ thành công, cửa sổ thanh toán mới mở.
 - Nếu thiết bị khác đổi nhóm sang cần gửi bếp trong lúc thao tác, server từ chối đường thanh toán nhanh; món vẫn được giữ để kiểm tra và gửi bếp.
 
+## Thoát đơn hàng
+
+Khi bấm quay lại sơ đồ bàn và còn món cần gửi bếp chưa gửi, app hỏi **Thoát đơn hàng**:
+
+- **Thông báo:** lưu phần gọi thêm bằng luồng Gửi bếp hiện có, rồi về sơ đồ bàn sau khi nhận xác nhận và đồng bộ thành công. Các món đã lưu không được gửi lại. Trong đơn hỗn hợp, món không gửi bếp vẫn được lưu và tính tiền như trước.
+- **Không:** về sơ đồ bàn, giữ phần món đang chọn và ghi chú để gửi sau trong phiên mở app hiện tại. Không gọi API gửi đơn.
+
+Chỉ có món không gửi bếp hoặc không có món mới thì thoát thẳng. Mất mạng thì nút Thông báo bị vô hiệu hóa; lỗi gửi/đồng bộ giữ mã yêu cầu và phần món mới để thử lại an toàn. Bài kiểm tra: `node tests/exit-order-flow.mjs` với dev server/API giả giống bài kiểm tra thanh toán bên dưới. Không cần SQL mới cho pop-up này.
+
 ## Bật tính năng một lần trên Supabase
 
 Frontend không tự áp dụng SQL. Trước khi có SQL, app vẫn dùng thao tác gửi đơn như cũ.
