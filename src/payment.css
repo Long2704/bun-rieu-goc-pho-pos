@@ -60,3 +60,15 @@
 .payment-sheet .receipt .order-heading>span:last-child{white-space:nowrap;flex:none}
 @media(max-width:760px){.payment-dialog.payment-sheet{width:calc(100% - 16px);max-height:calc(100dvh - 16px - env(safe-area-inset-top,0px));border-radius:14px}.payment-sheet .payment-header{padding:16px 16px 12px}.payment-sheet .payment-amount{margin:14px 16px 0;padding:16px 12px}.payment-sheet .payment-body{padding:16px}.payment-sheet .payment-footer{padding:12px 16px calc(14px + env(safe-area-inset-bottom,0px))}}
 @media(hover:hover) and (pointer:fine){.payment-sheet .payment-footer>button.primary:hover:not(:disabled){background:#0056ad;border-color:#0056ad}}
+
+/* Review the expanded dish list first; payment controls follow in the same scroll area. */
+.payment-sheet .payment-body>.payment-items{margin-top:0;border-top:0}
+.payment-sheet .payment-body>.payment-items summary{padding-top:0;min-height:34px}
+.payment-sheet .payment-body>.payment-amount{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:14px 0 12px;padding:12px 14px;text-align:left}
+.payment-sheet .payment-body>.payment-amount>strong{margin:0;font-size:27px;letter-spacing:-.5px}
+.payment-sheet .payment-body>.payment-amount>small{flex-basis:100%;margin:0}
+.payment-sheet .payment-methods{margin-bottom:12px;gap:8px}
+.payment-sheet .payment-methods>button{min-height:42px;padding:8px}
+.payment-sheet .payment-cash-input input{min-height:44px;padding-top:8px;padding-bottom:8px}
+.payment-sheet .payment-change{padding-top:8px}
+.payment-sheet .payment-footer{padding-top:10px}
