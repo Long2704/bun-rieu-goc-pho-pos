@@ -14,7 +14,7 @@ export default function OrderDetail({lines,orders,products,disabled,awaiting,can
  const {groups,history}=groupSavedOrders(orders),byProduct=new Map(products.map(product=>[product.id,product])),drafts=new Map(lines.map(line=>[line.product.id,line]));
  const billNumbers=[...new Set(groups.map(group=>group.billNo))],draftBillNo=billNumbers[0]??1;
  const draftCount=lines.reduce((sum,line)=>sum+line.qty,0),draftTotal=lines.reduce((sum,line)=>sum+line.qty*line.product.price,0);
- const separated=billNumbers.length>1||draftBillNo!==1||!!onTransferBill;
+ const separated=billNumbers.length>1||draftBillNo!==1;
  const merged=new Set(groups.filter(group=>group.billNo===draftBillNo).map(group=>group.productId).filter((id):id is string=>!!id));
  const remaining=lines.filter(line=>!merged.has(line.product.id));
  return <div className="pos-order-lines">
