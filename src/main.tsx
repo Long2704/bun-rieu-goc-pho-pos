@@ -37,6 +37,7 @@ const AuditPanel=React.lazy(()=>import('./AuditPanel'));
 const roles:Record<string,string>={chu:'Bún Riêu Góc Phố',phuc_vu:'Phục vụ',bep:'Bếp'};
 import {formatMoney as money} from './format';
 import './cream-pos-theme.css';
+import './viewport';
 type View='employees'|'tables'|'service'|'kitchen'|'menu'|'revenue'|'audit'|'invoices';
 type Item={id:string;name:string;price:number;category:string;is_out:boolean};
 type DiningTable={id:number;name:string};
