@@ -1,6 +1,6 @@
 export type RevenueDay={day:string;invoices:number;gross:number;discount:number;total:number;cash:number;transfer:number};
 export type RevenueSlot=RevenueDay&{slot_index:number;slot:string};
-export type RevenueReport={products_complete:boolean;time_filter?:boolean;slots_complete?:boolean;slots?:RevenueSlot[];from:string;to:string;generated_at:string;invoices:number;gross:number;discount:number;total:number;cash:number;transfer:number;days:RevenueDay[];products:{name:string;qty:number;gross:number}[]};
+export type RevenueReport={filter_label?:string;slot_rules?:string;visits?:number;table_sales?:{table_id:number;name:string;invoices:number;visits:number;qty:number;total:number}[];products_complete:boolean;time_filter?:boolean;slots_complete?:boolean;slots?:RevenueSlot[];from:string;to:string;generated_at:string;invoices:number;gross:number;discount:number;total:number;cash:number;transfer:number;days:RevenueDay[];products:{name:string;qty:number;gross:number}[]};
 type Cell=string|number;
 // BOM preserves Vietnamese in Excel. Quote fields and neutralize spreadsheet formulas in text.
 export function csv(rows:Cell[][]){
@@ -19,7 +19,8 @@ export function revenueExport(report:RevenueReport){
   content:csv([
    ['Loại dòng','Ngày thanh toán (giờ Việt Nam)','Số hóa đơn','Trước giảm giá (VND)','Giảm giá (VND)','Thực thu (VND)','Tiền mặt (VND)','Chuyển khoản (VND)','Từ ngày giờ (Việt Nam)','Đến ngày giờ (Việt Nam, hết giây đã chọn)','Cập nhật (giờ Việt Nam)'],
    ...report.days.map(d=>['Theo ngày',d.day,...amounts(d),...meta]),
-   ['Tổng cộng','',...amounts(report),...meta]
+   ['Tổng cộng','',...amounts(report),...meta],
+   ...(report.table_sales?[[],['Theo bàn / Mang về','Lượt bán','Số hóa đơn','Số phần','Thực thu (VND)'],...report.table_sales.map(t=>[t.name,t.visits,t.invoices,t.qty,t.total]),['Bộ lọc',report.filter_label??'Tất cả'],['Lượt bán','Một phiên tại một bàn tính một lượt; tách bill không tăng lượt.']]:[])
   ])
  };
 }

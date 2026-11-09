@@ -23,13 +23,14 @@ export function revenueWorkbook(report:RevenueReport):{filename:string;bytes:Uin
  for(const key of keys)if(slots.reduce((n,s)=>n+s[key],0)!==report[key])throw Error('Tổng khung giờ không khớp báo cáo');
  const amounts=(s:Pick<RevenueSlot,typeof keys[number]>)=>keys.map(k=>s[k]);
  const headers=['Số hóa đơn','Trước giảm giá (VND)','Giảm giá (VND)','Thực thu (VND)','Tiền mặt (VND)','Chuyển khoản (VND)'];
- const totals=Array.from({length:7},(_,i)=>{const rows=slots.filter(s=>s.slot_index===i+1);return {slot:rows[0]?.slot??'',...Object.fromEntries(keys.map(k=>[k,rows.reduce((n,s)=>n+s[k],0)]))} as RevenueSlot;});
+ const totals=[...new Set(slots.map(s=>s.slot_index))].sort((a,b)=>a-b).map(index=>{const rows=slots.filter(s=>s.slot_index===index);return {slot:rows[0]?.slot??'',...Object.fromEntries(keys.map(k=>[k,rows.reduce((n,s)=>n+s[k],0)]))} as RevenueSlot;});
  const sheets:{name:string;rows:Cell[][]}[]=[
   {name:'Theo ngày và khung',rows:[['Ngày (Việt Nam)','Khung giờ',...headers],...slots.map(s=>[s.day,s.slot,...amounts(s)]),['TỔNG CỘNG','',...amounts(report)]]},
   {name:'Tổng theo khung',rows:[['Khung giờ',...headers],...totals.map(s=>[s.slot,...amounts(s)]),['TỔNG CỘNG',...amounts(report)]]},
   {name:'Tổng theo ngày',rows:[['Ngày (Việt Nam)',...headers],...report.days.map(s=>[s.day,...amounts(s)]),['TỔNG CỘNG',...amounts(report)]]},
   {name:'Món ăn',rows:[['Tên món','Số lượng','Tiền trước giảm giá (VND)'],...report.products.map(p=>[p.name,p.qty,p.gross])]},
-  {name:'Thông tin',rows:[['Nội dung','Giá trị'],['Từ ngày giờ (Việt Nam)',report.from],['Đến ngày giờ (Việt Nam)',report.to],['Múi giờ','Asia/Ho_Chi_Minh'],['Thời điểm tính','Thời điểm thanh toán'],['Quy tắc','06–09 gồm 06:00:00 đến trước 09:00:00; các khung tiếp theo tương tự.'],['Ngoài khung','Trước 06:00:00 hoặc từ 22:00:00; giữ để tổng tiền không bị thiếu.'],['Khoảng lọc','Chỉ tính phần giao giữa khung giờ và khoảng lọc đã chọn; bao gồm cả giây kết thúc.'],['Cập nhật',new Date(report.generated_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})]]}
+  ...(report.table_sales?[{name:'Theo bàn và Mang về',rows:[['Bàn / điểm bán','Lượt bán','Số hóa đơn','Số phần','Thực thu (VND)'],...report.table_sales.map(t=>[t.name,t.visits,t.invoices,t.qty,t.total]),['TỔNG CỘNG',report.visits??0,report.invoices,report.table_sales.reduce((n,t)=>n+t.qty,0),report.total]]}]:[]),
+  {name:'Thông tin',rows:[['Nội dung','Giá trị'],['Từ ngày giờ (Việt Nam)',report.from],['Đến ngày giờ (Việt Nam)',report.to],['Múi giờ','Asia/Ho_Chi_Minh'],['Thời điểm tính','Thời điểm thanh toán'],['Bộ lọc bàn',report.filter_label??'Tất cả'],['Khung giờ',report.slot_rules??'06:00–09:00, 09:00–11:00, 11:00–13:00, 13:00–15:00, 15:00–17:00, 17:00–22:00'],['Quy tắc','Tính từ giờ bắt đầu đến trước giờ kết thúc; ví dụ 06–09 chỉ đến 08:59:59, từ 09:00 thuộc khung kế tiếp.'],['Lượt bán','Một phiên tại một bàn tính một lượt; tách bill không tăng lượt.'],['Ngoài khung','Mọi giờ không nằm trong các khung đã chọn; giữ để tổng tiền không bị thiếu.'],['Khoảng lọc','Chỉ tính phần giao giữa khung giờ và khoảng lọc đã chọn; bao gồm cả giây kết thúc.'],['Cập nhật',new Date(report.generated_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})]]}
  ];
  const prefix='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
  const files:[string,string][]=[
