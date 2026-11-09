@@ -46,7 +46,7 @@ await page.goto('http://localhost:5173');await page.getByLabel('Tên đăng nh�
 await page.getByRole('button',{name:/^Bàn 1 /}).click();await page.getByRole('button',{name:'Thanh toán',exact:true}).click();
 let dialog=page.getByRole('dialog');await dialog.waitFor();
 assert.equal(await dialog.getByLabel('Giảm giá',{exact:true}).count(),0);await dialog.getByLabel('Tiền khách đưa',{exact:true}).fill('50000');
-assert.equal(await dialog.getByRole('button',{name:'Xác nhận thu tiền mặt',exact:true}).isDisabled(),true);
+assert.equal(await dialog.getByRole('button',{name:'Xác nhận thu tiền mặt',exact:true}).isEnabled(),true);
 await dialog.getByLabel('Tiền khách đưa',{exact:true}).fill('100000');assert.match(await dialog.innerText(),/39\.000đ/);
 await dialog.getByRole('button',{name:'Xác nhận thu tiền mặt',exact:true}).click();
 await dialog.getByRole('button',{name:'Thử lại cùng mã',exact:true}).waitFor();

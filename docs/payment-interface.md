@@ -2,7 +2,7 @@
 
 Chi tiết món nằm đầu popup và mặc định mở mỗi khi vào thanh toán, gồm số lượng, giá và ghi chú. Có thể thu gọn thủ công; mở lại popup sẽ mở sẵn và cuộn về đầu. Khi có nhiều bill, chọn bill phía trên danh sách để xem đúng món.
 
-Số tiền cần thu hiển thị gọn dưới danh sách, cùng khu vực tiền mặt/chuyển khoản, tiền khách đưa và tiền thối. Toàn bộ nội dung cuộn chung; nút xác nhận giữ ở footer riêng. Giao diện dùng nền kem–cam. Ô tiền khách đưa mặc định bằng số phải thu, chọn bill khác cập nhật đúng số tiền của bill đó.
+Số tiền cần thu hiển thị gọn dưới danh sách, cùng khu vực tiền mặt/chuyển khoản, tiền khách đưa và tiền thối. Toàn bộ nội dung cuộn chung; nút xác nhận giữ ở footer riêng. Giao diện dùng nền kem–cam. Ô tiền khách đưa ban đầu bằng số phải thu; khi chạm/focus sẽ về 0 và chọn sẵn số 0 để nhập đè. Nếu để trống hoặc nhập thấp hơn số phải thu, mặc định khách đưa đúng số tiền thanh toán; rời ô sẽ hiển thị lại số đó. Nhập cao hơn thì tính tiền thối. Dữ liệu không phải số vẫn bị từ chối. Chọn bill khác cập nhật số phải thu; yêu cầu thanh toán đang chờ giữ nguyên số tiền đã lưu và không được sửa.
 
 Bỏ input giảm giá với mọi vai trò, dòng tạm tính lặp lại, legend Thông tin thanh toán và hướng dẫn nhập tiền dài. Danh sách món/ghi chú trong Chi tiết món mở sẵn, tổng số lượng luôn hiện. Giữ nhắc kiểm tra tiền vào tài khoản khi chọn chuyển khoản và cảnh báo trạng thái thanh toán chưa xác nhận. Nhãn số tiền đổi thành Chờ xác nhận hoặc Đã thanh toán cho giao dịch đang chờ; nếu snapshot bị server từ chối, hiển thị Kiểm tra lại đơn thay vì số 0đ gây hiểu nhầm.
 
