@@ -25,7 +25,8 @@ const PaymentPanel=forwardRef<PaymentHandle,Props>(function PaymentPanel({compac
  const lines=pending?.items??draft?.items??[];
  const gross=lines.reduce((s,i)=>s+i.price*i.qty,0);
  const total=pending?.total??gross;
- const cashNumber=cash.trim()===''?total:integer(cash);
+ const enteredCash=cash.trim()===''?0:integer(cash);
+ const cashNumber=enteredCash===null?null:Math.max(total,enteredCash);
  const valid=Number.isSafeInteger(total)&&total>=0&&(method==='transfer'||(cashNumber!==null&&cashNumber>=total));
  const current=table?sessions.find(s=>s.table_id===table.id):undefined;
  const unpaid=current?.orders.flatMap(o=>o.order_items).filter(i=>!i.paid&&!i.cancelled_at)??[];
@@ -91,7 +92,7 @@ const PaymentPanel=forwardRef<PaymentHandle,Props>(function PaymentPanel({compac
  <section className="payment-amount" aria-label="Số tiền cần thanh toán"><span>{pending?(pending.billId?'Đã thanh toán':'Chờ xác nhận'):draft?'Cần thanh toán':'Kiểm tra lại đơn'}</span>{pending||draft?<strong>{money(total)}</strong>:<p>Đóng và mở lại thanh toán để kiểm tra đơn.</p>}{pending&&pending.discount>0&&<small>Đã giảm {money(pending.discount)} trong yêu cầu đang chờ</small>}</section>
  {(pending||draft)&&<form id="payment-confirm-form" className="payment-form" onSubmit={e=>{e.preventDefault();void pay();}}><fieldset disabled={!!pending||busy}>
  <div className="payment-methods" role="group" aria-label="Hình thức thanh toán"><button type="button" aria-pressed={method==='cash'} onClick={()=>setMethod('cash')}>Tiền mặt</button><button type="button" aria-pressed={method==='transfer'} onClick={()=>setMethod('transfer')}>Chuyển khoản</button></div>
- {method==='cash'?<><label className="payment-cash-label" htmlFor="payment-cash">Tiền khách đưa</label><div className="payment-cash-input"><input id="payment-cash" inputMode="numeric" autoComplete="off" placeholder={String(total)} value={cash} onChange={e=>setCash(e.target.value)}/><span aria-hidden="true">đ</span></div>{cashNumber!==null&&cashNumber>=total?<div className="payment-change"><span>Tiền thối</span><strong>{money(cashNumber-total)}</strong></div>:<p className="payment-input-error" role="alert">{cashNumber===null?'Nhập số tiền hợp lệ.':'Tiền khách đưa chưa đủ.'}</p>}</>:<p className="payment-transfer-note">Chỉ xác nhận sau khi đã kiểm tra tiền vào tài khoản quán.</p>}
+ {method==='cash'?<><label className="payment-cash-label" htmlFor="payment-cash">Tiền khách đưa</label><div className="payment-cash-input"><input id="payment-cash" inputMode="numeric" autoComplete="off" placeholder="0" value={cash} onFocus={e=>{if(pending||busy)return;setCash('0');e.currentTarget.value='0';e.currentTarget.select();}} onClick={e=>{if(cash==='0')e.currentTarget.select();}} onBlur={()=>{if(!pending&&!busy&&enteredCash!==null&&enteredCash<total)setCash(String(total));}} onChange={e=>setCash(e.target.value)}/><span aria-hidden="true">đ</span></div>{cashNumber!==null&&cashNumber>=total?<div className="payment-change"><span>Tiền thối</span><strong>{money(cashNumber-total)}</strong></div>:<p className="payment-input-error" role="alert">{cashNumber===null?'Nhập số tiền hợp lệ.':'Tiền khách đưa chưa đủ.'}</p>}</>:<p className="payment-transfer-note">Chỉ xác nhận sau khi đã kiểm tra tiền vào tài khoản quán.</p>}
  </fieldset></form>}
  {pending&&<p className="payment-pending-note" role="status">{pending.billId?'Đã thanh toán, chờ tải hóa đơn. Không thu thêm tiền.':'Đang chờ xác nhận thanh toán. Thử lại cùng mã, không thu tiền lần nữa.'}</p>}
  {error&&<p className="payment-input-error" role="alert">{error}</p>}
