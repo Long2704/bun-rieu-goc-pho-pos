@@ -2,7 +2,7 @@
 
 ## Dùng trong app
 
-Owner → Quản lý → Quản lý thực đơn → **Thêm món mới** (hoặc Sửa món) → dấu **+** cạnh ô chọn **Nhóm món**. Pop-up mở để nhập tên nhóm (1–80 ký tự), chọn loại **Món chính**, **Món phụ** hoặc **Đồ uống**, rồi bấm **Xác nhận**. Nhóm mới được chọn sẵn cho món đang nhập; tên và giá món nháp được giữ nguyên. Không có khung quản lý nhóm riêng ở đầu trang. Hủy/Escape đóng pop-up mà không tạo nhóm; tác vụ đã gửi nhưng chưa xác nhận vẫn được giữ để thử lại. Nhóm mới được lưu chung trong database, không chỉ trên thiết bị hiện tại. Không cho trùng tên, không phân biệt hoa/thường.
+Owner → Quản lý → Quản lý thực đơn → **Thêm món mới** (hoặc Sửa món) → dấu **+** cạnh ô chọn **Nhóm món**. Pop-up mở để nhập tên nhóm (1–80 ký tự), rồi bấm **Xác nhận**. Pop-up không có ô chọn loại; nhóm mới kế thừa loại của nhóm đang chọn trong form món. Nhóm mới được chọn sẵn cho món đang nhập; tên và giá món nháp được giữ nguyên. Không có khung quản lý nhóm riêng ở đầu trang. Hủy/Escape đóng pop-up mà không tạo nhóm; tác vụ đã gửi nhưng chưa xác nhận vẫn được giữ để thử lại. Nhóm mới được lưu chung trong database, không chỉ trên thiết bị hiện tại. Không cho trùng tên, không phân biệt hoa/thường.
 
 Khi thêm/sửa món, chọn nhóm vừa tạo trong **Nhóm món**. Trên màn hình gọi món, các nhóm xuất hiện thành tab lọc. Món cũ chưa gán nhóm riêng vẫn ở ba nhóm mặc định.
 
