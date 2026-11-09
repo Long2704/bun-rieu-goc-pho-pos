@@ -17,6 +17,11 @@ export default function BillPanel({userId,table,sessions,disabled,onPending,onCh
  const current=table?sessions.find(s=>s.table_id===table.id):undefined;
  const unpaid=current?.orders.flatMap(o=>o.order_items).filter(i=>!i.paid&&!i.cancelled_at)??[];
  const bills=[...new Set(unpaid.map(i=>i.bill_no??1))].sort((a,b)=>a-b);
+ const billTotal=(bill:number)=>unpaid.filter(i=>(i.bill_no??1)===bill).reduce((sum,i)=>sum+i.price*i.qty,0);
+ const billQty=(bill:number)=>unpaid.filter(i=>(i.bill_no??1)===bill).reduce((sum,i)=>sum+i.qty,0);
+ const selectedItems=draft?.items.filter(i=>ids.includes(i.id))??[];
+ const selectedTotal=selectedItems.reduce((sum,i)=>sum+i.price*i.qty,0);
+ const sourceTotal=draft?.items.reduce((sum,i)=>sum+i.price*i.qty,0)??0;
  const targets=bills.filter(b=>b!==draft?.from);
  function start(from=bills[0]){if(!current||!table||!from)return;setDraft({sessionId:current.id,tableId:table.id,tableName:table.name,from,items:unpaid.filter(i=>(i.bill_no??1)===from).map(i=>({...i}))});setIds([]);setTo('0');setError('');setMessage('');}
  async function move(){
@@ -44,13 +49,16 @@ export default function BillPanel({userId,table,sessions,disabled,onPending,onCh
  {table&&!!unpaid.length&&!pending&&<button disabled={disabled||busy||storageError} onClick={()=>start()}><PosIcon name="split"/><span>Tách/gộp bill {table.name}</span></button>}
  {storageError&&<p role="alert">Không đọc được yêu cầu tách/gộp bill chờ. Không xóa dữ liệu trình duyệt; liên hệ hỗ trợ.</p>}
  {pending&&<aside role="status"><strong>Tách/gộp bill chờ xác nhận · {pending.tableName??placeLabel(pending.tableId)} · Bill {pending.from}</strong><p>{pending.itemIds.length} dòng món → {pending.to===0?'Bill mới':`Bill ${pending.to}`}</p><button disabled={busy} onClick={()=>void move()}>{busy?'Đang xử lý…':'Thử lại cùng mã tách/gộp'}</button></aside>}
- {draft&&current?.id===draft.sessionId&&!pending&&<form className="bill-move-form" onSubmit={e=>{e.preventDefault();void move();}}><h3>Chọn dòng món cần tách/gộp</h3><p>Chuyển toàn bộ số lượng của từng dòng món. Giữ nguyên món bếp; chỉ chọn món chưa trả tiền, chưa hủy.</p>
- <fieldset disabled={disabled||busy||storageError}><label htmlFor="bill-source">Bill nguồn</label><select id="bill-source" value={draft.from} onChange={e=>start(Number(e.target.value))}>{bills.map(b=><option key={b} value={b}>Bill {b}</option>)}</select>
- <button type="button" onClick={()=>setIds(draft.items.map(i=>i.id))}>Chọn tất cả dòng</button><button type="button" onClick={()=>setIds([])}>Bỏ chọn dòng</button>
+ {draft&&current?.id===draft.sessionId&&!pending&&<form className="bill-move-form" onSubmit={e=>{e.preventDefault();void move();}}><h3>Chọn món chuyển sang bill khác</h3><p>Chuyển toàn bộ số lượng của dòng món đã chọn. Món bên bếp giữ nguyên; chỉ chuyển món chưa thanh toán, chưa hủy.</p>
+ <fieldset disabled={disabled||busy||storageError}><label htmlFor="bill-source">Bill nguồn</label><select id="bill-source" value={draft.from} onChange={e=>start(Number(e.target.value))}>{!bills.includes(draft.from)&&<option value={draft.from}>Bill {draft.from} đã thay đổi — chọn bill khác</option>}{bills.map(b=><option key={b} value={b}>Bill {b} · {billQty(b)} món · {money(billTotal(b))}</option>)}</select>
+ <p className="bill-source-summary">Bill {draft.from} · {draft.items.reduce((sum,i)=>sum+i.qty,0)} món · <strong>{money(sourceTotal)}</strong></p>
+ <div className="bill-select-actions"><button type="button" onClick={()=>setIds(draft.items.map(i=>i.id))}>Chọn tất cả dòng</button><button type="button" onClick={()=>setIds([])}>Bỏ chọn dòng</button></div>
+ {!draft.items.length&&<p role="status">Bill này không còn món chưa thanh toán. Chọn bill nguồn khác.</p>}
  {draft.items.map(i=><label key={i.id} className="checkbox-label"><input type="checkbox" checked={ids.includes(i.id)} onChange={e=>setIds(v=>e.target.checked?[...v,i.id]:v.filter(id=>id!==i.id))}/><span>{i.qty} × {i.name} — {money(i.price*i.qty)}{i.note&&<small> · {i.note}</small>}</span></label>)}
- <p>Đã chọn {ids.length} dòng · {money(draft.items.filter(i=>ids.includes(i.id)).reduce((sum,i)=>sum+i.price*i.qty,0))}</p>
- <label htmlFor="bill-target">Chuyển sang</label><select id="bill-target" value={to} onChange={e=>setTo(e.target.value)}><option value="0">Bill mới</option>{targets.map(b=><option key={b} value={b}>Bill {b}</option>)}</select>
- <button type="submit" className="primary" disabled={!ids.length||ids.length>500||(to!=='0'&&!targets.includes(Number(to)))}>Xác nhận tách/gộp bill</button></fieldset><button type="button" disabled={busy} onClick={()=>setDraft(null)}>Đóng tách/gộp bill</button></form>}
+ <p className="bill-selected-summary">Đã chọn {ids.length} dòng · {selectedItems.reduce((sum,i)=>sum+i.qty,0)} món · <strong>{money(selectedTotal)}</strong></p>
+ <label htmlFor="bill-target">Chuyển sang</label><select id="bill-target" value={to} onChange={e=>setTo(e.target.value)}><option value="0">Bill mới</option>{targets.map(b=><option key={b} value={b}>Bill {b} · {billQty(b)} món · {money(billTotal(b))}</option>)}</select>
+ <div className="bill-move-preview" aria-label="Dự kiến sau tách gộp"><p>Bill {draft.from} còn lại <strong>{money(sourceTotal-selectedTotal)}</strong></p><p>{to==='0'?'Bill mới':`Bill ${to}`} sau chuyển <strong>{money((to==='0'?0:billTotal(Number(to)))+selectedTotal)}</strong></p></div>
+ <button type="submit" className="primary" disabled={!bills.includes(draft.from)||!ids.length||ids.length>500||(to!=='0'&&!targets.includes(Number(to)))}>Xác nhận tách/gộp bill</button></fieldset><button type="button" disabled={busy} onClick={()=>setDraft(null)}>Đóng tách/gộp bill</button></form>}
  {error&&<p role="alert">{error}</p>}{message&&<Toast message={message}/>}
  </section>;
 }

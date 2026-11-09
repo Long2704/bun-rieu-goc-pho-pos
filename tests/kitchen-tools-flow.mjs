@@ -72,7 +72,7 @@ const bellBox=await bell.boundingBox(),headingBox=await page.getByRole('heading'
 assert.ok(bellBox.width<=40&&bellBox.height<=40);
 assert.ok(bellBox.x>=headingBox.x+headingBox.width&&bellBox.x-headingBox.x-headingBox.width<=14);
 assert.ok(Math.abs(bellBox.y+bellBox.height/2-headingBox.y-headingBox.height/2)<5);
-assert.ok((await page.locator('.kitchen-card').first().boundingBox()).y<340);
+assert.ok((await page.locator('.kitchen-card').first().boundingBox()).y<page.viewportSize().height*.7,'first ticket stays above the fold with the branded header');
 if(process.env.POS_SCREENSHOT_DIR){
  await page.screenshot({path:process.env.POS_SCREENSHOT_DIR+'/kitchen-compact-mobile.png',fullPage:true});
  await page.setViewportSize({width:1440,height:900});
@@ -82,7 +82,7 @@ if(process.env.POS_SCREENSHOT_DIR){
 
 // Cùng id cập nhật/đổi bàn không báo lại.
 sessions[0].table_id=4;await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await page.getByRole('heading',{name:'Bàn 4',exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.deviceCalls.notes),2);
-sessions[0].orders.push(order(4,4));await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await page.getByRole('button',{name:'Có 1 đơn bếp mới chưa xem',exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.deviceCalls.notes),4);assert.equal(await page.locator('.new-kitchen-order').count(),1);
+sessions[0].orders.push({...sessions[0].orders[0],id:'moved-fragment',request_id:'moved-fragment',bill_transfer_origin:sessions[0].orders[0].id});await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await page.waitForTimeout(150);assert.equal(await page.evaluate(()=>window.deviceCalls.notes),2,'bill fragment does not chime as new food');assert.equal(await page.locator('.new-order-badge').count(),0);sessions[0].orders.pop();sessions[0].orders.push(order(4,4));await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await page.getByRole('button',{name:'Có 1 đơn bếp mới chưa xem',exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.deviceCalls.notes),4);assert.equal(await page.locator('.new-kitchen-order').count(),1);
 await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();assert.equal(await page.evaluate(()=>window.deviceCalls.notes),4);
 await page.getByRole('button',{name:'Lịch sử',exact:true}).click();await page.getByRole('button',{name:'Có 1 đơn bếp mới chưa xem',exact:true}).click();await page.locator('.new-kitchen-order').waitFor();
 await page.getByRole('button',{name:'Đánh dấu đã xem',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('.new-order-badge'));assert.equal(sessions[0].orders[1].status,'cooking');

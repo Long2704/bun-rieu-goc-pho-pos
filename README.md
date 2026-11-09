@@ -81,6 +81,7 @@ Các bài kiểm thử trình duyệt nằm trong [tests/](tests/), cần dev se
 | Bạn cần tìm | Tài liệu |
 | --- | --- |
 | Cài app lên điện thoại, nhận cập nhật | [PWA và màn hình chính](docs/pwa-home-screen.md) |
+| Tách/gộp và nhận biết từng bill | [Các bill trong bàn](docs/bill-sections.md) |
 | Thanh toán tiền mặt/chuyển khoản | [Giao diện thanh toán](docs/payment-interface.md) |
 | Thanh toán món không gửi bếp | [Lưu món và thanh toán](docs/non-kitchen-checkout.md) |
 | Hủy món và giữ thông báo cho bếp | [Món hủy trên phiếu bếp](docs/kitchen-cancelled-items.md) |

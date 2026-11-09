@@ -7,7 +7,7 @@ import {formatMoney as money} from './format';
 import './payment.css';
 type Bill={service_label?:string;id:string;invoice_no:number;table_no:number;bill_no:number;gross:number;discount:number;total:number;method:string;cash_received:number|null;change_due:number;paid_at:string;bill_items:{id:string;name:string;price:number;qty:number;note:string}[]};
 type Attempt={tableName?:string;requestId:string;sessionId:string;tableId:number;itemIds:string[];method:'cash'|'transfer';discountType:'amount'|'percent';discountValue:number;cash:number|null;gross:number;discount:number;total:number;items:OrderLine[];billNo?:number;billId?:string};
-export type PaymentHandle={open:()=>void};
+export type PaymentHandle={open:(billNo?:number)=>void};
 type Props={onClosePaid?:(sessionId:string,tableId:number)=>void;onPendingAmount?:(amount:{total:number;tableId:number}|null)=>void;compact?:boolean;onReady?:(ready:boolean)=>void;userId:string;table:{id:number;name:string}|null;sessions:TableSession[];canPay:boolean;canDiscount:boolean;hasDraft:boolean;onPending:(value:boolean)=>void;onPaid:()=>Promise<void>;receiptRequest?:{id:string;key:number}|null;onReceiptError?:(message:string)=>void};
 function integer(raw:string){const text=raw.trim();if(!/^\d+$/.test(text))return null;const n=Number(text);return Number.isSafeInteger(n)?n:null;}
 const PaymentPanel=forwardRef<PaymentHandle,Props>(function PaymentPanel({compact=false,onReady,onPendingAmount,userId,table,sessions,canPay,canDiscount,hasDraft,onPending,onPaid,onClosePaid,receiptRequest,onReceiptError},ref){
@@ -34,8 +34,8 @@ const PaymentPanel=forwardRef<PaymentHandle,Props>(function PaymentPanel({compac
  const billNumbers=[...new Set(unpaid.map(i=>i.bill_no??1))].sort((a,b)=>a-b);
  const billNo=current&&chosen?.sessionId===current.id&&billNumbers.includes(chosen.billNo)?chosen.billNo:billNumbers[0]??1;
  const payable=unpaid.filter(i=>(i.bill_no??1)===billNo);
- function start(){paidContext.current=null;if(!current||!table||hasDraft||pending||!payable.length)return;setDraft({sessionId:current.id,tableId:table.id,tableName:table.name,billNo,items:payable.map(i=>({...i}))});setCash(String(payable.reduce((sum,item)=>sum+item.price*item.qty,0)));setMethod('cash');setError('');setReceipt(null);setOpen(true);}
- useImperativeHandle(ref,()=>({open:()=>{if(pending){setReceipt(null);setOpen(true);void pay();}else start();}}));
+ function start(requestedBill?:number){paidContext.current=null;const nextBill=requestedBill??billNo,items=unpaid.filter(i=>(i.bill_no??1)===nextBill);if(!current||!table||hasDraft||pending||!items.length)return;setChosen({sessionId:current.id,billNo:nextBill});setDraft({sessionId:current.id,tableId:table.id,tableName:table.name,billNo:nextBill,items:items.map(i=>({...i}))});setCash(String(items.reduce((sum,item)=>sum+item.price*item.qty,0)));setMethod('cash');setError('');setReceipt(null);setOpen(true);}
+ useImperativeHandle(ref,()=>({open:(requestedBill)=>{if(pending){setReceipt(null);setOpen(true);void pay();}else start(requestedBill);}}));
  useEffect(()=>{onReady?.(canPay&&!storageError&&!busy&&(!!pending||!!current&&payable.length>0&&!hasDraft));},[canPay,current?.id,payable.length,hasDraft,!!pending,storageError,busy,onReady]);
  async function loadReceipt(id:string){
   const r=await supabase!.from('bills').select('service_label,id,invoice_no,table_no,bill_no,gross,discount,total,method,cash_received,change_due,paid_at,bill_items(id,name,price,qty,note)').eq('id',id).single();
@@ -81,7 +81,7 @@ const PaymentPanel=forwardRef<PaymentHandle,Props>(function PaymentPanel({compac
  if(!canPay)return null;
  return <section className={`cashier-panel${compact?' compact-payment-controller':''}`} aria-label="Thanh toán">
  {table&&(billNumbers.length>1||billNo!==1)&&<><label htmlFor="pay-bill-number">Bill thanh toán</label><select id="pay-bill-number" value={billNo} disabled={hasDraft||!!pending||storageError||busy} onChange={e=>{if(current)setChosen({sessionId:current.id,billNo:Number(e.target.value)});}}>{billNumbers.map(b=><option key={b} value={b}>Bill {b} · {money(unpaid.filter(i=>(i.bill_no??1)===b).reduce((s,i)=>s+i.price*i.qty,0))}</option>)}</select></>}
- <div className="cashier-actions">{table&&<button className="primary" disabled={!payable.length||hasDraft||!!pending||storageError||busy} onClick={start}>Thanh toán {table.name}{billNumbers.length>1||billNo!==1?` · Bill ${billNo}`:''}</button>}</div>
+ <div className="cashier-actions">{table&&<button className="primary" disabled={!payable.length||hasDraft||!!pending||storageError||busy} onClick={()=>start()}>Thanh toán {table.name}{billNumbers.length>1||billNo!==1?` · Bill ${billNo}`:''}</button>}</div>
  {table&&hasDraft&&<p>Gửi hoặc xóa các món đang chọn trước khi thanh toán.</p>}
  {storageError&&<aside role="alert">Không đọc được dữ liệu thanh toán chờ. Chưa thể thanh toán; không xóa dữ liệu trình duyệt.</aside>}
  {pending&&<aside role="status"><strong>{pending.billId?'Đã thanh toán, chờ tải hóa đơn':'Thanh toán chờ xác nhận'} — {pending.tableName??placeLabel(pending.tableId)} · Bill {pending.billNo??1}</strong><p>{money(pending.total)} · {pending.method==='cash'?'Tiền mặt':'Chuyển khoản'}. Giữ nguyên mã yêu cầu, không thu tiền lần nữa.</p><button disabled={busy} onClick={()=>{setReceipt(null);setOpen(true);void pay();}}>{busy?'Đang xử lý…':'Thử lại cùng mã'}</button></aside>}

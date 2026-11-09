@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import PosIcon from './PosIcon';
-type Props={orders:{id:string}[];ready:boolean;onFreshChange:(ids:string[])=>void;onShowQueue:()=>void};
+type Props={orders:{id:string;bill_transfer_origin?:string|null}[];ready:boolean;onFreshChange:(ids:string[])=>void;onShowQueue:()=>void};
 const audioConstructor=()=>window.AudioContext??(window as Window&{webkitAudioContext?:typeof AudioContext}).webkitAudioContext;
 export default function KitchenTools({orders,ready,onFreshChange,onShowQueue}:Props){
  const [fresh,setFresh]=useState<string[]>([]),[sound,setSound]=useState(false),[audioBusy,setAudioBusy]=useState(false),[soundError,setSoundError]=useState('');
@@ -30,9 +30,9 @@ export default function KitchenTools({orders,ready,onFreshChange,onShowQueue}:Pr
  useEffect(()=>{
   if(!ready)return;
   const current=new Set(orders.map(o=>o.id));
-  if(!initialized.current){known.current=current;initialized.current=true;return;}
-  const incoming=[...current].filter(id=>!known.current.has(id));
-  incoming.forEach(id=>known.current.add(id));
+  if(!initialized.current){known.current=new Set([...current,...orders.flatMap(order=>order.bill_transfer_origin?[order.bill_transfer_origin]:[])]);initialized.current=true;return;}
+  const incoming=orders.filter(order=>!known.current.has(order.id)&&(!order.bill_transfer_origin||!known.current.has(order.bill_transfer_origin))).map(order=>order.id);
+  orders.forEach(order=>{known.current.add(order.id);if(order.bill_transfer_origin)known.current.add(order.bill_transfer_origin);});
   setFresh(old=>{const kept=old.filter(id=>current.has(id));return incoming.length||kept.length!==old.length?[...kept,...incoming]:old;});
   if(incoming.length&&soundEnabled.current&&document.visibilityState==='visible')chime();
  },[orders,ready,chime]);
