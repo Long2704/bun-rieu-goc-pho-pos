@@ -1,4 +1,5 @@
 import {useState} from 'react';
+import EditSentNote from '../EditSentNote';
 import {CancelItem} from '../OperationsPanel';
 import POSIcon from './POSIcon';
 import QuantityControl from './QuantityControl';
@@ -21,8 +22,9 @@ export default function SavedOrderItem({group,product,draft,disabled,awaiting,ca
    {extra>0&&<p className="pos-extra-note">Đã gửi {group.qty} · <strong>Thêm {extra} {awaiting?'chờ xác nhận':'chưa gửi'}</strong></p>}
    {[...notes].map(([note,qty])=><p className="pos-saved-note" key={note}>{qty===group.qty?note:`${qty} × ${note}`}</p>)}
    {extra>0&&draft?.product.category!=='do_uong'&&<label className="pos-line-note">Ghi chú món thêm<input maxLength={500} disabled={disabled} value={draft?.note??''} placeholder="Ghi chú cho phần gọi thêm…" onChange={event=>onNote(event.target.value)}/></label>}
-   {group.rows.length===1&&canCancel&&<div className="pos-saved-actions"><CancelItem compact item={group.rows[0].line} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/></div>}
-   {expanded&&<div className="pos-saved-sources">{group.rows.map(({line,status})=><div className="pos-saved-source" key={line.id}><div><strong>{line.qty} × {line.name}</strong><span>{formatMoney(line.price*line.qty)}</span></div><small>Bill {line.bill_no??1} · {status==='done'?'Đã ra món':'Đang làm'}</small>{line.note&&<p>{line.note}</p>}{canCancel&&<CancelItem compact item={line} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>}</div>)}</div>}
+   {group.rows.length===1&&<div className="pos-saved-actions"><EditSentNote item={group.rows[0].line} orderId={group.rows[0].orderId} status={group.rows[0].status} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>{canCancel&&<CancelItem compact item={group.rows[0].line} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>}</div>}
+   {!expanded&&group.rows.some(({line})=>line.note_edited_at)&&<small className="note-edited-label">Đã chỉnh sửa</small>}
+   {expanded&&<div className="pos-saved-sources">{group.rows.map(({line,status,orderId})=><div className="pos-saved-source" data-item-id={line.id} key={line.id}><div><strong>{line.qty} × {line.name}</strong><span>{formatMoney(line.price*line.qty)}</span></div><small>Bill {line.bill_no??1} · {status==='done'?'Đã ra món':'Đang làm'}</small>{line.note&&<p>{line.note}</p>}<EditSentNote item={line} orderId={orderId} status={status} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>{canCancel&&<CancelItem compact item={line} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>} {line.note_edited_at&&<small className="note-edited-label">Đã chỉnh sửa</small>}</div>)}</div>}
   </div>
  </article>;
 }

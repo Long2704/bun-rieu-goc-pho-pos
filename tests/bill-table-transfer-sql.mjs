@@ -1,3 +1,4 @@
+import {checkSentNoteEditing} from './support/sent-note-editing.mjs';
 import {checkKitchenImageIsolation} from './support/kitchen-image-sales-isolation.mjs';
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -140,5 +141,6 @@ try {
   await asUser(3);await one('select public.complete_kitchen_order($1)',[drinkSource.id]);await asUser(2);const finishedIds=(await db.query('select id from public.order_items where order_id=$1 and not paid and cancelled_at is null',[drinkSource.id])).rows.map(i=>i.id);const completedResult=(await transfer(drinkSession,1,1,2,finishedIds,crypto.randomUUID(),result.session_id)).result;assert.equal((await one('select status from public.orders where session_id=$1 and id=(select order_id from public.order_items where id=$2)',[completedResult.session_id,finishedIds[0]])).status,'done');
   await db.exec('reset role');assert.equal((await one("select has_table_privilege('authenticated','public.bill_table_transfers','select') ok")).ok,false);assert.equal((await one("select has_function_privilege('anon','public.transfer_bill_to_table(uuid,integer,integer,integer,uuid,uuid[],uuid)','execute') ok")).ok,false);
   await asUser(3);await assert.rejects(transfer(),/Mã chuyển bill đã được sử dụng/);await db.exec('reset role');await db.query('update public.profiles set is_active=false where id=$1',[uid(2)]);await asUser(2);await assert.rejects(transfer(),/không có quyền/);await asUser(4);await assert.rejects(transfer(),/không có quyền/);
+  await checkSentNoteEditing(db,uid(1),uid(2),uid(3),food,drink);
   console.log('PASS bill transfer SQL: staff permissions, exact whole-bill snapshot, empty/occupied target and target-session guard, partial kitchen-ticket split without copied items/new-food audit, same status/time/path/position, untouched source bills, close last source bill, request replay, paid protection, kitchen completion, private ledger.');
 } finally {await db.close();}
