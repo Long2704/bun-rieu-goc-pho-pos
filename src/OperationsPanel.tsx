@@ -8,7 +8,7 @@ export function CancelItem({item,disabled,onChanged,compact=false,onBusy}:{compa
  async function cancel(){
   if(!supabase||lock.current||disabled)return;
   lock.current=true;setBusy(true);onBusy?.(true);setError('');
-  try{const r=await supabase.rpc('cancel_order_item',{p_item_id:item.id,p_reason:''});if(r.error)throw new Error(r.error.message);setOpen(false);await onChanged();}
+  try{const r=await supabase.rpc('cancel_order_item',{p_item_id:item.id,p_reason:''});if(r.error)throw new Error(r.error.message);await onChanged();setOpen(false);}
   catch(e){setError(`Chưa xác nhận hủy: ${e instanceof Error?e.message:'Lỗi kết nối'}. Thử lại cùng món; hệ thống chỉ hủy một lần.`);}
   finally{lock.current=false;setBusy(false);onBusy?.(false);}
  }
