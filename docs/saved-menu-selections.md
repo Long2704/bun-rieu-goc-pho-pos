@@ -2,7 +2,7 @@
 
 Bấm **Xem đơn** lưu mỗi lượt chọn thành một phiếu trong phiên bàn, chưa báo bếp. Chỉ xóa phần chọn trên menu sau khi server xác nhận và tải được dữ liệu mới. **+ Thêm món** mở menu trống với danh mục Tất cả, không mang theo số lượng hay ghi chú lượt trước. Nếu đang có phần thêm nhanh chưa lưu, lưu phần đó trước rồi mở lượt mới.
 
-Mỗi lượt giữ dòng món và ghi chú riêng, kể cả cùng món. Nút tăng/giảm hoặc **Chỉnh món** chỉ sửa dòng đó trước khi gửi; giảm về 0 trong cửa sổ chỉnh món để bỏ dòng. Món không gửi bếp không có ghi chú và vẫn thanh toán được ngay. Món bếp chưa gửi được đánh dấu trên sơ đồ bàn và phải **Gửi bếp** trước khi thu tiền. Pop-up thoát đơn vẫn cho phép Thông báo hoặc Không.
+Mỗi lượt giữ dòng món và ghi chú riêng, kể cả cùng món. Nút tăng/giảm, **Sửa ghi chú** và **Hủy** thao tác riêng trên dòng đó. Hủy dùng cửa sổ xác nhận và quyền hủy món hiện có; không có nút Chỉnh món chung. Món không gửi bếp không có ghi chú và vẫn thanh toán được ngay. Món bếp chưa gửi được đánh dấu trên sơ đồ bàn và phải **Gửi bếp** trước khi thu tiền. Pop-up thoát đơn vẫn cho phép Thông báo hoặc Không.
 
 `save_menu_selection` dùng mã yêu cầu bền vững theo cơ chế gửi hiện có, giữ nguyên giá đã kiểm tra và bill chưa trả thấp nhất. `orders.is_draft` mặc định false nên dữ liệu cũ giữ nguyên. `send_saved_menu_selections` chỉ báo các UUID phiếu chụp tại lúc gửi; gửi lại không báo thêm lượt tạo sau đó. Thời gian vào hàng đợi bếp tính từ lúc thông báo. Phiếu tách khi chuyển bill giữ cờ chờ gửi. Các lệnh lưu/sửa/gửi yêu cầu quyền orders.create; không mở quyền ghi bảng trực tiếp. Trigger chặn thanh toán món bếp chưa gửi trên mọi client. Sửa dòng dùng kiểm tra số lượng/ghi chú cũ để tránh ghi đè thiết bị khác.
 
