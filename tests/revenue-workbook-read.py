@@ -21,11 +21,8 @@ assert next(row for row in rows if row[0] == 'Nước sâm')[8] == 1
 assert sheet['A5'].fill.fgColor.rgb == 'FF135B88'
 assert '#,##0' in sheet['L6'].number_format
 assert all(sheet.cell(sheet.max_row - i, 1).coordinate in sheet.merged_cells for i in range(4))
-assert len(list(workbook['Chi tiết hóa đơn'].values)[5:]) == 8
+assert workbook.sheetnames == ['Bán hàng theo giờ']
 assert all(cell.data_type != 'f' for tab in workbook for row in tab for cell in row)
-for name in ['Theo ngày và khung', 'Tổng theo khung', 'Tổng theo ngày']:
-    last = list(workbook[name].values)[-1]
-    assert list(last[-6:]) == [expected[k] for k in ['invoices','gross','discount','total','cash','transfer']]
 filtered = load_workbook('/tmp/revenue-workbook-filtered.xlsx')['Bán hàng theo giờ']
 assert filtered['A6'].value == 'Bún riêu truyền thống' and filtered['J6'].value == 1
 empty = load_workbook('/tmp/revenue-workbook-empty.xlsx')['Bán hàng theo giờ']

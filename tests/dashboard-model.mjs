@@ -16,7 +16,7 @@ for(const bands of [[{start:'09:00',end:'09:00'}],[{start:'09:00',end:'08:00'}],
 const custom=Array.from({length:8},(_,i)=>({start:String(i*3).padStart(2,'0')+':00',end:String(i*3+3).padStart(2,'0')+':00'}));assert.equal(validBands(custom),true);
 const customReport=aggregateSales(rows,from,to,custom,'Mang về, bàn được chọn','2026-11-09T10:00:00Z');
 assert.equal(customReport.slots.length,9);assert.equal(customReport.slots.reduce((n,s)=>n+s.total,0),report.total);
-writeFileSync('/tmp/dashboard-custom-bands.xlsx',revenueWorkbook(customReport).bytes);
+writeFileSync('/tmp/dashboard-custom-bands.xlsx',revenueWorkbook(customReport,rows).bytes);
 const range=bounds(from,to);assert.equal(range.end-range.start,86400000);assert.equal(range.start-range.previous,86400000);
 assert.throws(()=>validateSale({...rows[0],bill_items:[]}),/chưa đầy đủ/);
 console.log('PASS Dashboard: VN time/fractional end second, half-open slots, outside bucket, split bill visit dedup, takeaway/table filters, invalid overlaps, custom 8 slots and reconciled workbook.');

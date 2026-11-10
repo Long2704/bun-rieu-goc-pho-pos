@@ -13,3 +13,5 @@ const outside=[...sales,sale('E','22:00:00',201,[[0,1]])];const outReport=aggreg
 writeFileSync('/tmp/revenue-reference-outside.xlsx',revenueWorkbook(outReport,outside,{menu,exportedAt:'2026-11-10T18:00:00Z'}).bytes);
 writeFileSync('/tmp/revenue-reference-empty.xlsx',revenueWorkbook(aggregateSales([],report.from,report.to,defaultBands,'Trống',report.generated_at),[],{menu,exportedAt:'2026-11-10T18:00:00Z'}).bytes);
 console.log('PASS reference Excel fixtures: current menu prices/groups, all menu items, main-only/takeaway bowls, exact gift, outside/empty reports and immutable Dashboard snapshot.');
+
+const timed={...report,from:'2026-11-09T08:30:15',to:'2026-11-09T19:00:00'};const timedReport=aggregateSales(sales,timed.from,timed.to,defaultBands,'Khung chọn',report.generated_at);writeFileSync('/tmp/revenue-reference-selected-time.xlsx',revenueWorkbook(timedReport,sales,{menu,exportedAt:'2026-11-10T18:00:00Z'}).bytes);

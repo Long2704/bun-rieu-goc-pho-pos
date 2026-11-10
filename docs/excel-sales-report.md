@@ -21,3 +21,8 @@ Cột Giá dùng menu tải riêng lúc bấm xuất; Thành tiền = Giá × T�
 Số lượng bill lấy cùng hóa đơn Dashboard và phân 7 khung chuẩn. Chả ốc (Tặng) đếm đúng tên món này, không thay bằng mọi món 0đ. Mang về (tô) đếm riêng số lượng món chính trên bàn/điểm bán tên bắt đầu bằng Mang về, đúng lựa chọn người dùng. Ngoài khung chỉ thêm cột nếu có hóa đơn phát sinh ngoài 7 khung.
 
 Chỉ bổ sung truy vấn menu trong luồng xuất Excel, không thay đổi tải/tổng hợp Dashboard hay database. Kiểm chứng thêm revenue-reference-layout.mjs và revenue-reference-read.py.
+
+
+## Bản rút gọn theo yêu cầu mới
+
+File xuất chỉ chứa một sheet Bán hàng theo giờ; xóa các sheet phụ khỏi gói XLSX. Dòng đầu hiển thị đầy đủ khoảng ngày giờ đã chọn (giờ Việt Nam, có giây), không dùng ngày bấm tải. Giữ nguyên mọi quy tắc đếm, menu giá và đối soát ngay trên sheet này. Chức năng xuất cần nguồn hóa đơn chi tiết; không xuất một bảng tổng hợp khác khi thiếu nguồn. Dashboard và truy vấn menu không thay đổi.
