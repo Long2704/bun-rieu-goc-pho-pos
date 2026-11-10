@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {syncDataEpoch} from '../src/data-epoch.ts';
 function memory(entries){const map=new Map(entries);return {map,get length(){return map.size;},key:n=>[...map.keys()][n]??null,getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)};}
-const user='owner',keys=['pending','payment','transfer','bill-move','bill-table-transfer','cancel-table'].map(x=>`goc-pho-${x}-v1:${user}`);
+const user='owner',keys=['pending','payment','transfer','bill-move','bill-table-transfer','table-link','cancel-table'].map(x=>`goc-pho-${x}-v1:${user}`);
 const storage=memory([...keys.map(k=>[k,'test-job']),['goc-pho-image-upload:owner:hash','old-image'],['goc-pho-table-info:owner:1','test customer note'],['goc-pho-table-info:other:1','keep note'],['goc-pho-pending-v1:other','other-job'],['sb-auth-token','auth'],['goc-pho-menu-change-v1:owner','menu-job']]);
 assert.equal(syncDataEpoch(user,undefined,storage),false);assert.equal(syncDataEpoch(user,0,storage),false);assert.ok(keys.every(k=>storage.getItem(k)));
 assert.equal(syncDataEpoch(user,1,storage),true);assert.ok(keys.every(k=>storage.getItem(k)===null));assert.equal(storage.getItem('goc-pho-image-upload:owner:hash'),null);assert.equal(storage.getItem('goc-pho-table-info:owner:1'),null);assert.equal(storage.getItem('goc-pho-table-info:other:1'),'keep note');assert.equal(storage.getItem('sb-auth-token'),'auth');assert.equal(storage.getItem('goc-pho-pending-v1:other'),'other-job');assert.equal(storage.getItem('goc-pho-menu-change-v1:owner'),'menu-job');

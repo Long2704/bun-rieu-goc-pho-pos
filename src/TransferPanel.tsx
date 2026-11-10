@@ -30,7 +30,7 @@ export default function TransferPanel({userId,table,tables,sessions,disabled,onP
    const r=await supabase.rpc('transfer_table',{p_session_id:attempt.sessionId,p_from_table:attempt.from,p_to_table:attempt.to,p_request_id:attempt.requestId,p_reason:attempt.reason??'',p_expected_target_session:attempt.targetSessionId??null});
    if(r.error){
     if(['PGRST202','42883'].includes(r.error.code))throw new Error('Database chưa có chuyển bàn. Cần chạy migration 012_table_actions_merge.sql, rồi bấm Thử lại cùng mã chuyển bàn.');
-    const rejected=r.error.code==='P0001'&&['Bàn đích đã thay đổi. Đồng bộ và chọn lại bàn đích.','Bàn đích không thể nhận thêm bill. Chọn bàn khác.','Bàn đích đang có khách. Chọn bàn trống khác.','Bàn đích không hoạt động.','Phiên bàn đã đóng hoặc không tồn tại.','Phiên khách đã chuyển sang bàn khác. Đồng bộ và kiểm tra lại.','Bạn không có quyền chuyển bàn.'].includes(r.error.message);
+    const rejected=r.error.code==='P0001'&&['Bàn đang gộp. Dùng Gộp bàn để bổ sung bàn vào nhóm.','Bàn đích đã thay đổi. Đồng bộ và chọn lại bàn đích.','Bàn đích không thể nhận thêm bill. Chọn bàn khác.','Bàn đích đang có khách. Chọn bàn trống khác.','Bàn đích không hoạt động.','Phiên bàn đã đóng hoặc không tồn tại.','Phiên khách đã chuyển sang bàn khác. Đồng bộ và kiểm tra lại.','Bạn không có quyền chuyển bàn.'].includes(r.error.message);
     if(rejected){localStorage.removeItem(key);if(alive.current){setPending(null);setOpen(false);}await onTransferred(attempt.from);throw new Error(r.error.message);}
     throw new Error(`Chưa xác nhận chuyển bàn: ${r.error.message}. Dùng Thử lại cùng mã; không chuyển lại bằng yêu cầu mới.`);
    }

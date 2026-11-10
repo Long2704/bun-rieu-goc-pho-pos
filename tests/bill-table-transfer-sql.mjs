@@ -1,3 +1,4 @@
+import {checkLinkedDiningTables} from './support/linked-dining-tables.mjs';
 import {checkWaiterItemCancellation} from './support/waiter-item-cancellation.mjs';
 import {checkSentNoteEditing} from './support/sent-note-editing.mjs';
 import {checkKitchenImageIsolation} from './support/kitchen-image-sales-isolation.mjs';
@@ -144,5 +145,6 @@ try {
   await asUser(3);await assert.rejects(transfer(),/Mã chuyển bill đã được sử dụng/);await db.exec('reset role');await db.query('update public.profiles set is_active=false where id=$1',[uid(2)]);await asUser(2);await assert.rejects(transfer(),/không có quyền/);await asUser(4);await assert.rejects(transfer(),/không có quyền/);
   await checkSentNoteEditing(db,uid(1),uid(2),uid(3),food,drink);
   await checkWaiterItemCancellation(db,uid(1),uid(2),uid(3),food,drink);
+  await checkLinkedDiningTables(db,uid(1),uid(2),uid(3),food,drink);
   console.log('PASS bill transfer SQL: staff permissions, exact whole-bill snapshot, empty/occupied target and target-session guard, partial kitchen-ticket split without copied items/new-food audit, same status/time/path/position, untouched source bills, close last source bill, request replay, paid protection, kitchen completion, private ledger.');
 } finally {await db.close();}
