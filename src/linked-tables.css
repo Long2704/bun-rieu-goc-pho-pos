@@ -5,7 +5,6 @@
 .table-link-plus{display:grid;place-items:center;background:#fff0db;color:#ed6c00;border-radius:50%;width:28px;height:28px;font-size:22px;flex-shrink:0}
 .table-link-list small{display:block;font-size:11px;color:#9b7a61;margin-top:3px}
 .table-link-confirm{display:grid;gap:10px;margin:14px 0;padding:14px;border:1px solid #f4c69f;border-radius:16px;background:#fff4e3}
-.pos-linked-banner{margin:0;padding:8px 14px;background:#fff0d9;border-bottom:1px solid #efd5bb;color:#a75921;font-size:12px;line-height:1.5}
 .table-card .table-link-badge{font-size:10px;line-height:1.4;color:#ac6c3d;max-width:100%;overflow-wrap:anywhere}
 .table-link-dialog{width:min(600px,calc(100vw - 20px));max-height:88dvh;border:1px solid #efd4bc;border-radius:22px;background:#fffaf2;color:#603116;padding:0;overflow:auto;box-shadow:0 18px 70px #51250030}
 .table-link-dialog::backdrop{background:#311e125c}
@@ -21,3 +20,11 @@
 .table-link-mode-dialog .table-link-separate{order:2;border-radius:28px;padding:14px;font-size:14px;margin-top:10px}
 .table-link-mode-dialog .confirm-dialog-actions>button:first-child{order:3;align-self:center;margin-top:8px}
 .table-link-list>button>span:last-child{min-width:0;overflow-wrap:anywhere}.table-link-dialog p,.table-link-mode-dialog p{overflow-wrap:anywhere}
+.pos-screen-header .pos-header-title{min-width:0;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.pos-screen-header .pos-header-title h1{margin:0}
+.pos-screen-header .pos-header-linked{display:flex;align-items:flex-start;justify-content:center;gap:4px;font-size:11px;line-height:1.35;font-weight:400;color:#8b6c55;max-width:100%}
+.pos-screen-header .pos-header-linked .pos-icon{width:13px;height:13px;flex-shrink:0;color:#ec790b;margin-top:1px}
+.pos-screen-header .pos-header-linked span{min-width:0;overflow-wrap:anywhere}
+.pos-screen-header .pos-header-title{flex:1}.pos-screen-header .pos-header-title h1{flex:none;max-width:100%}
+
+.pos-screen-header .pos-header-linked span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}

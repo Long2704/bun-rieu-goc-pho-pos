@@ -293,7 +293,7 @@ function App(){
  const dineTables=canonicalTables.filter(t=>!sessions.find(s=>s.table_id===t.id)?.member_table_ids?.length);
  const selectedSession=selected?sessions.find(s=>s.table_id===selected.id):undefined;
  const selectedCanonical=selectedSession?.canonical_table_id?canonicalTables.find(t=>t.id===selectedSession.canonical_table_id)??selected:selected;
- const linkedNames=selectedSession?.member_table_ids?.map(placeName);
+ const linkedNames=selectedSession?.member_table_ids?.filter(id=>id!==selected?.id).map(placeName);
  const kitchenPlace=(o:KitchenOrder)=>{const group=sessions.find(s=>s.id===o.session_id)?.member_table_ids;return group?.length?group.map(placeName).join(' + '):o.service_label||(o.table_path?.length?o.table_path:o.table_sessions.table_path?.length?o.table_sessions.table_path:[o.table_sessions.table_id]).map(placeName).join(' → ');};
  const channelTables=tables;
  const priorityTable=fifo(cooking)[0]?.table_sessions.table_id;
