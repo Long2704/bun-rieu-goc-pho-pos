@@ -5,7 +5,7 @@ Món thuộc nhóm không gửi bếp không có ô nhập ghi chú món, kể c
 - Nếu phần món vừa thêm chỉ có món thuộc nhóm **không gửi bếp**, bấm **Thanh toán**. App lưu toàn bộ phần thêm, đồng bộ lại bàn, rồi mở cửa sổ thanh toán. Chưa xác nhận thu tiền thì chưa ghi nhận thanh toán.
 - Nếu phần thêm có bất kỳ món cần bếp làm, phải bấm **Gửi bếp**. Gửi thành công trở về sơ đồ bàn.
 - Những món đã gửi bếp trước đó không bắt bạn gửi lại khi chỉ thêm khăn/nước/nhóm khác không gửi bếp.
-- Ghi chú và số lượng được lưu cùng đơn. App không tự lưu mỗi lần bấm dấu cộng.
+- Khi quay lại sơ đồ bàn và phần thêm chỉ có món không gửi bếp, app tự lưu, đồng bộ thành công rồi mới thoát. Không mở thanh toán và không tạo phiếu bếp. Không cần quyền thu tiền để lưu món. App không tự lưu mỗi lần bấm dấu cộng.
 - Mất mạng hoặc chưa nhận được xác nhận: giữ nguyên yêu cầu, bấm **Thử gửi lại**. Không tạo đơn mới. Sau khi xác nhận và đồng bộ thành công, cửa sổ thanh toán mới mở.
 - Nếu thiết bị khác đổi nhóm sang cần gửi bếp trong lúc thao tác, server từ chối đường thanh toán nhanh; món vẫn được giữ để kiểm tra và gửi bếp.
 
@@ -16,7 +16,7 @@ Khi bấm quay lại sơ đồ bàn và còn món cần gửi bếp chưa gửi,
 - **Thông báo:** lưu phần gọi thêm bằng luồng Gửi bếp hiện có, rồi về sơ đồ bàn sau khi nhận xác nhận và đồng bộ thành công. Các món đã lưu không được gửi lại. Trong đơn hỗn hợp, món không gửi bếp vẫn được lưu và tính tiền như trước.
 - **Không:** về sơ đồ bàn, giữ phần món đang chọn và ghi chú để gửi sau trong phiên mở app hiện tại. Không gọi API gửi đơn.
 
-Chỉ có món không gửi bếp hoặc không có món mới thì thoát thẳng. Mất mạng thì nút Thông báo bị vô hiệu hóa; lỗi gửi/đồng bộ giữ mã yêu cầu và phần món mới để thử lại an toàn. Bài kiểm tra: `node tests/exit-order-flow.mjs` với dev server/API giả giống bài kiểm tra thanh toán bên dưới. Không cần SQL mới cho pop-up này.
+Chỉ có món không gửi bếp thì tự lưu trước khi thoát; không có món mới thì thoát thẳng. Nếu đang lưu hoặc có yêu cầu chưa xác nhận thì giữ màn hình để thử lại. Mất mạng thì nút Thông báo bị vô hiệu hóa; lỗi gửi/đồng bộ giữ mã yêu cầu và phần món mới để thử lại an toàn. Bài kiểm tra: `node tests/exit-order-flow.mjs` với dev server/API giả giống bài kiểm tra thanh toán bên dưới. Mã yêu cầu tự lưu được giữ trên thiết bị cả khi mất mạng, tải lại app và thử lại, đồng thời giữ mục đích chỉ lưu để không mở thanh toán sau khi phục hồi. Không cần SQL mới cho thay đổi giao diện này.
 
 ## Bật tính năng một lần trên Supabase
 
@@ -34,3 +34,5 @@ Yêu cầu: dự án đã có module nhóm món (`menu_groups_setup.sql`) và RP
 `node tests/non-kitchen-checkout-sql.mjs` kiểm tra SQL bằng PGlite với dữ liệu giả.
 
 `POS_TEST_URL=http://localhost:5194 node tests/non-kitchen-checkout-flow.mjs` kiểm tra giao diện bằng Chromium và API giả; cần dev server có cấu hình Supabase giả trùng URL fixture. Bao gồm đơn hỗn hợp, mất ACK, tải lại trang, lỗi đồng bộ, thay đổi nhóm và chưa cài SQL. Không thay thế kiểm tra trên iPhone thật.
+
+Kiểm thử tự lưu: `POS_TEST_URL=http://localhost:5196 node tests/non-kitchen-save-exit-flow.mjs` — hai màn hình/tải lại, bàn trống/có đơn, tài khoản không có quyền thu tiền, mất ACK, lỗi đồng bộ, mất mạng và đổi nhóm sang gửi bếp. Tất cả API đều giả lập.

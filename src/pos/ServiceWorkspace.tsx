@@ -16,6 +16,7 @@ import type { Product, TableContext } from './types';
 type Props = {
     allowNonKitchenCheckout?: boolean;
     onCheckoutDraft: (note:string)=>void;
+    onSaveAndClose: (note:string)=>void;
     groups?: {id:string;name:string}[];
     userId: string;
     table: {
@@ -95,12 +96,14 @@ export default function ServiceWorkspace(p: Props) {
     } p.onChange(id, delta); },[p.disabled,p.onChange]);
     function toOrder() { setMore(false); p.onMode('order'); }
     function closeOrder(){
+        if(p.disabled||p.retry)return;
+        if(count>0&&!draftNeedsKitchen&&p.allowNonKitchenCheckout){p.onSaveAndClose(info.note);return;}
         if(draftNeedsKitchen&&!knownRequest){setMore(false);setExiting(true);}
         else p.onClose();
     }
     return <div style={{viewTransitionName:'pos-table-panel'}} className={`pos-order-workspace pos-mode-${p.mode}`}>
   <POSHeader title={p.table.name.toLocaleUpperCase('vi-VN')} back={p.mode === 'order'} onBack={() => p.mode === 'menu' && (count || p.orders.length) ? toOrder() : closeOrder()} actions={p.mode === 'menu' ? <><button className="pos-icon-button" aria-label="Tìm kiếm món" aria-expanded={search} onClick={() => setSearch(v => !v)}><POSIcon name="search"/></button><button className="pos-icon-button" aria-label="Xem đơn hàng" onClick={toOrder}><POSIcon name="receipt"/></button>{p.tableActionsVisible && <span className="pos-header-external-actions"/>}</> : p.tableActionsVisible ? <span className="pos-header-external-actions"/> : <button className="pos-icon-button" aria-label="Thao tác đơn" aria-expanded={more} onClick={() => setMore(v => !v)}><POSIcon name="more"/></button>}/>
-  <div className="pos-workspace-feedback">{p.feedback}{infoError && <p role="alert">{infoError}</p>}</div>
+  <div className="pos-workspace-feedback">{count>0&&!draftNeedsKitchen&&p.allowNonKitchenCheckout&&<p role="status">{p.sending?'Đang lưu món…':p.retry?'Chờ xác nhận lưu món. Giữ nguyên yêu cầu để thử lại.':'Chưa lưu · Tự lưu khi về sơ đồ bàn.'}</p>}{p.feedback}{infoError && <p role="alert">{infoError}</p>}</div>
   {more && <div className="pos-draft-menu"><button disabled={!count || p.disabled} onClick={() => { setMore(false); setClearing(true); }}>Xóa món chưa gửi</button></div>}
   {p.mode === 'menu' ? <><div className="pos-menu-controls">{search && <SearchBar value={query} onChange={setQuery}/>}<CategoryTabs categories={categories} value={category} onChange={setCategory}/></div><div className="pos-pane pos-menu-pane"><ProductList key={category} products={visible} qty={p.qty} notes={p.notes} onNote={p.onNote} disabled={p.disabled} onChange={change}/></div>{(displayCount > 0 || p.orders.length > 0) && <footer className="pos-menu-bottom"><button disabled={!count || p.disabled} onClick={() => setClearing(true)}>Chọn lại</button><button className="primary" onClick={toOrder}>Xem đơn <span>{displayCount}</span></button></footer>}</> : <><CustomerInfoChips value={info} takeaway={/mang\s*về/i.test(p.table.name)} onSave={setInfo}/><div className="pos-pane pos-order-pane"><OrderDetail onTransferBill={p.onTransferBill} onPayBill={p.canPay?p.onPayBill:undefined} paymentReady={p.paymentReady} lines={knownRequest ? [] : lines} orders={p.orders} products={p.products} onQuickChange={p.onChange} disabled={p.disabled} awaiting={p.sending||p.retry} canCancel={p.canCancel} onChange={change} onNote={p.onNote} onRemove={setRemoving} onBusy={p.onBusy} onSavedChanged={p.onSavedChanged}/></div><FloatingAddButton onClick={() => p.onMode('menu')}/><OrderBottomBar total={total} count={displayCount}>{count > 0 || p.retry ? <><button disabled={p.disabled || !count} onClick={() => setClearing(true)}>Chọn lại</button><button className="primary" disabled={p.sendDisabled} onClick={() => directCheckout?p.onCheckoutDraft(info.note):p.onSend(info.note)}>{p.sending ? (directCheckout?'Đang lưu…':'Đang gửi…') : p.retry ? 'Thử gửi lại' : directCheckout?'Thanh toán':'Gửi bếp'}</button></> : p.canPay ? <button className="primary" disabled={!p.paymentReady} onClick={p.onPay}>{p.paymentPending ? 'Kiểm tra thanh toán' : 'Thanh toán'}</button> : <button className="primary" onClick={() => p.onMode('menu')}>Thêm món</button>}</OrderBottomBar></>}
   <ConfirmDialog className="pos-exit-order-dialog" open={exiting} title="Thoát đơn hàng" busy={p.sending} danger={false} confirmLabel="Thông báo" cancelLabel="Không" confirmDisabled={p.sendDisabled} onClose={()=>{setExiting(false);p.onClose();}} onConfirm={()=>{if(!p.sendDisabled){setExiting(false);p.onSend(info.note);}}}><p>Đơn hàng có món chưa gửi bếp. Bạn có muốn thông báo đến bếp trước khi thoát?</p></ConfirmDialog>
