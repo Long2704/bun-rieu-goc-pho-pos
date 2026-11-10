@@ -7,7 +7,7 @@ export function syncDataEpoch(userId:string,epoch:unknown,storage:Storage=localS
  if(epoch===0){if(old===null)storage.setItem(key,'0');return false;}
  if(old!==null&&Number(old)>epoch)throw new Error('Phiên dữ liệu cũ. Tải lại ứng dụng.');
  if(old===String(epoch))return false;
- const exact=['pending','payment','transfer','bill-move','bill-table-transfer','cancel-table'].map(name=>`goc-pho-${name}-v1:${userId}`);
+ const exact=['pending','payment','transfer','bill-move','bill-table-transfer','table-link','cancel-table'].map(name=>`goc-pho-${name}-v1:${userId}`);
  const prefixes=[`goc-pho-image-upload:${userId}:`,`goc-pho-table-info:${userId}:`];
  const keys=Array.from({length:storage.length},(_,i)=>storage.key(i)).filter((value):value is string=>!!value);
  for(const name of keys)if(exact.includes(name)||prefixes.some(prefix=>name.startsWith(prefix)))storage.removeItem(name);

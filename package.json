@@ -69,6 +69,7 @@
     "test:payment-layout": "node tests/payment-layout-flow.mjs",
     "test:non-kitchen-save-exit": "node tests/non-kitchen-save-exit-flow.mjs",
     "test:waiter-item-cancellation": "node tests/bill-table-transfer-sql.mjs && node tests/waiter-item-cancellation-flow.mjs",
+    "test:linked-tables": "node tests/bill-table-transfer-sql.mjs && node tests/linked-tables-flow.mjs",
     "test:sent-notes": "node tests/bill-table-transfer-sql.mjs && node tests/sent-note-edit-flow.mjs",
     "test:reorder-saved": "node tests/reorder-saved-flow.mjs",
     "test:kitchen-images": "node tests/kitchen-images-sql.mjs && node tests/kitchen-image-wasm-loader.mjs && node tests/kitchen-images-edge.mjs && node tests/staff-table-cancellation-sql.mjs",
