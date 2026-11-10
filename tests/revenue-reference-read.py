@@ -2,7 +2,8 @@ from openpyxl import load_workbook
 w=load_workbook('/workspace/artifacts/Bao-cao-Excel-theo-mau.xlsx')
 s=w.worksheets[0]
 assert s.title=='Bán hàng theo giờ' and s.max_column==11
-assert s['A1'].value=='NGÀY XUẤT FILE: 11/11/2026'
+assert s['A1'].value=='THỜI GIAN: 09/11/2026 00:00:00 → 09/11/2026 23:59:59'
+assert w.sheetnames==['Bán hàng theo giờ']
 rows=list(s.values)
 find=lambda label:next(r for r in rows if r[0]==label)
 assert find('TỔNG MÓN CHÍNH')[8]==7
@@ -19,3 +20,5 @@ assert o.max_column==12 and o['I5'].value=='Ngoài khung'
 e=load_workbook('/tmp/revenue-reference-empty.xlsx').worksheets[0]
 assert e['A6'].value=='Bún riêu truyền thống' and e['J6'].value==58000 and e['I6'].value==0
 print('PASS independent reference XLSX: VN export date, all menu rows, 7 slots, main-only blue totals, exact gift, takeaway bowls, bill counts, menu price math and historical reconciliation, outside/empty.')
+
+t=load_workbook('/tmp/revenue-reference-selected-time.xlsx');assert t.sheetnames==['Bán hàng theo giờ'];assert t.active['A1'].value=='THỜI GIAN: 09/11/2026 08:30:15 → 09/11/2026 19:00:00'

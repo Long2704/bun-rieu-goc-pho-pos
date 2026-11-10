@@ -27,13 +27,13 @@ function column(n:number):string{let s='';for(n++;n>0;n=Math.floor((n-1)/26))s=S
 const cell=(value:Cell,style=0):XCell=>({value,style});
 const money=(n:number)=>cell(n,3);
 const number=(n:number)=>cell(n,2);
+const selectedPeriod=(report:RevenueReport)=>`THỜI GIAN: ${vnDay(report.from)} ${report.from.slice(11,19)||'00:00:00'} → ${vnDay(report.to)} ${report.to.slice(11,19)||'23:59:59'}`;
 const vnDay=(day:string)=>{const [y,m,d]=day.slice(0,10).split('-');return `${d}/${m}/${y}`;};
 const localTime=(stamp:string)=>new Date(Date.parse(stamp)+7*3600000).toISOString().slice(0,19).replace('T',' ');
 const stamp=(report:RevenueReport)=>new Date(report.generated_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'});
 const PERIOD_BANDS=[['06:00','09:00'],['09:00','11:00'],['11:00','13:00'],['13:00','15:00'],['15:00','17:00'],['17:00','19:00'],['19:00','22:00']];
 const BAND_LABELS=[...PERIOD_BANDS.map(([a,b])=>`${a}–${b}`),'Ngoài khung'];
 const keys=['invoices','gross','discount','total','cash','transfer'] as const;
-const financialHeaders=['Số hóa đơn','Tiền món (VND)','Giảm giá (VND)','Thực thu (VND)','Tiền mặt (VND)','Chuyển khoản (VND)'];
 const sum=(values:number[])=>{const n=values.reduce((a,b)=>a+b,0);if(!Number.isSafeInteger(n))throw Error('Tổng vượt giới hạn số an toàn');return n;};
 function heading(title:string,report:RevenueReport,columns:number,subtitle?:string):Pick<Sheet,'rows'|'merges'>{
  return {rows:[[cell(title,13)],[cell(`${vnDay(report.from)} → ${vnDay(report.to)} · ${report.filter_label??'Tất cả'} · Giờ Việt Nam`,5)],[cell(subtitle??`BÚN RIÊU GÓC PHỐ · Xuất lúc ${stamp(report)}`,5)],[]],merges:[`A1:${column(columns-1)}1`,`A2:${column(columns-1)}2`,`A3:${column(columns-1)}3`]};
@@ -62,7 +62,6 @@ export type ExcelMenuItem={id:string;name:string;price:number;category:string;so
 export type ExcelReportOptions={menu:readonly ExcelMenuItem[];exportedAt?:string};
 const normalizedName=(name:string)=>name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
 function referenceMatrix(report:RevenueReport,current:readonly Sale[],options:ExcelReportOptions):Sheet{
- const exportedAt=options.exportedAt??new Date().toISOString();
  const menu=[...options.menu].sort((a,b)=>a.sort-b.sort||a.id.localeCompare(b.id));
  const byName=new Map<string,ExcelMenuItem>();
  for(const m of menu){const key=normalizedName(m.name);if(byName.has(key))throw Error('Tên món trong menu bị trùng. Kiểm tra trước khi xuất.');byName.set(key,m);}
@@ -84,7 +83,7 @@ function referenceMatrix(report:RevenueReport,current:readonly Sale[],options:Ex
  const indices=[0,1,2,3,4,5,6,...(invoices[7]>0?[7]:[])],labels=indices.map(i=>BAND_LABELS[i]);
  const values=[...rows.values()].map(r=>[r.name+(r.fallback?' †':''),...indices.map(i=>r.counts[i]),sum(r.counts),r.price,sum(r.counts)*r.price]);
  const amount=sum([...rows.values()].map(r=>sum(r.counts)*r.price)),last=labels.length+3;
- const sheet=tableSheet('Bán hàng theo giờ','NGÀY XUẤT FILE: '+vnDay(localTime(exportedAt)),report,['Khung giờ',...labels,'Tổng cộng','Giá','Thành tiền'],values,[36,...labels.map(()=>14),17,18,22],[last-1,last],['TỔNG MÓN CHÍNH',...indices.map(i=>main[i]),sum(main),'',amount]);
+ const sheet=tableSheet('Bán hàng theo giờ',selectedPeriod(report),report,['Khung giờ',...labels,'Tổng cộng','Giá','Thành tiền'],values,[36,...labels.map(()=>14),17,18,22],[last-1,last],['TỔNG MÓN CHÍNH',...indices.map(i=>main[i]),sum(main),'',amount]);
  sheet.rows[0][0].style=4;
  sheet.rows[2]=[cell('Tên món và giá theo menu lúc xuất · Số lượng theo hóa đơn đã thanh toán',5)];
  for(let r=5;r<5+values.length;r++)sheet.rows[r][0].style=9;
@@ -97,7 +96,7 @@ function referenceMatrix(report:RevenueReport,current:readonly Sale[],options:Ex
   'Chả ốc (Tặng): chỉ đếm đúng món này; không đếm Chả ốc bán thường hoặc món khác có giá 0đ.',
   'Giá là giá menu tại lúc xuất. Thành tiền = Giá × Tổng cộng; thực thu Dashboard không bị thay đổi.',
   '† Món cũ không còn trong menu: giữ giá hóa đơn, chưa đưa vào tổng món chính nếu không xác định được nhóm.',
-  'Khoảng thống kê ghi ở dòng 2; ngày xuất file ghi ở dòng 1, đều theo giờ Việt Nam.'
+  'Dòng 1 là khoảng ngày giờ đã chọn để xuất báo cáo, theo giờ Việt Nam; không phải ngày tải file.'
  ];
  for(const text of notes){sheet.rows.push([cell(text,5)]);const r=sheet.rows.length;sheet.merges?.push(`A${r}:${column(last)}${r}`);}
  return sheet;
@@ -122,40 +121,21 @@ export function revenueWorkbook(report:RevenueReport,sales?:readonly Sale[],opti
  for(const key of keys)if(sum(report.slots.map(s=>s[key]))!==report[key]||sum(report.days.map(s=>s[key]))!==report[key])throw Error('Tổng khung giờ/ngày không khớp báo cáo');
  if(report.gross-report.discount!==report.total||report.cash+report.transfer!==report.total||sum(report.products.map(p=>p.gross))!==report.gross)throw Error('Tổng tiền không khớp báo cáo');
  const detail=sales?exportDetail(report,sales):null;
- const amounts=(s:Pick<RevenueSlot,typeof keys[number]>)=>keys.map(k=>s[k]);
- const totals=[...new Set(report.slots.map(s=>s.slot_index))].sort((a,b)=>a-b).map(index=>{const rows=report.slots!.filter(s=>s.slot_index===index);return {slot:rows[0].slot,...Object.fromEntries(keys.map(k=>[k,sum(rows.map(s=>s[k]))]))} as RevenueSlot;});
- const overview=heading('BÁO CÁO BÁN HÀNG',report,3,'Tổng hợp từ hóa đơn đã thanh toán · Đơn vị tiền: VND · Doanh thu không phải lợi nhuận');
- overview.rows.push(['CHỈ TIÊU','GIÁ TRỊ','GIẢI THÍCH'].map(v=>cell(v,1)));
- for(const [label,value,note,isMoney] of [['Thực thu',report.total,'Tiền món trừ giảm giá',true],['Tiền món',report.gross,'Tổng giá bán × số lượng trước giảm giá hóa đơn',true],['Giảm giá',report.discount,'Giảm ở cấp hóa đơn; không tự phân bổ xuống món',true],['Số hóa đơn',report.invoices,'Tách bill có thể làm tăng số hóa đơn',false],['Lượt bán',report.visits??'Chưa có dữ liệu','Một phiên bàn là một lượt; tách bill không tăng lượt',false],['Tiền mặt',report.cash,'Thực thu bằng tiền mặt',true],['Chuyển khoản',report.transfer,'Thực thu bằng chuyển khoản',true]] as const)overview.rows.push([cell(label,9),cell(value,typeof value==='number'?(isMoney?3:2):0),cell(note)]);
- overview.rows.push([], [cell('ĐỐI SOÁT',6),cell('KẾT QUẢ',6),cell('QUY TẮC',6)], [cell('Thu tiền'),cell(report.cash+report.transfer===report.total?'Khớp':'Lệch'),cell('Tiền mặt + chuyển khoản = thực thu')], [cell('Doanh số'),cell(report.gross-report.discount===report.total?'Khớp':'Lệch'),cell('Tiền món − giảm giá = thực thu')], [cell('Chi tiết món'),cell(detail?'Đã đối soát hóa đơn':'Chưa có chi tiết hóa đơn'),cell('Giữ riêng cùng tên món nhưng khác đơn giá')],[],[cell('CÁCH ĐỌC FILE',6)], [cell('Bán hàng theo giờ: ma trận món × 7 khung chuẩn theo mẫu, kèm Ngoài khung.',5)], [cell('Theo ngày và khung / Tổng theo khung: dùng khung giờ đang chọn trên Dashboard.',5)], [cell('Chi tiết hóa đơn và Chi tiết món bán: dữ liệu nguồn để kiểm tra số liệu.',5)], [cell(options?'Chả ốc (Tặng) được đếm theo đúng tên món; không đếm các món giá 0đ khác.':'Món giá 0đ chỉ phản ánh giá ghi trên hóa đơn, không tự suy luận chương trình tặng.',5)], [cell('Mang về được nhận diện theo tên điểm bán bắt đầu bằng “Mang về”, như Dashboard.',5)]);
- const sheets:Sheet[]=[{name:'Tổng quan',rows:overview.rows,merges:[...(overview.merges??[]),...[19,20,21,22,23,24].map(r=>`A${r}:C${r}`)],widths:[36,24,84],freeze:{rows:5,cols:0},landscape:true,printTitles:'$1:$5'}];
+ if(!detail)throw Error('Thiếu dữ liệu hóa đơn chi tiết để lập bảng bán hàng theo giờ');
+ const sheets:Sheet[]=[];
  if(detail){
   const headers=['Tên món',...BAND_LABELS,'Tổng số phần','Đơn giá','Tiền món'];
   const values=detail.products.map(p=>[p.name,...p.qty,sum(p.qty),p.price,p.gross]);
   const quantities=BAND_LABELS.map((_,i)=>sum(detail.products.map(p=>p.qty[i])));
-  const matrix=tableSheet('Bán hàng theo giờ','MÓN BÁN THEO KHUNG GIỜ',report,headers,values,[36,...BAND_LABELS.map(()=>14),17,18,22],[10,11],['TỔNG MÓN',...quantities,sum(quantities),'',report.gross]);
+  const matrix=tableSheet('Bán hàng theo giờ',selectedPeriod(report),report,headers,values,[36,...BAND_LABELS.map(()=>14),17,18,22],[10,11],['TỔNG MÓN',...quantities,sum(quantities),'',report.gross]);
   // Highlight item labels like the supplied paper report.
   for(let r=5;r<5+values.length;r++)matrix.rows[r][0].style=9;
   const summary=(label:string,values:number[])=>[cell(label,9),...values.map(number),number(sum(values)),cell(''),cell('')];
   matrix.rows.push(summary('Số lượng bill',detail.invoices),summary('Số phần mang về¹',detail.takeaway),summary('Số phần giá 0đ²',detail.free),[],[cell('¹ Tất cả món thuộc hóa đơn mang về; không suy đoán đơn vị tô/phần chính.',5)],[cell('² Không đồng nghĩa tất cả món được tặng: chỉ đếm dòng có đơn giá bằng 0đ.',5)],[cell('Các cột giờ tính từ giờ đầu đến trước giờ cuối. Món bán ngoài 06:00–22:00 vẫn được cộng đủ.',5)],[cell('Khăn lạnh / nước uống cũng nằm trong tổng; không cộng thêm lần thứ hai.',5)]);
   matrix.merges?.push(...[3,2,1,0].map(offset=>{const r=matrix.rows.length-offset;return `A${r}:L${r}`;}));
   if(options)sheets.unshift(referenceMatrix(report,detail.current,options));else sheets.push(matrix);
-  sheets.push(tableSheet('Món theo ngày','CHI TIẾT MÓN THEO NGÀY VÀ KHUNG GIỜ',report,['Ngày','Tên món',...BAND_LABELS,'Tổng số phần','Đơn giá','Tiền món'],detail.daily.flatMap(d=>d.products.map(p=>[vnDay(d.day),p.name,...p.qty,sum(p.qty),p.price,p.gross])),[16,36,...BAND_LABELS.map(()=>14),17,18,22],[11,12]));
+
  }
- sheets.push(
-  tableSheet('Theo ngày và khung','THU TIỀN THEO NGÀY VÀ KHUNG ĐÃ CHỌN',report,['Ngày','Khung giờ',...financialHeaders],report.slots.map(s=>[vnDay(s.day),s.slot,...amounts(s)]),[17,22,18,23,22,23,23,23],[3,4,5,6,7],['TỔNG CỘNG','',...amounts(report)]),
-  tableSheet('Tổng theo khung','TỔNG THU THEO KHUNG ĐÃ CHỌN',report,['Khung giờ',...financialHeaders],totals.map(s=>[s.slot,...amounts(s)]),[23,18,23,22,23,23,23],[2,3,4,5,6],['TỔNG CỘNG',...amounts(report)]),
-  tableSheet('Tổng theo ngày','TỔNG THU THEO NGÀY',report,['Ngày',...financialHeaders],report.days.map(s=>[vnDay(s.day),...amounts(s)]),[18,18,23,22,23,23,23],[2,3,4,5,6],['TỔNG CỘNG',...amounts(report)]),
-  tableSheet('Món ăn','TỔNG HỢP MÓN BÁN',report,['Tên món','Số lượng','Tiền món trước giảm giá'],report.products.map(p=>[p.name,p.qty,p.gross]),[44,20,30],[2],['TỔNG CỘNG',sum(report.products.map(p=>p.qty)),sum(report.products.map(p=>p.gross))])
- );
- if(report.table_sales)sheets.push(tableSheet('Theo bàn và Mang về','DOANH THU THEO BÀN / ĐIỂM BÁN',report,['Bàn / điểm bán','Hình thức','Lượt bán','Số hóa đơn','Tổng số phần','Thực thu'],report.table_sales.map(t=>[t.name,isTakeaway(t.name)?'Mang về':'Ăn tại bàn',t.visits,t.invoices,t.qty,t.total]),[32,22,17,17,19,25],[5],['TỔNG CỘNG','',report.visits??0,report.invoices,sum(report.table_sales.map(t=>t.qty)),report.total]));
- if(detail){
-  const name=(s:Sale)=>saleName(s),method=(s:Sale)=>s.method==='cash'?'Tiền mặt':'Chuyển khoản';
-  sheets.push(tableSheet('Chi tiết hóa đơn','DỮ LIỆU HÓA ĐƠN ĐỐI SOÁT',report,['Mã hóa đơn','Thời gian thanh toán (VN)','Bàn / điểm bán','Hình thức','Phương thức','Số phần','Tiền món','Giảm giá','Thực thu','Mã phiên bàn'],detail.current.map(s=>[s.id,localTime(s.paid_at),name(s),isTakeaway(name(s))?'Mang về':'Ăn tại bàn',method(s),sum(s.bill_items.map(i=>i.qty)),s.gross,s.discount,s.total,s.session_id]),[40,26,28,18,22,15,23,23,23,40],[6,7,8]));
-  sheets.push(tableSheet('Chi tiết món bán','DỮ LIỆU DÒNG MÓN ĐÃ THANH TOÁN',report,['Mã hóa đơn','Thời gian thanh toán (VN)','Bàn / điểm bán','Tên món','Số lượng','Đơn giá','Tiền món','Ghi nhận'],detail.current.flatMap(s=>s.bill_items.map(i=>[s.id,localTime(s.paid_at),name(s),i.name,i.qty,i.price,i.qty*i.price,i.price===0?'Dòng có đơn giá 0đ':''])),[40,26,28,42,16,23,23,28],[5,6]));
- }
- const info:Cell[][]=[['Từ ngày giờ',report.from],['Đến ngày giờ (bao gồm giây cuối)',report.to],['Múi giờ','Asia/Ho_Chi_Minh (UTC+7)'],['Bộ lọc',report.filter_label??'Tất cả'],['Thời điểm tính','Thời điểm thanh toán, không phải thời điểm gọi món'],['Khung chuẩn ma trận',PERIOD_BANDS.map(([a,b])=>`${a}–${b}`).join(', ')],['Khung của Dashboard',report.slot_rules??'Theo dữ liệu báo cáo'],['Ngoài khung','Không bỏ doanh số ngoài giờ chuẩn hoặc các khoảng trống giữa khung'],['Đơn giá khác nhau',options?'Bảng đầu dùng giá menu hiện tại; chi tiết theo ngày/hóa đơn giữ giá lúc bán':'Cùng tên nhưng khác đơn giá được tách dòng trong ma trận'],['Tiền món và thực thu','Tiền món chưa trừ giảm giá hóa đơn; thực thu đã trừ giảm giá'],['Giảm giá theo món','Không tự phân bổ giảm giá hóa đơn cho từng dòng món'],['Số lượng mang về',options?'Dòng Mang về (tô) đếm riêng nhóm Món chính ở điểm bán tên bắt đầu bằng Mang về':'Đếm tất cả số phần ở điểm bán tên bắt đầu bằng Mang về; không tương đương số tô'],['Món tặng',options?'Dòng Chả ốc (Tặng) chỉ đếm đúng món Chả ốc (Tặng)':'Chỉ nhận biết dòng có giá 0đ; không suy đoán món tặng từ tên món hoặc giảm giá hóa đơn'],['Ngày không bán','Tổng theo ngày giữ cả ngày không có hóa đơn trong khoảng lọc'],['Chi tiết nguồn',detail?'Có dữ liệu từng hóa đơn':'Không có dữ liệu hóa đơn chi tiết; chưa lập ma trận món theo giờ'],['Dữ liệu mẫu','File xuất dùng dữ liệu thực đã tải. Số trong ảnh tham khảo không được chép vào doanh số'],['Dữ liệu tải lúc (VN)',stamp(report)],...(options?[['Xuất file lúc (VN)',new Date(options.exportedAt??new Date().toISOString()).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})],['Giá bảng chính','Giá menu tại lúc xuất; bảng đối soát và chi tiết hóa đơn vẫn giữ giá bán thực tế'],['Tổng dòng xanh','Số lượng chỉ tính nhóm Món chính; thành tiền cộng toàn bộ món'],['Chả ốc tặng','Đếm riêng đúng tên Chả ốc (Tặng), không đếm món giá 0đ khác'],['Mang về (tô)','Số món chính của bàn/điểm bán bắt đầu bằng Mang về']]:[])];
- sheets.push(tableSheet('Thông tin','PHẠM VI VÀ QUY TẮC BÁO CÁO',report,['Nội dung','Giải thích'],info,[40,110]));
  const prefix='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
  const files:[string,string][]=[
   ['[Content_Types].xml',prefix+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')+'</Types>'],

@@ -5,6 +5,8 @@ const slots=Array.from({length:7},(_,i)=>({day:'2026-11-04',slot_index:i+1,slot:
 const keys=['invoices','gross','discount','total','cash','transfer'];const amounts=Object.fromEntries(keys.map(k=>[k,slots.reduce((n,s)=>n+s[k],0)]));
 const report={products_complete:true,time_filter:true,slots_complete:true,from:'2026-11-04T06:00:00',to:'2026-11-04T23:59:59',generated_at:'2026-11-04T12:00:00Z',...amounts,slots,days:[{day:'2026-11-04',...amounts}],products:[{name:'=SUM(A1:A2) & <Bún riêu>',qty:7,gross:amounts.gross}]};
 assert.throws(()=>revenueWorkbook({...report,total:0}),/không khớp/);assert.throws(()=>revenueWorkbook({...report,slots_complete:false}),/Thiếu/);
-const file=revenueWorkbook(report);assert.ok(file.filename.endsWith('.xlsx'));assert.ok(!file.filename.includes(':'));assert.equal(new DataView(file.bytes.buffer).getUint32(0,true),0x04034b50);
+assert.throws(()=>revenueWorkbook(report),/Thiếu dữ liệu hóa đơn/);
+const sales=slots.map((s,i)=>({id:'bill'+i,session_id:'s'+i,table_no:1,paid_at:`2026-11-04T${['06','09','11','13','15','17','23'][i]}:00:00+07:00`,gross:s.gross,discount:s.discount,total:s.total,method:i<3?'cash':'transfer',bill_items:[{name:report.products[0].name,qty:1,price:s.gross}]}));
+const file=revenueWorkbook(report,sales);assert.ok(file.filename.endsWith('.xlsx'));assert.ok(!file.filename.includes(':'));assert.equal(new DataView(file.bytes.buffer).getUint32(0,true),0x04034b50);
 writeFileSync(process.env.POS_WORKBOOK_FIXTURE||'/tmp/revenue-workbook-test.xlsx',file.bytes);
 console.log('PASS workbook: complete/reconciled slots required, Windows-safe XLSX filename; fixture for independent openpyxl validation.');
