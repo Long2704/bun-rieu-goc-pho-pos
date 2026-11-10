@@ -1,0 +1,15 @@
+import {writeFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+import {aggregateSales,defaultBands} from '../src/dashboard-model.ts';
+import {revenueWorkbook} from '../src/revenue-workbook.ts';
+const menu=[['Bún riêu truyền thống',58000,'bun'],['Canh bún đầy đủ',65000,'bun'],['Bún thêm',10000,'an_them'],['Chả ốc (Tặng)',0,'an_them'],['Chả ốc',12000,'an_them'],['Trà đá',3000,'do_uong'],['Khăn lạnh',3000,'do_uong'],['Món khác giá 0đ',0,'do_uong']].map(([name,price,category],sort)=>({id:'m'+sort,name,price,category,sort,is_active:true}));
+const sale=(id,time,table,items)=>{const bill_items=items.map(([index,qty,price])=>({name:menu[index].name,qty,price:price??menu[index].price})),gross=bill_items.reduce((n,i)=>n+i.qty*i.price,0);return{id,session_id:'s'+id,table_no:table,service_label:table===201?'Mang về 4':table===202?'MANG VỀ 5':table===203?'ABCD':'Bàn 1',paid_at:'2026-11-09T'+time+'+07:00',gross,discount:0,total:gross,method:'cash',bill_items};};
+const sales=[sale('A','06:00:00',201,[[0,2],[2,4],[3,1],[5,3],[7,2]]),sale('B','09:00:00',1,[[1,3],[3,2],[4,1]]),sale('C','17:00:00',202,[[0,1,60000],[6,1]]),sale('D','19:00:00',203,[[1,1]])];
+const report=aggregateSales(sales,'2026-11-09T00:00:00','2026-11-09T23:59:59',defaultBands,'MINH HỌA · Không phải doanh số thực','2026-11-10T00:00:00Z');
+const before=JSON.stringify({menu,sales,report});
+writeFileSync('/workspace/artifacts/Bao-cao-Excel-theo-mau.xlsx',revenueWorkbook(report,sales,{menu,exportedAt:'2026-11-10T18:00:00Z'}).bytes);
+assert.equal(JSON.stringify({menu,sales,report}),before);
+const outside=[...sales,sale('E','22:00:00',201,[[0,1]])];const outReport=aggregateSales(outside,report.from,report.to,defaultBands,'Ngoài giờ',report.generated_at);
+writeFileSync('/tmp/revenue-reference-outside.xlsx',revenueWorkbook(outReport,outside,{menu,exportedAt:'2026-11-10T18:00:00Z'}).bytes);
+writeFileSync('/tmp/revenue-reference-empty.xlsx',revenueWorkbook(aggregateSales([],report.from,report.to,defaultBands,'Trống',report.generated_at),[],{menu,exportedAt:'2026-11-10T18:00:00Z'}).bytes);
+console.log('PASS reference Excel fixtures: current menu prices/groups, all menu items, main-only/takeaway bowls, exact gift, outside/empty reports and immutable Dashboard snapshot.');

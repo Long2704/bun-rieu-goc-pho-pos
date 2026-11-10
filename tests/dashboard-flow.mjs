@@ -16,7 +16,8 @@ try{
   else if(path==='/auth/v1/user')body={id:'dashboard-owner',email:'owner@example.test'};
   else if(path.endsWith('/get_my_access'))body=mockAccess({name:'Chủ quán',role:'chu'});
   else if(path==='/rest/v1/restaurant_tables')body=[{id:1,name:'Bàn 1'},{id:2,name:'Bàn 2'},{id:201,name:'Mang về 2'},{id:202,name:'Mang về 3'}];
-  else if(['/rest/v1/orders','/rest/v1/menu_items','/rest/v1/table_sessions'].includes(path))body=[];
+  else if(path==='/rest/v1/menu_items'){const menu=[{id:'food',name:'Bún riêu',price:58000,category:'bun',sort:0,is_active:true},{id:'canh',name:'Canh bún',price:55000,category:'bun',sort:1,is_active:true}];return route.fulfill({json:menu,headers:{'content-range':'0-1/2','access-control-expose-headers':'content-range'}});}
+  else if(['/rest/v1/orders','/rest/v1/table_sessions'].includes(path))body=[];
   else if(path.endsWith('/set_sales_retention_enabled')){retentionEnabled=req.postDataJSON().p_enabled;retentionToggles.push(retentionEnabled);body=null;}
   else if(path.endsWith('/get_sales_retention_status'))body={retention_days:7,retention_mode:'calendar_days',schedule_kind:'daily',enabled:retentionEnabled,scheduled:true,next_run:new Date().toISOString(),last_run:null,eligible:{sessions:0,orders:0,invoices:0}};
   else if(path==='/rest/v1/bills'){
