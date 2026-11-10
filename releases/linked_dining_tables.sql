@@ -408,7 +408,7 @@ grant execute on function public.unlink_dining_table(uuid,integer,integer,uuid) 
 create function public.get_linked_table_snapshot() returns jsonb language sql stable security invoker set search_path='' as $$
  select jsonb_build_object(
   'sessions',coalesce((select jsonb_agg(jsonb_build_object('id',s.id,'table_id',s.table_id,'table_path',s.table_path,
-   'orders',coalesce((select jsonb_agg(to_jsonb(o)||jsonb_build_object('order_items',coalesce((select jsonb_agg(to_jsonb(i) order by i.id) from public.order_items i where i.order_id=o.id),'[]'::jsonb)) order by o.created_at,o.id) from public.orders o where o.session_id=s.id),'[]'::jsonb)) order by s.id) from public.table_sessions s where s.closed_at is null),'[]'::jsonb),
+   'orders',coalesce((select jsonb_agg(to_jsonb(o)||jsonb_build_object('order_items',coalesce((select jsonb_agg(to_jsonb(i) order by i.kitchen_position,i.id) from public.order_items i where i.order_id=o.id),'[]'::jsonb)) order by o.created_at,o.id) from public.orders o where o.session_id=s.id),'[]'::jsonb)) order by s.id) from public.table_sessions s where s.closed_at is null),'[]'::jsonb),
   'links',public.get_active_table_links()
  );
 $$;
