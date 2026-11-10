@@ -7,3 +7,5 @@ assert.equal(groups.filter(g=>g.productId==='food').length,2,'same product in di
 assert.deepEqual(groups.filter(g=>g.productId==='food').map(g=>({bill:g.billNo,qty:g.qty,amount:g.amount})),[{bill:1,qty:1,amount:58000},{bill:2,qty:3,amount:174000}]);
 assert.equal(groups.filter(g=>g.productId===null).length,2);assert.equal(history.length,2);assert.equal(new Set(groups.map(g=>g.key)).size,groups.length);assert.deepEqual(orders,before);
 console.log('PASS bill-aware saved grouping: same product separated across bills, quantities/subtotals within bill, paid/cancelled excluded, missing product IDs kept separate, stable source data.');
+
+const separate=groupSavedOrders(orders,true).groups;assert.equal(separate.filter(g=>g.productId==='food').length,3,'original item IDs keep separate service rows after batches share one kitchen order');
