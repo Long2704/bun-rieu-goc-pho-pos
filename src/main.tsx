@@ -8,7 +8,7 @@ import DeferredPanel from './DeferredPanel';
 import type {Session} from '@supabase/supabase-js';
 import {supabase} from './supabase';
 import PasswordRecovery,{recoveryCallback,recoveryUser,rememberRecovery} from './PasswordRecovery';
-import {fifo, kitchenLines, savedTotal, tableStatus, placeLabel} from './order-model';
+import {latestCompleted,fifo, kitchenLines, savedTotal, tableStatus, placeLabel} from './order-model';
 import type {Order, TableSession} from './order-model';
 import './style.css';
 import './pos/pos.css';
@@ -270,7 +270,7 @@ function App(){
   setCheckoutIntent(null);paymentController.current?.open();
  },[checkoutIntent,session?.user.id,selected?.id,pending,sending,syncError,online,paymentReady,drafts,sessions]);
 
- const historyOrders=fifo(sessions.flatMap(s=>s.orders.filter(o=>o.status==='done'&&o.kitchen_relevant).map(o=>({...o,table_sessions:{table_id:s.table_id,closed_at:null,table_path:s.table_path}}))));
+ const historyOrders=latestCompleted(sessions.flatMap(s=>s.orders.filter(o=>o.status==='done'&&o.kitchen_relevant).map(o=>({...o,table_sessions:{table_id:s.table_id,closed_at:null,table_path:s.table_path}}))));
  const kitchen=history?historyOrders:fifo(cooking);
  const canComplete=permitted(profile,'kitchen.complete');
  const currentOrders=selected?fifo(sessions.filter(s=>s.table_id===selected.id).flatMap(s=>s.orders)):[];
