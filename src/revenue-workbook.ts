@@ -58,6 +58,50 @@ function styles():string{
  const formats=[xf(0,0),xf(1,2,0,1,'center'),xf(0,0,164,1,'right'),xf(0,0,165,1,'right'),xf(1,2),xf(3,0,0,0),xf(1,2),xf(1,2,164,1,'right'),xf(1,2,165,1,'right'),xf(4,3),xf(0,4),xf(0,4,164,1,'right'),xf(0,4,165,1,'right'),xf(2,0,0,0)];
  return '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0;[Red](#,##0);&quot;–&quot;"/><numFmt numFmtId="165" formatCode="#,##0&quot; đ&quot;;[Red](#,##0)&quot; đ&quot;;0&quot; đ&quot;"/></numFmts><fonts count="5">'+fonts+'</fonts><fills count="5">'+fills+'</fills><borders count="2"><border/><border><left style="thin"><color rgb="FFDCE5ED"/></left><right style="thin"><color rgb="FFDCE5ED"/></right><top style="thin"><color rgb="FFDCE5ED"/></top><bottom style="thin"><color rgb="FFDCE5ED"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="'+formats.length+'">'+formats.join('')+'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 }
+export type ExcelMenuItem={id:string;name:string;price:number;category:string;sort:number;is_active:boolean};
+export type ExcelReportOptions={menu:readonly ExcelMenuItem[];exportedAt?:string};
+const normalizedName=(name:string)=>name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+function referenceMatrix(report:RevenueReport,current:readonly Sale[],options:ExcelReportOptions):Sheet{
+ const exportedAt=options.exportedAt??new Date().toISOString();
+ const menu=[...options.menu].sort((a,b)=>a.sort-b.sort||a.id.localeCompare(b.id));
+ const byName=new Map<string,ExcelMenuItem>();
+ for(const m of menu){const key=normalizedName(m.name);if(byName.has(key))throw Error('Tên món trong menu bị trùng. Kiểm tra trước khi xuất.');byName.set(key,m);}
+ type Row={name:string;price:number;main:boolean;counts:number[];fallback:boolean};
+ const rows=new Map<string,Row>();
+ for(const m of menu)if(m.is_active)rows.set(normalizedName(m.name),{name:m.name,price:m.price,main:m.category==='bun',counts:Array(8).fill(0),fallback:false});
+ const main=Array(8).fill(0) as number[],invoices=Array(8).fill(0) as number[],gift=Array(8).fill(0) as number[],takeaway=Array(8).fill(0) as number[];
+ for(const sale of current){
+  const time=localTime(sale.paid_at).slice(11,16),b=PERIOD_BANDS.findIndex(([a,z])=>time>=a&&time<z),band=b<0?7:b;invoices[band]++;
+  for(const item of sale.bill_items){
+   const key=normalizedName(item.name),m=byName.get(key),rowKey=m?key:JSON.stringify([key,item.price]);
+   const row=rows.get(rowKey)??{name:m?.name??item.name,price:m?.price??item.price,main:m?.category==='bun',counts:Array(8).fill(0),fallback:!m};
+   row.counts[band]+=item.qty;rows.set(rowKey,row);
+   if(row.main){main[band]+=item.qty;if(isTakeaway(saleName(sale)))takeaway[band]+=item.qty;}
+   if(key===normalizedName('Chả ốc (Tặng)'))gift[band]+=item.qty;
+  }
+ }
+ // Keep the seven requested columns. Expose an extra column only when actual data falls outside them.
+ const indices=[0,1,2,3,4,5,6,...(invoices[7]>0?[7]:[])],labels=indices.map(i=>BAND_LABELS[i]);
+ const values=[...rows.values()].map(r=>[r.name+(r.fallback?' †':''),...indices.map(i=>r.counts[i]),sum(r.counts),r.price,sum(r.counts)*r.price]);
+ const amount=sum([...rows.values()].map(r=>sum(r.counts)*r.price)),last=labels.length+3;
+ const sheet=tableSheet('Bán hàng theo giờ','NGÀY XUẤT FILE: '+vnDay(localTime(exportedAt)),report,['Khung giờ',...labels,'Tổng cộng','Giá','Thành tiền'],values,[36,...labels.map(()=>14),17,18,22],[last-1,last],['TỔNG MÓN CHÍNH',...indices.map(i=>main[i]),sum(main),'',amount]);
+ sheet.rows[0][0].style=4;
+ sheet.rows[2]=[cell('Tên món và giá theo menu lúc xuất · Số lượng theo hóa đơn đã thanh toán',5)];
+ for(let r=5;r<5+values.length;r++)sheet.rows[r][0].style=9;
+ const summary=(label:string,counts:number[])=>[cell(label,9),...indices.map(i=>number(counts[i])),number(sum(counts)),cell(''),cell('')];
+ sheet.rows.push(summary('Số lượng bill',invoices),summary('Chả ốc (Tặng)',gift),summary('Mang về (tô)',takeaway));
+ sheet.rows.push([], [cell('Tiền món theo hóa đơn',9),...Array(last-1).fill(cell('')),money(report.gross)], [cell('Chênh lệch giá menu / hóa đơn',9),...Array(last-1).fill(cell('')),money(amount-report.gross)]);
+ const notes=[
+  'Dòng xanh: số lượng chỉ cộng nhóm Món chính; cột Thành tiền cộng tất cả món trong bảng.',
+  'Mang về (tô): chỉ đếm món chính trên hóa đơn của các bàn/điểm bán bắt đầu bằng “Mang về”.',
+  'Chả ốc (Tặng): chỉ đếm đúng món này; không đếm Chả ốc bán thường hoặc món khác có giá 0đ.',
+  'Giá là giá menu tại lúc xuất. Thành tiền = Giá × Tổng cộng; thực thu Dashboard không bị thay đổi.',
+  '† Món cũ không còn trong menu: giữ giá hóa đơn, chưa đưa vào tổng món chính nếu không xác định được nhóm.',
+  'Khoảng thống kê ghi ở dòng 2; ngày xuất file ghi ở dòng 1, đều theo giờ Việt Nam.'
+ ];
+ for(const text of notes){sheet.rows.push([cell(text,5)]);const r=sheet.rows.length;sheet.merges?.push(`A${r}:${column(last)}${r}`);}
+ return sheet;
+}
 type ProductBucket={name:string;price:number;qty:number[];gross:number};
 function exportDetail(report:RevenueReport,sales:readonly Sale[]){
  const range=bounds(report.from,report.to),seen=new Set<string>();
@@ -73,7 +117,7 @@ function exportDetail(report:RevenueReport,sales:readonly Sale[]){
  const ordered=(map:Map<string,ProductBucket>)=>[...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'vi',{numeric:true})||a.price-b.price);
  return {current,products:ordered(products),daily:[...daily].map(([day,p])=>({day,products:ordered(p)})),invoices,takeaway,free};
 }
-export function revenueWorkbook(report:RevenueReport,sales?:readonly Sale[]):{filename:string;bytes:Uint8Array}{
+export function revenueWorkbook(report:RevenueReport,sales?:readonly Sale[],options?:ExcelReportOptions):{filename:string;bytes:Uint8Array}{
  if(!report.products_complete||!report.slots_complete||!report.slots?.length)throw Error('Thiếu dữ liệu theo khung giờ');
  for(const key of keys)if(sum(report.slots.map(s=>s[key]))!==report[key]||sum(report.days.map(s=>s[key]))!==report[key])throw Error('Tổng khung giờ/ngày không khớp báo cáo');
  if(report.gross-report.discount!==report.total||report.cash+report.transfer!==report.total||sum(report.products.map(p=>p.gross))!==report.gross)throw Error('Tổng tiền không khớp báo cáo');
@@ -83,7 +127,7 @@ export function revenueWorkbook(report:RevenueReport,sales?:readonly Sale[]):{fi
  const overview=heading('BÁO CÁO BÁN HÀNG',report,3,'Tổng hợp từ hóa đơn đã thanh toán · Đơn vị tiền: VND · Doanh thu không phải lợi nhuận');
  overview.rows.push(['CHỈ TIÊU','GIÁ TRỊ','GIẢI THÍCH'].map(v=>cell(v,1)));
  for(const [label,value,note,isMoney] of [['Thực thu',report.total,'Tiền món trừ giảm giá',true],['Tiền món',report.gross,'Tổng giá bán × số lượng trước giảm giá hóa đơn',true],['Giảm giá',report.discount,'Giảm ở cấp hóa đơn; không tự phân bổ xuống món',true],['Số hóa đơn',report.invoices,'Tách bill có thể làm tăng số hóa đơn',false],['Lượt bán',report.visits??'Chưa có dữ liệu','Một phiên bàn là một lượt; tách bill không tăng lượt',false],['Tiền mặt',report.cash,'Thực thu bằng tiền mặt',true],['Chuyển khoản',report.transfer,'Thực thu bằng chuyển khoản',true]] as const)overview.rows.push([cell(label,9),cell(value,typeof value==='number'?(isMoney?3:2):0),cell(note)]);
- overview.rows.push([], [cell('ĐỐI SOÁT',6),cell('KẾT QUẢ',6),cell('QUY TẮC',6)], [cell('Thu tiền'),cell(report.cash+report.transfer===report.total?'Khớp':'Lệch'),cell('Tiền mặt + chuyển khoản = thực thu')], [cell('Doanh số'),cell(report.gross-report.discount===report.total?'Khớp':'Lệch'),cell('Tiền món − giảm giá = thực thu')], [cell('Chi tiết món'),cell(detail?'Đã đối soát hóa đơn':'Chưa có chi tiết hóa đơn'),cell('Giữ riêng cùng tên món nhưng khác đơn giá')],[],[cell('CÁCH ĐỌC FILE',6)], [cell('Bán hàng theo giờ: ma trận món × 7 khung chuẩn theo mẫu, kèm Ngoài khung.',5)], [cell('Theo ngày và khung / Tổng theo khung: dùng khung giờ đang chọn trên Dashboard.',5)], [cell('Chi tiết hóa đơn và Chi tiết món bán: dữ liệu nguồn để kiểm tra số liệu.',5)], [cell('Món giá 0đ chỉ phản ánh giá ghi trên hóa đơn, không tự suy luận chương trình tặng.',5)], [cell('Mang về được nhận diện theo tên điểm bán bắt đầu bằng “Mang về”, như Dashboard.',5)]);
+ overview.rows.push([], [cell('ĐỐI SOÁT',6),cell('KẾT QUẢ',6),cell('QUY TẮC',6)], [cell('Thu tiền'),cell(report.cash+report.transfer===report.total?'Khớp':'Lệch'),cell('Tiền mặt + chuyển khoản = thực thu')], [cell('Doanh số'),cell(report.gross-report.discount===report.total?'Khớp':'Lệch'),cell('Tiền món − giảm giá = thực thu')], [cell('Chi tiết món'),cell(detail?'Đã đối soát hóa đơn':'Chưa có chi tiết hóa đơn'),cell('Giữ riêng cùng tên món nhưng khác đơn giá')],[],[cell('CÁCH ĐỌC FILE',6)], [cell('Bán hàng theo giờ: ma trận món × 7 khung chuẩn theo mẫu, kèm Ngoài khung.',5)], [cell('Theo ngày và khung / Tổng theo khung: dùng khung giờ đang chọn trên Dashboard.',5)], [cell('Chi tiết hóa đơn và Chi tiết món bán: dữ liệu nguồn để kiểm tra số liệu.',5)], [cell(options?'Chả ốc (Tặng) được đếm theo đúng tên món; không đếm các món giá 0đ khác.':'Món giá 0đ chỉ phản ánh giá ghi trên hóa đơn, không tự suy luận chương trình tặng.',5)], [cell('Mang về được nhận diện theo tên điểm bán bắt đầu bằng “Mang về”, như Dashboard.',5)]);
  const sheets:Sheet[]=[{name:'Tổng quan',rows:overview.rows,merges:[...(overview.merges??[]),...[19,20,21,22,23,24].map(r=>`A${r}:C${r}`)],widths:[36,24,84],freeze:{rows:5,cols:0},landscape:true,printTitles:'$1:$5'}];
  if(detail){
   const headers=['Tên món',...BAND_LABELS,'Tổng số phần','Đơn giá','Tiền món'];
@@ -95,7 +139,7 @@ export function revenueWorkbook(report:RevenueReport,sales?:readonly Sale[]):{fi
   const summary=(label:string,values:number[])=>[cell(label,9),...values.map(number),number(sum(values)),cell(''),cell('')];
   matrix.rows.push(summary('Số lượng bill',detail.invoices),summary('Số phần mang về¹',detail.takeaway),summary('Số phần giá 0đ²',detail.free),[],[cell('¹ Tất cả món thuộc hóa đơn mang về; không suy đoán đơn vị tô/phần chính.',5)],[cell('² Không đồng nghĩa tất cả món được tặng: chỉ đếm dòng có đơn giá bằng 0đ.',5)],[cell('Các cột giờ tính từ giờ đầu đến trước giờ cuối. Món bán ngoài 06:00–22:00 vẫn được cộng đủ.',5)],[cell('Khăn lạnh / nước uống cũng nằm trong tổng; không cộng thêm lần thứ hai.',5)]);
   matrix.merges?.push(...[3,2,1,0].map(offset=>{const r=matrix.rows.length-offset;return `A${r}:L${r}`;}));
-  sheets.push(matrix);
+  if(options)sheets.unshift(referenceMatrix(report,detail.current,options));else sheets.push(matrix);
   sheets.push(tableSheet('Món theo ngày','CHI TIẾT MÓN THEO NGÀY VÀ KHUNG GIỜ',report,['Ngày','Tên món',...BAND_LABELS,'Tổng số phần','Đơn giá','Tiền món'],detail.daily.flatMap(d=>d.products.map(p=>[vnDay(d.day),p.name,...p.qty,sum(p.qty),p.price,p.gross])),[16,36,...BAND_LABELS.map(()=>14),17,18,22],[11,12]));
  }
  sheets.push(
@@ -110,7 +154,7 @@ export function revenueWorkbook(report:RevenueReport,sales?:readonly Sale[]):{fi
   sheets.push(tableSheet('Chi tiết hóa đơn','DỮ LIỆU HÓA ĐƠN ĐỐI SOÁT',report,['Mã hóa đơn','Thời gian thanh toán (VN)','Bàn / điểm bán','Hình thức','Phương thức','Số phần','Tiền món','Giảm giá','Thực thu','Mã phiên bàn'],detail.current.map(s=>[s.id,localTime(s.paid_at),name(s),isTakeaway(name(s))?'Mang về':'Ăn tại bàn',method(s),sum(s.bill_items.map(i=>i.qty)),s.gross,s.discount,s.total,s.session_id]),[40,26,28,18,22,15,23,23,23,40],[6,7,8]));
   sheets.push(tableSheet('Chi tiết món bán','DỮ LIỆU DÒNG MÓN ĐÃ THANH TOÁN',report,['Mã hóa đơn','Thời gian thanh toán (VN)','Bàn / điểm bán','Tên món','Số lượng','Đơn giá','Tiền món','Ghi nhận'],detail.current.flatMap(s=>s.bill_items.map(i=>[s.id,localTime(s.paid_at),name(s),i.name,i.qty,i.price,i.qty*i.price,i.price===0?'Dòng có đơn giá 0đ':''])),[40,26,28,42,16,23,23,28],[5,6]));
  }
- const info:Cell[][]=[['Từ ngày giờ',report.from],['Đến ngày giờ (bao gồm giây cuối)',report.to],['Múi giờ','Asia/Ho_Chi_Minh (UTC+7)'],['Bộ lọc',report.filter_label??'Tất cả'],['Thời điểm tính','Thời điểm thanh toán, không phải thời điểm gọi món'],['Khung chuẩn ma trận',PERIOD_BANDS.map(([a,b])=>`${a}–${b}`).join(', ')],['Khung của Dashboard',report.slot_rules??'Theo dữ liệu báo cáo'],['Ngoài khung','Không bỏ doanh số ngoài giờ chuẩn hoặc các khoảng trống giữa khung'],['Đơn giá khác nhau','Cùng tên nhưng khác đơn giá được tách dòng trong ma trận'],['Tiền món và thực thu','Tiền món chưa trừ giảm giá hóa đơn; thực thu đã trừ giảm giá'],['Giảm giá theo món','Không tự phân bổ giảm giá hóa đơn cho từng dòng món'],['Số lượng mang về','Đếm tất cả số phần ở điểm bán tên bắt đầu bằng Mang về; không tương đương số tô'],['Món tặng','Chỉ nhận biết dòng có giá 0đ; không suy đoán món tặng từ tên món hoặc giảm giá hóa đơn'],['Ngày không bán','Tổng theo ngày giữ cả ngày không có hóa đơn trong khoảng lọc'],['Chi tiết nguồn',detail?'Có dữ liệu từng hóa đơn':'Không có dữ liệu hóa đơn chi tiết; chưa lập ma trận món theo giờ'],['Dữ liệu mẫu','File xuất dùng dữ liệu thực đã tải. Số trong ảnh tham khảo không được chép vào doanh số'],['Xuất lúc (VN)',stamp(report)]];
+ const info:Cell[][]=[['Từ ngày giờ',report.from],['Đến ngày giờ (bao gồm giây cuối)',report.to],['Múi giờ','Asia/Ho_Chi_Minh (UTC+7)'],['Bộ lọc',report.filter_label??'Tất cả'],['Thời điểm tính','Thời điểm thanh toán, không phải thời điểm gọi món'],['Khung chuẩn ma trận',PERIOD_BANDS.map(([a,b])=>`${a}–${b}`).join(', ')],['Khung của Dashboard',report.slot_rules??'Theo dữ liệu báo cáo'],['Ngoài khung','Không bỏ doanh số ngoài giờ chuẩn hoặc các khoảng trống giữa khung'],['Đơn giá khác nhau',options?'Bảng đầu dùng giá menu hiện tại; chi tiết theo ngày/hóa đơn giữ giá lúc bán':'Cùng tên nhưng khác đơn giá được tách dòng trong ma trận'],['Tiền món và thực thu','Tiền món chưa trừ giảm giá hóa đơn; thực thu đã trừ giảm giá'],['Giảm giá theo món','Không tự phân bổ giảm giá hóa đơn cho từng dòng món'],['Số lượng mang về',options?'Dòng Mang về (tô) đếm riêng nhóm Món chính ở điểm bán tên bắt đầu bằng Mang về':'Đếm tất cả số phần ở điểm bán tên bắt đầu bằng Mang về; không tương đương số tô'],['Món tặng',options?'Dòng Chả ốc (Tặng) chỉ đếm đúng món Chả ốc (Tặng)':'Chỉ nhận biết dòng có giá 0đ; không suy đoán món tặng từ tên món hoặc giảm giá hóa đơn'],['Ngày không bán','Tổng theo ngày giữ cả ngày không có hóa đơn trong khoảng lọc'],['Chi tiết nguồn',detail?'Có dữ liệu từng hóa đơn':'Không có dữ liệu hóa đơn chi tiết; chưa lập ma trận món theo giờ'],['Dữ liệu mẫu','File xuất dùng dữ liệu thực đã tải. Số trong ảnh tham khảo không được chép vào doanh số'],['Dữ liệu tải lúc (VN)',stamp(report)],...(options?[['Xuất file lúc (VN)',new Date(options.exportedAt??new Date().toISOString()).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})],['Giá bảng chính','Giá menu tại lúc xuất; bảng đối soát và chi tiết hóa đơn vẫn giữ giá bán thực tế'],['Tổng dòng xanh','Số lượng chỉ tính nhóm Món chính; thành tiền cộng toàn bộ món'],['Chả ốc tặng','Đếm riêng đúng tên Chả ốc (Tặng), không đếm món giá 0đ khác'],['Mang về (tô)','Số món chính của bàn/điểm bán bắt đầu bằng Mang về']]:[])];
  sheets.push(tableSheet('Thông tin','PHẠM VI VÀ QUY TẮC BÁO CÁO',report,['Nội dung','Giải thích'],info,[40,110]));
  const prefix='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
  const files:[string,string][]=[
@@ -122,7 +166,7 @@ export function revenueWorkbook(report:RevenueReport,sales?:readonly Sale[]):{fi
  ];
  return {filename:`goc-pho-bao-cao_${report.from.replaceAll(':','-')}_${report.to.replaceAll(':','-')}.xlsx`,bytes:zip(files)};
 }
-export async function downloadRevenueWorkbook(report:RevenueReport,sales?:readonly Sale[]){
- const file=revenueWorkbook(report,sales),url=URL.createObjectURL(new Blob([new Uint8Array(file.bytes).buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+export async function downloadRevenueWorkbook(report:RevenueReport,sales?:readonly Sale[],options?:ExcelReportOptions){
+ const file=revenueWorkbook(report,sales,options),url=URL.createObjectURL(new Blob([new Uint8Array(file.bytes).buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
  const a=document.createElement('a');try{a.href=url;a.download=file.filename;document.body.append(a);a.click();}finally{a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 }
