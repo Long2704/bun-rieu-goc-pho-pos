@@ -1,17 +1,8 @@
 import {memo} from 'react';
 import POSIcon from './POSIcon';
-import QuantityControl from './QuantityControl';
-import type { Product } from './types';
-import { formatMoney } from './types';
-function ProductItem({ product, qty, disabled, note, onNote, onChange }: {
-    product: Product;
-    qty: number;
-    disabled: boolean;
-    note: string;
-    onNote: (id: string, note: string) => void;
-    onChange: (id: string, delta: number) => void;
-}) {
-    return <article className={`pos-product-row${qty ? ' is-selected' : ''}`}><span className="pos-product-art"><POSIcon name={product.category === 'do_uong' ? 'cup' : 'plate'}/>{qty > 0 && <span className="pos-product-selected"><POSIcon name="check"/></span>}</span><div className="pos-product-copy"><h2>{product.name}</h2><span>{formatMoney(product.price)}</span></div><div className="pos-product-counter">{qty > 0 ? <QuantityControl name={product.name} qty={qty} disabled={disabled} onIncrease={() => onChange(product.id,1)} onDecrease={() => onChange(product.id,-1)}/> : <button className="pos-product-add" aria-label={`Thêm ${product.name}`} disabled={disabled} onClick={() => onChange(product.id,1)}><POSIcon name="plus"/></button>}</div>{qty > 0 && product.category !== 'do_uong' && <label className="pos-line-note pos-menu-note">Ghi chú món<input maxLength={500} disabled={disabled} placeholder="Ít bún, không hành…" value={note} onChange={e => onNote(product.id,e.target.value)}/></label>}</article>;
+import type {Product} from './types';
+import {formatMoney} from './types';
+function ProductItem({product,qty,disabled,onSelect}:{product:Product;qty:number;disabled:boolean;onSelect:(product:Product)=>void}){
+ return <button type="button" className={`pos-product-row pos-product-select-card pos-product-hit${qty?' is-selected':''}`} data-product-id={product.id} aria-label={`${qty?'Chỉnh sửa':'Thêm'} ${product.name}`} disabled={disabled||product.is_out} onClick={()=>onSelect(product)}><span className="pos-product-art"><POSIcon name={product.category==='do_uong'?'cup':'plate'}/>{qty>0&&<span className="pos-product-selected"><POSIcon name="check"/></span>}</span><span className="pos-product-copy"><strong className="pos-product-name">{product.name}</strong><span>{formatMoney(product.price)}</span></span><span className="pos-product-pick-state">{product.is_out?'Hết món':qty>0?<><span className="pos-product-qty" aria-label={`Số lượng đã chọn ${product.name}`}>{qty}</span><small>Chỉnh sửa</small></>:<POSIcon name="plus"/>}</span></button>;
 }
-
 export default memo(ProductItem);
