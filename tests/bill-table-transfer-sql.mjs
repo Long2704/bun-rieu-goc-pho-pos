@@ -1,3 +1,4 @@
+import {checkCombinedPendingKitchen} from './support/combine-pending-kitchen.mjs';
 import {checkSavedMenuSelections} from './support/saved-menu-selections.mjs';
 import {checkLinkedDiningTables} from './support/linked-dining-tables.mjs';
 import {checkWaiterItemCancellation} from './support/waiter-item-cancellation.mjs';
@@ -148,5 +149,6 @@ try {
   await checkWaiterItemCancellation(db,uid(1),uid(2),uid(3),food,drink);
   await checkLinkedDiningTables(db,uid(1),uid(2),uid(3),food,drink);
   await checkSavedMenuSelections(db,uid(1),uid(2),uid(3),food,drink);
+  await checkCombinedPendingKitchen(db,uid(2),food,drink);
   console.log('PASS bill transfer SQL: staff permissions, exact whole-bill snapshot, empty/occupied target and target-session guard, partial kitchen-ticket split without copied items/new-food audit, same status/time/path/position, untouched source bills, close last source bill, request replay, paid protection, kitchen completion, private ledger.');
 } finally {await db.close();}
