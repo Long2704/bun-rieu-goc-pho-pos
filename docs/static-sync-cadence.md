@@ -1,5 +1,7 @@
 # Giảm lượt đồng bộ dữ liệu ít thay đổi
 
+Bản ghi triển khai trước Realtime. Cơ chế hiện tại xem [realtime-sync.md](realtime-sync.md).
+
 Giữ kiểm tra quyền, snapshot phiên bàn/bàn gộp và phiếu bếp mỗi 5 giây. Menu và danh sách cấu hình bàn chỉ tải khi bản cache trong phiên đăng nhập đã đủ 60 giây. Nhóm món cũng có mốc tải thành công riêng 60 giây, kiểm tra theo nhịp live; không tải chồng một yêu cầu nền cùng người dùng. Chu kỳ dựa trên lần tải thành công nên có thể chạy ở nhịp 5 giây kế tiếp sau mốc 60 giây, cộng thời gian mạng.
 
 Nút Đồng bộ và sự kiện online tải đủ ba nguồn ngay; lưu menu, nhóm, sắp xếp/bàn tải mới ngay. Lỗi menu/giá/hết món khi gửi cũng buộc tải catalog và nhóm để người dùng kiểm tra lại. Các callback xác nhận đơn/thu tiền vẫn luôn lấy snapshot sống mới, không được dùng cache snapshot. Cache không ghi localStorage, không chứa đơn/tiền và được xóa khi đổi tài khoản/tải lại hoặc reset epoch. Không thay nhịp chạy nền, Realtime, phiếu ảnh hay PWA cập nhật.

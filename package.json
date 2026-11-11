@@ -82,7 +82,8 @@
     "test:temporary-images-concurrency": "node tests/temporary-kitchen-images-concurrency.mjs",
     "test:reference-theme": "node tests/reference-theme-flow.mjs",
     "test:menu-groups": "node tests/menu-groups-sql.mjs",
-    "test:menu-groups-ui": "node tests/menu-groups-flow.mjs"
+    "test:menu-groups-ui": "node tests/menu-groups-flow.mjs",
+    "test:realtime": "node tests/realtime-coordinator.mjs && node tests/bill-table-transfer-sql.mjs && node tests/realtime-flow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.0.0",

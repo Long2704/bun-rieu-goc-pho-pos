@@ -1,6 +1,7 @@
 import {Fragment,useCallback,useEffect,useRef,useState} from 'react';
 import type {ReactNode} from 'react';
 import {supabase} from '../supabase';
+import {catalogDue,LIVE_SYNC_MS} from '../sync-policy';
 import KitchenImageUpload from './KitchenImageUpload';
 import KitchenImageTicket from './KitchenImageTicket';
 import {createPrivateImages} from './private-images';
@@ -8,23 +9,24 @@ import {imageTicketFields} from './types';
 import type {ImageTicket} from './types';
 import './kitchen-images.css';
 type KitchenCard={id:string;created_at:string;content:ReactNode};
-type Props={userId:string;canRead:boolean;canUpload:boolean;canComplete:boolean;online:boolean;history:boolean;normalCards:KitchenCard[];tabs:ReactNode};
+type Props={realtimeReady?:boolean;syncRevision?:number;userId:string;canRead:boolean;canUpload:boolean;canComplete:boolean;online:boolean;history:boolean;normalCards:KitchenCard[];tabs:ReactNode};
 export default function KitchenImageArea(props:Props){
  // Remount on user/permission changes to dispose all private data and in-flight UI state.
  return props.canRead?<AuthorizedImages key={`${props.userId}:${props.canUpload}:${props.canComplete}`} {...props}/>:<><nav className="kitchen-tabs" aria-label="Đơn bếp">{props.tabs}</nav><section className="kitchen-grid" aria-describedby="kitchen-swipe-help">{props.normalCards.map(card=><Fragment key={`order:${card.id}`}>{card.content}</Fragment>)}{!props.normalCards.length&&<Empty history={props.history}/>}</section></>;
 }
 function Empty({history}:{history:boolean}){return <div className="empty-state"><h3>{history?'Chưa có đơn đã xong của các bàn đang mở.':'Chưa có món đang làm.'}</h3></div>;}
-function AuthorizedImages({userId,canUpload,canComplete,online,history,normalCards,tabs}:Props){
+function AuthorizedImages({realtimeReady,syncRevision,userId,canUpload,canComplete,online,history,normalCards,tabs}:Props){
  const [tickets,setTickets]=useState<ImageTicket[]>([]),[limit,setLimit]=useState(40),[hasMore,setHasMore]=useState(false),[error,setError]=useState(''),[ready,setReady]=useState(false),[busy,setBusy]=useState(''),[revision,setRevision]=useState(0);
  const [cache]=useState(createPrivateImages);const alive=useRef(true),completeLock=useRef(false),confirmedDone=useRef(new Set<string>());
  useEffect(()=>{alive.current=true;cache.activate();return()=>{alive.current=false;cache.dispose();};},[cache]);
  const previousTickets=useRef<ImageTicket[]>([]);
  useEffect(()=>{const current=new Set(tickets.map(t=>t.id));for(const old of previousTickets.current)if(!current.has(old.id)){cache.remove(old.image_path);cache.remove(old.preview_path);}previousTickets.current=tickets;},[tickets,cache]);
+ const channelReady=useRef(realtimeReady);channelReady.current=realtimeReady;
  const reload=useCallback(()=>setRevision(n=>n+1),[]);
  useEffect(()=>{setLimit(40);setTickets([]);setReady(false);},[history]);
  useEffect(()=>{
   if(history){setTickets([]);setReady(true);setHasMore(false);setError('');return;}
-  if(!supabase||!online)return;let active=true,inFlight=false;
+  if(!supabase||!online)return;let active=true,inFlight=false,lastSuccess=0;
   async function refresh(){
    if(completeLock.current)return;
    if(inFlight||!active||!supabase)return;inFlight=true;
@@ -34,13 +36,14 @@ function AuthorizedImages({userId,canUpload,canComplete,online,history,normalCar
     if(!active||completeLock.current)return;
     if(failure)throw failure;
     const next=((data??[]).slice(0,limit) as ImageTicket[]).filter(t=>!confirmedDone.current.has(t.id));
-    setTickets(old=>JSON.stringify(old)===JSON.stringify(next)?old:next);setHasMore((data?.length??0)>limit);setReady(true);setError('');
+    setTickets(old=>JSON.stringify(old)===JSON.stringify(next)?old:next);setHasMore((data?.length??0)>limit);setReady(true);setError('');lastSuccess=Date.now();
    }catch{if(active)setError('Chưa đồng bộ được phiếu ảnh. Đơn bếp thường vẫn hoạt động.');}
    finally{inFlight=false;}
   }
-  void refresh();const timer=setInterval(()=>{if(document.visibilityState==='visible')void refresh();},5000);
-  return()=>{active=false;clearInterval(timer);};
- },[history,limit,online,revision]);
+  void refresh();const timer=setInterval(()=>{if(document.visibilityState==='visible'&&(!channelReady.current||catalogDue(lastSuccess)))void refresh();},LIVE_SYNC_MS);
+  const visible=()=>{if(document.visibilityState==='visible')void refresh();};document.addEventListener('visibilitychange',visible);
+  return()=>{active=false;clearInterval(timer);document.removeEventListener('visibilitychange',visible);};
+ },[history,limit,online,revision,syncRevision]);
  async function complete(id:string,beforeRemove?:()=>Promise<void>){
   if(completeLock.current||!online||!navigator.onLine||!supabase||!canComplete)return false;
   completeLock.current=true;setBusy(id);setError('');
