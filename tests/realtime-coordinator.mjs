@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {startRealtimeSync} from '../src/realtime-sync.ts';
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+const channels=[],removed=[],batches=[],states=[];let release;
+let block=false,allowed=true;
+const client={channel(topic,options){const c={topic,options,on(_,filter,fn){this.receive=fn;assert.equal(filter.event,'invalidate');return this;},subscribe(fn){this.status=fn;return this;}};channels.push(c);return c;},async removeChannel(c){removed.push(c.topic);}};
+const stop=startRealtimeSync(client,true,{status:s=>states.push(s),invalidate:async kinds=>{batches.push([...kinds].sort());if(block)await new Promise(r=>release=r);return allowed;}});
+assert.equal(channels.length,3);assert.ok(channels.every(c=>c.options.config.private));
+channels.forEach(c=>c.status('SUBSCRIBED'));await pause(230);assert.deepEqual(batches,[['catalog','images','orders']]);assert.deepEqual(states.at(-1),{orders:true,catalog:true,images:true});
+for(let n=0;n<50;n++)channels[0].receive({payload:{anything:'ignored'}});await pause(230);assert.deepEqual(batches.at(-1),['orders']);assert.equal(batches.length,2);
+block=true;channels[0].receive();await pause(230);channels[1].receive();release();block=false;await pause(230);assert.deepEqual(batches.at(-1),['catalog'],'events during a fetch must not disappear');
+channels[0].status('CHANNEL_ERROR');assert.equal(states.at(-1).orders,false);channels[0].status('SUBSCRIBED');await pause(230);assert.deepEqual(batches.at(-1),['orders'],'rejoin closes disconnect gap');
+channels[0].receive();const before=batches.length;stop();await pause(230);assert.equal(batches.length,before);assert.equal(removed.length,3);channels[0].status('SUBSCRIBED');channels[0].receive();await pause(230);assert.equal(batches.length,before);
+const noImages=[];const stop2=startRealtimeSync({...client,channel(...args){const c=client.channel(...args);noImages.push(c);return c;}},false,{status:()=>{},invalidate:async()=>true});assert.deepEqual(noImages.map(c=>c.topic),['pos:orders','pos:catalog']);stop2();
+console.log('PASS Realtime coordinator: private role-scoped topics, burst batching, dirty-during-fetch follow-up, disconnect/rejoin recovery, identity cleanup and stale callbacks ignored.');
