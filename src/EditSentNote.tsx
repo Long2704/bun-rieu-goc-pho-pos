@@ -9,7 +9,7 @@ export default function EditSentNote({item,orderId,status,disabled,onBusy,onChan
  const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[note,setNote]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [snapshot,setSnapshot]=useState<{note:string;version:number;orderId:string}|null>(null),[attempt,setAttempt]=useState<Attempt|null>(null),[conflict,setConflict]=useState(false);
  const lock=useRef(false);
- const eligible=status==='cooking'&&item.category!=='do_uong'&&!item.paid&&!item.cancelled_at;
+ const eligible=(item.category==='do_uong'||status==='cooking')&&!item.paid&&!item.cancelled_at;
  function start(){setSnapshot({note:item.note,version:item.note_version??0,orderId});setNote(item.note);setAttempt(null);setConflict(false);setError('');setMessage('');setOpen(true);}
  async function save(){
   if(!supabase||lock.current||disabled||!snapshot||conflict)return;
@@ -26,13 +26,13 @@ export default function EditSentNote({item,orderId,status,disabled,onBusy,onChan
     throw Error('Chưa xác nhận lưu ghi chú. Bấm Thử lại cùng yêu cầu; không tạo thay đổi khác.');
    }
    if(r.data?.ok!==true||r.data.item_id!==item.id)throw Error('Chưa xác nhận lưu ghi chú. Bấm Thử lại cùng yêu cầu.');
-   acknowledged=true;await onChanged();setOpen(false);setAttempt(null);setMessage('Đã cập nhật ghi chú cho bếp.');
+   acknowledged=true;await onChanged();setOpen(false);setAttempt(null);setMessage(item.category==='do_uong'?'Đã cập nhật ghi chú món.':'Đã cập nhật ghi chú cho bếp.');
   }catch(e){setError(acknowledged?'Đã lưu ghi chú nhưng chưa đồng bộ. Bấm Thử lại cùng yêu cầu để kiểm tra.':e instanceof Error?e.message:'Chưa xác nhận lưu ghi chú. Bấm Thử lại cùng yêu cầu.');}
   finally{lock.current=false;setBusy(false);onBusy(false);}
  }
  return <>{eligible&&<button type="button" className="edit-sent-note-button" disabled={disabled||busy} aria-label={`Sửa ghi chú ${item.name}`} onClick={start}>Sửa ghi chú</button>}
  {message&&<Toast message={message}/>}
- <ConfirmDialog open={open} title="Sửa ghi chú món đã gửi" danger={false} busy={busy} error={error} confirmLabel={attempt?'Thử lại cùng yêu cầu':'Lưu ghi chú'} cancelLabel="Đóng" confirmDisabled={disabled||conflict||!attempt&&note.trim()===(snapshot?.note??'').trim()} onConfirm={()=>void save()} onClose={()=>{setOpen(false);if(conflict)void onChanged().catch(()=>{});}} className="edit-sent-note-dialog">
- <p><strong>{item.qty} × {item.name}</strong></p><label>Ghi chú mới<textarea aria-label="Ghi chú món đã gửi" maxLength={500} rows={3} value={note} disabled={busy||!!attempt||conflict} onChange={e=>setNote(e.target.value)}/></label><small>{note.length}/500 ký tự · Cập nhật đúng lượt gọi món này trên phiếu bếp đang làm.</small>
+ <ConfirmDialog open={open} title={item.category==='do_uong'?'Sửa ghi chú món':'Sửa ghi chú món đã gửi'} danger={false} busy={busy} error={error} confirmLabel={attempt?'Thử lại cùng yêu cầu':'Lưu ghi chú'} cancelLabel="Đóng" confirmDisabled={disabled||conflict||!attempt&&note.trim()===(snapshot?.note??'').trim()} onConfirm={()=>void save()} onClose={()=>{setOpen(false);if(conflict)void onChanged().catch(()=>{});}} className="edit-sent-note-dialog">
+ <p><strong>{item.qty} × {item.name}</strong></p><label>Ghi chú mới<textarea aria-label="Ghi chú món đã gửi" maxLength={500} rows={3} value={note} disabled={busy||!!attempt||conflict} onChange={e=>setNote(e.target.value)}/></label><small>{note.length}/500 ký tự · {item.category==='do_uong'?'Ghi chú được lưu với món, không gửi bếp.':'Cập nhật đúng lượt gọi món này trên phiếu bếp đang làm.'}</small>
  </ConfirmDialog></>;
 }
