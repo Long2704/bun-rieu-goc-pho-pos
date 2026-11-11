@@ -1,0 +1,21 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import {mockAccess,mockLegacyMenuGroups} from './support/access.mjs';
+const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+try{
+ const context=await browser.newContext({viewport:{width:390,height:844}}),menu=Array.from({length:25},(_,n)=>({id:'m'+n,name:'Món '+n,price:10000+n*1000,category:n<6?'bun':'an_them',sort:n,version:1,is_active:true,is_out:false})),saves=[];let lost=true;
+ await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;const req=route.request(),path=new URL(req.url()).pathname;let body;
+ if(path==='/auth/v1/token')body={access_token:'mock',refresh_token:'refresh',token_type:'bearer',expires_in:3600,user:{id:'popup-owner',email:'owner@example.test',aud:'authenticated',role:'authenticated'}};
+ else if(path==='/auth/v1/user')body={id:'popup-owner',email:'owner@example.test'};
+ else if(path.endsWith('/get_my_access'))body=mockAccess({name:'Chủ quán',role:'chu'});
+ else if(path==='/rest/v1/menu_items'||path.endsWith('/list_menu_management'))body=menu;
+ else if(['/rest/v1/orders','/rest/v1/table_sessions'].includes(path))body=[];
+ else if(path==='/rest/v1/restaurant_tables')body=[{id:1,name:'Bàn 1'}];
+ else if(path.endsWith('/save_menu_item')){const p=req.postDataJSON();saves.push(p);const item=menu.find(i=>i.id===p.p_item_id);if(item.version===p.p_expected_version){item.name=p.p_name;item.price=p.p_price;item.version++;}if(lost){lost=false;await route.abort('failed');return;}body=item.id;}
+ else throw Error('Unexpected '+path);await route.fulfill({json:body});});
+ const page=await context.newPage();page.setDefaultTimeout(15000);const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(process.env.POS_TEST_URL||'http://localhost:5196');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('owner@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await page.locator('.management-menu summary').click();await page.getByRole('button',{name:'Quản lý thực đơn',exact:true}).click();
+ const edit=page.getByRole('button',{name:'Sửa Món 24',exact:true});await edit.scrollIntoViewIfNeeded();await edit.click();let dialog=page.getByRole('dialog',{name:'Sửa món',exact:true});await dialog.waitFor();assert.equal(await dialog.evaluate(d=>d.matches(':modal')),true);assert.equal(await dialog.getByLabel('Tên món',{exact:true}).inputValue(),'Món 24');const box=await dialog.boundingBox();assert.ok(box.y>=0&&box.y+box.height<=844);await dialog.getByLabel('Tên món',{exact:true}).fill('Không lưu');await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});assert.equal(menu[24].name,'Món 24');
+ await edit.click();await dialog.getByLabel('Giá bán (đồng)',{exact:true}).fill('99000');await dialog.getByRole('button',{name:'Lưu thực đơn',exact:true}).click();await dialog.getByRole('button',{name:'Thử lại cùng mã cập nhật',exact:true}).waitFor();assert.equal(await dialog.getByRole('button',{name:'Đóng chỉnh sửa',exact:true}).isDisabled(),true);await page.reload();await page.getByRole('button',{name:'Mở quản lý thực đơn',exact:true}).click();await dialog.waitFor();await dialog.getByRole('button',{name:'Thử lại cùng mã cập nhật',exact:true}).click();await dialog.waitFor({state:'detached'});assert.equal(menu[24].price,99000);assert.equal(saves[0].p_request_id,saves[1].p_request_id);assert.equal(menu[24].version,2);
+ await page.getByRole('button',{name:'Sửa Món 0',exact:true}).click();dialog=page.getByRole('dialog',{name:'Sửa món',exact:true});await dialog.waitFor();for(const width of [375,1440,390]){await page.setViewportSize({width,height:844});assert.equal(await dialog.evaluate(d=>d.scrollWidth<=d.clientWidth),true);}await page.screenshot({path:'/workspace/artifacts/menu-edit-popup-390.png'});await dialog.getByRole('button',{name:'Đóng cửa sổ sửa món',exact:true}).click();assert.deepEqual(errors,[]);
+ console.log('PASS menu edit popup: bottom-row Edit opens visible native modal with exact item, Escape/close discards changes, save/lost ACK/reload/retry uses same ID, preserved menu fields and mobile/desktop layout. All APIs mocked.');
+}finally{await browser.close();}
