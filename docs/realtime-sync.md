@@ -1,13 +1,15 @@
 # Đồng bộ Realtime cho POS
 
+Phần tối ưu hiện tại xem [realtime-scoped-sync.md](realtime-scoped-sync.md).
+
 Kênh Broadcast riêng do database phát sau khi giao dịch commit:
 - `pos:orders`: phiên bàn, món nháp/đã gửi, nước/khác, trạng thái bếp, hóa đơn, bill, bàn gộp, quyền nhân viên và data epoch.
 - `pos:catalog`: menu, nhóm món, gán nhóm và cấu hình/sắp xếp bàn.
 - `pos:images`: phiếu ảnh bếp; chỉ tài khoản có `kitchen_images.read` đăng ký.
 
-Payload chỉ `{version:1}` (nền tảng bổ sung ID), không gửi tên, tiền, ghi chú hay URL ảnh. RLS dùng quyền hiện hành, trạng thái hoạt động, cổng đổi mật khẩu và kiểm tra phiên nhân viên sẵn có qua `has_permission`. Client không được cấp policy gửi Broadcast. Trigger ở schema `pos_sync` không phơi qua Data API, khóa EXECUTE với PUBLIC/anon/authenticated, search_path rỗng.
+Thông báo toàn bộ có payload `{version:1}`; bản scope bổ sung UUID phiên bàn như tài liệu mới (nền tảng bổ sung ID), không gửi tên, tiền, ghi chú hay URL ảnh. RLS dùng quyền hiện hành, trạng thái hoạt động, cổng đổi mật khẩu và kiểm tra phiên nhân viên sẵn có qua `has_permission`. Client không được cấp policy gửi Broadcast. Trigger ở schema `pos_sync` không phơi qua Data API, khóa EXECUTE với PUBLIC/anon/authenticated, search_path rỗng.
 
-Một thông báo mỗi topic mỗi transaction, dù thao tác sửa nhiều dòng/nhiều bảng. UPDATE không thay đổi không gửi. Cờ transaction-local gồm txid và phục hồi theo savepoint. Rollback không phát thông báo. Không mở Postgres Changes hoặc Presence. Trigger chỉ gọi transport, không thay dữ liệu nghiệp vụ; lỗi transport không chặn việc bán hàng.
+Bản ban đầu gom một thông báo mỗi topic mỗi transaction. Bản scope gom theo phiên bàn mỗi transaction; nhóm thao tác trên nhiều phiên có thể phát nhiều thông báo. UPDATE không thay đổi không gửi. Cờ transaction-local gồm txid và phục hồi theo savepoint. Rollback không phát thông báo. Không mở Postgres Changes hoặc Presence. Trigger chỉ gọi transport, không thay dữ liệu nghiệp vụ; lỗi transport không chặn việc bán hàng.
 
 Client gom sự kiện trong 180ms, giữ hàng đợi khi đang tải và tải lại nếu có sự kiện trong lúc tải. Kết nối lại luôn tải snapshot để bù khoảng mất mạng. Sau đăng xuất/đổi người/đổi quyền đọc ảnh/reset, hủy kênh và bỏ callback cũ. SDK cập nhật token Realtime theo Auth client hiện có.
 
