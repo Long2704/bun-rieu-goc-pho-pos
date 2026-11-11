@@ -1,3 +1,4 @@
+import {checkScopedRealtime} from './support/scoped-realtime.mjs';
 import {checkPrivateRealtime} from './support/private-realtime-sync.mjs';
 import {checkDrinkNotes} from './support/drink-item-notes.mjs';
 import {checkCombinedPendingKitchen} from './support/combine-pending-kitchen.mjs';
@@ -154,5 +155,6 @@ try {
   await checkCombinedPendingKitchen(db,uid(2),food,drink);
   await checkDrinkNotes(db,uid(1),uid(2),food,drink);
   await checkPrivateRealtime(db,uid(2),food);
+  await checkScopedRealtime(db,uid(2),food,drink);
   console.log('PASS bill transfer SQL: staff permissions, exact whole-bill snapshot, empty/occupied target and target-session guard, partial kitchen-ticket split without copied items/new-food audit, same status/time/path/position, untouched source bills, close last source bill, request replay, paid protection, kitchen completion, private ledger.');
 } finally {await db.close();}

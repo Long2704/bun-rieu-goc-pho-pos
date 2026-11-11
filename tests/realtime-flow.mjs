@@ -2,11 +2,12 @@ import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
- const context=await browser.newContext({viewport:{width:1440,height:950}}),counts={access:0,live:0,kitchen:0,menu:0,tables:0,groups:0,saves:0,images:0},menu=[{id:'food',name:'Bún riêu',price:58000,category:'bun',is_active:true,is_out:false,sort:0,version:1}];
+ const context=await browser.newContext({viewport:{width:1440,height:950}}),counts={access:0,live:0,kitchen:0,menu:0,tables:0,groups:0,saves:0,images:0,delta:0},menu=[{id:'food',name:'Bún riêu',price:58000,category:'bun',is_active:true,is_out:false,sort:0,version:1}];
  let holdLive=false,heldLive=false,releaseHeld;
+ const sid='00000000-0000-0000-0000-000000000111';let failDelta=false,malformedDelta=false;
  let amount=58000,tableName='Bàn 1',failMenu=false,failLive=false;
  const groups=[{id:'bun',name:'Món chính',category:'bun',sort:10},{id:'an_them',name:'Món thêm',category:'an_them',sort:20},{id:'do_uong',name:'Đồ uống',category:'do_uong',sort:30}];
- const sessions=()=>[{id:'s',table_id:1,orders:[{id:'o',request_id:'r',session_id:'s',status:'cooking',kitchen_relevant:true,created_at:'2026-11-11T00:00:00Z',order_items:[{id:'i',menu_item_id:'food',name:'Bún riêu',category:'bun',qty:1,price:amount,paid:false,bill_no:1,note:''}]}]}];
+ const sessions=()=>[{id:sid,table_id:1,orders:[{id:'o',request_id:'r',session_id:sid,status:'cooking',kitchen_relevant:true,created_at:'2026-11-11T00:00:00Z',order_items:[{id:'i',menu_item_id:'food',name:'Bún riêu',category:'bun',qty:1,price:amount,paid:false,bill_no:1,note:''}]}]}];
  const {mockAccess}=await import('./support/access.mjs');
  let ws,joins=[];
  const frame=(topic,event,payload,ref=null)=>JSON.stringify([joins.findLast(j=>j.topic===topic)?.joinRef??null,ref,topic,event,payload]);
@@ -16,6 +17,7 @@ try{
  else if(path==='/auth/v1/logout')body={};
  else if(path==='/auth/v1/user')body={id:'sync-owner',email:'test@example.test'};
  else if(path.endsWith('/get_my_access')){counts.access++;body={...mockAccess({name:'Chủ',role:'chu'}),permissions:[...mockAccess({name:'Chủ',role:'chu'}).permissions,'kitchen_images.read'],linked_tables:true};}
+ else if(path.endsWith('/get_pos_sync_delta')){counts.delta++;const ids=req.postDataJSON().p_session_ids;assert.deepEqual(ids,[sid]);if(failDelta)return route.fulfill({status:503,json:{message:'Mock delta failure'}});body={session_ids:malformedDelta?[]:ids,sessions:sessions(),links:[],kitchen:sessions()[0].orders.map(o=>({...o,table_sessions:{table_id:1,closed_at:null}}))};}
  else if(path.endsWith('/get_linked_table_snapshot')){counts.live++;if(holdLive){heldLive=true;await new Promise(resolve=>releaseHeld=resolve);}if(failLive)return route.fulfill({status:503,json:{message:'Mock failure'}});body={sessions:sessions(),links:[]};}
  else if(path==='/rest/v1/kitchen_image_tickets'){counts.images++;body=[];}
  else if(path==='/rest/v1/orders'){counts.kitchen++;body=sessions()[0].orders.map(o=>({...o,table_sessions:{table_id:1,closed_at:null}}));}
@@ -32,12 +34,19 @@ try{
  for(let tick=1;tick<=10;tick++){const access=counts.access;await page.clock.runFor(5000);await wait(()=>counts.access>access);await page.waitForTimeout(50);}
  assert.equal(counts.live,base.live);assert.equal(counts.kitchen,base.kitchen);assert.equal(counts.menu,base.menu);assert.equal(counts.groups,base.groups);
  const reduction={oldIdleReads:30,newIdleReads:counts.access-base.access};
- const emit=kind=>ws.send(frame('realtime:pos:'+kind,'broadcast',{event:'invalidate',payload:{version:1},type:'broadcast'}));
+ const emit=(kind,payload={version:1})=>ws.send(frame('realtime:pos:'+kind,'broadcast',{event:'invalidate',payload,type:'broadcast'}));
  amount=65000;for(let n=0;n<30;n++)emit('orders');await page.waitForTimeout(100);await page.clock.runFor(250);await wait(()=>counts.live>base.live);await page.getByText('65.000đ',{exact:true}).waitFor();assert.equal(counts.live,base.live+1,'burst coalesces');assert.equal(counts.menu,base.menu);
  // Catalog notifications bypass the 60s cache, including group definitions.
- const cat=counts.menu,gr=counts.groups;menu[0].price=72000;emit('catalog');await page.waitForTimeout(100);await page.clock.runFor(250);await wait(()=>counts.menu>cat&&counts.groups>gr);
+ const cat=counts.menu,gr=counts.groups,catLive=counts.live,catKitchen=counts.kitchen;menu[0].price=72000;emit('catalog');await page.waitForTimeout(100);await page.clock.runFor(250);await wait(()=>counts.menu>cat&&counts.groups>gr);assert.equal(counts.live,catLive);assert.equal(counts.kitchen,catKitchen);
+ // Scoped notifications replace only the affected table and its kitchen data.
+ const scopeBase={...counts};amount=66000;for(let n=0;n<25;n++)emit('orders',{version:2,session_id:sid});await page.waitForTimeout(100);await page.clock.runFor(250);await wait(()=>counts.delta>scopeBase.delta);await page.getByText('66.000đ',{exact:true}).waitFor();assert.equal(counts.delta,scopeBase.delta+1);assert.equal(counts.live,scopeBase.live);assert.equal(counts.kitchen,scopeBase.kitchen);assert.equal(counts.menu,scopeBase.menu);
+ // Missing/failed/malformed scoped reads fall back to the complete authorized read.
+ for(const broken of ['failure','malformed']){failDelta=broken==='failure';malformedDelta=broken==='malformed';const before=counts.live;emit('orders',{version:2,session_id:sid});await page.waitForTimeout(100);await page.clock.runFor(250);await wait(()=>counts.live>before);failDelta=false;malformedDelta=false;}
  // Keep a snapshot read in flight; a later notification must fetch again.
  const heldStart=counts.live;holdLive=true;emit('orders');await page.waitForTimeout(100);await page.clock.runFor(250);await wait(()=>heldLive);emit('orders');await page.waitForTimeout(100);releaseHeld();holdLive=false;await page.waitForTimeout(100);await page.clock.runFor(250);await wait(()=>counts.live>=heldStart+2);
+ // Frequent partial updates must not postpone the full safety snapshot.
+ const periodic=counts.live;
+ for(let tick=0;tick<13;tick++){emit('orders',{version:2,session_id:sid});await page.waitForTimeout(50);await page.clock.runFor(5000);await page.waitForTimeout(100);}await wait(()=>counts.live>periodic);
  // A lost event is recovered by the 60s safety read.
  amount=68000;const safety=counts.live;for(let tick=0;tick<13;tick++){await page.clock.runFor(5000);await page.waitForTimeout(100);}await wait(()=>counts.live>safety);await page.getByText('68.000đ',{exact:true}).waitFor();
  // A channel failure restores the 5-second fallback; successful rejoin refreshes.
@@ -55,5 +64,5 @@ try{
  // Local menu saves bypass cache even when catalog was just fetched.
  if(await page.locator('.management-menu summary').isVisible())await page.locator('.management-menu summary').click();await page.getByRole('button',{name:'Quản lý thực đơn',exact:true}).click();await page.getByRole('button',{name:'Sửa Bún riêu',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Sửa món',exact:true});await dialog.getByLabel('Giá bán (đồng)',{exact:true}).fill('75000');const beforeSave={...counts};await dialog.getByRole('button',{name:'Lưu thực đơn',exact:true}).click();await dialog.waitFor({state:'detached'});assert.equal(counts.saves,1);assert.ok(counts.menu>beforeSave.menu&&counts.groups>beforeSave.groups);
  const beforeLogin=counts.groups;await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();await page.getByLabel('Tên đăng nhập',{exact:true}).fill('test@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await page.locator('.table-card').click({trial:true});await wait(()=>counts.groups>beforeLogin);
- assert.deepEqual(errors,[]);console.log('PASS Realtime browser:',JSON.stringify(reduction),'healthy idle order reads avoided, 5s permission/fallback, broadcast burst/order/catalog updates, in-flight follow-up, 60s safety recovery, exact names/amounts, manual/reconnect/local-save bypass, failed-catalog retry, cache cleared on same-user re-login, all HTTP and WebSocket mocked.');
+ assert.deepEqual(errors,[]);console.log('PASS Realtime browser:',JSON.stringify(reduction),'scoped updates use one RPC with zero full snapshot/kitchen/menu reads; catalog-only refresh; malformed/failed delta fallback; frequent updates retain 60s safety, 5s permission/fallback, broadcast burst/order/catalog updates, in-flight follow-up, 60s safety recovery, exact names/amounts, manual/reconnect/local-save bypass, failed-catalog retry, cache cleared on same-user re-login, all HTTP and WebSocket mocked.');
 }finally{await browser.close();}

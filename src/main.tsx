@@ -1,4 +1,6 @@
 import {catalogDue,LIVE_SYNC_MS} from './sync-policy';
+import {mergeRealtimeDelta} from './realtime-delta';
+import type {LiveSnapshot} from './realtime-delta';
 import {emptyRealtimeStatus,startRealtimeSync} from './realtime-sync';
 import type {SyncKind} from './realtime-sync';
 import TableLinkPanel from './TableLinkPanel';
@@ -114,7 +116,7 @@ function App(){
  const refreshDone=useRef<Promise<void>>(Promise.resolve()),lastRefreshOk=useRef(false);
  const sendLock=useRef(false),refreshLock=useRef(false),identity=useRef<string|null>(null);
  useEffect(()=>{const warn=(event:BeforeUnloadEvent)=>{if(Object.values(drafts).some(table=>Object.values(table).some(qty=>qty>0))||pending||sending){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[drafts,pending,sending]);
- const catalogSync=useRef({user:'',at:0}),liveSync=useRef(0);
+ const catalogSync=useRef({user:'',at:0}),liveSync=useRef(0),liveSnapshot=useRef<LiveSnapshot|null>(null);
  const [realtimeStatus,setRealtimeStatus]=useState(emptyRealtimeStatus),[imageSyncRevision,setImageSyncRevision]=useState(0);
  const realtimeReady=useRef(realtimeStatus);realtimeReady.current=realtimeStatus;
  const menuRef=useRef(menu),draftRef=useRef(drafts);menuRef.current=menu;draftRef.current=drafts;
@@ -127,7 +129,7 @@ function App(){
   return()=>{active=false;subscription.unsubscribe();};
  },[]);
  useEffect(()=>{
-  catalogSync.current={user:'',at:0};liveSync.current=0;
+  catalogSync.current={user:'',at:0};liveSync.current=0;liveSnapshot.current=null;
   setLoadedViews({});setTableSearch('');setTableFilter('all');setReceiptRequest(null);setProfile(null);setMenu([]);setTables([]);setDrafts({});setNotes({});setSelected(null);setPosScreen('order');setSessions([]);setCooking([]);setPending(null);setError('');setMessage('');setLastSync('');setSyncError('');
   if(recovering){setLoading(false);return;}
   if(!session||!supabase)return;
@@ -150,12 +152,13 @@ function App(){
   }
   void load();return()=>{active=false;};
  },[session?.user.id,reload,recovering]);
- const refresh=useCallback(async(force=false,forceCatalog=false,accessOnly=false)=>{
+ const refresh=useCallback(async(force=false,forceCatalog=false,accessOnly=false,catalogOnly=false)=>{
   if(kitchenCompletionLock.current&&!force)return;
   if(!supabase||!profile||profile.must_change_password||!session){if(force)lastRefreshOk.current=false;return;}
   const user=session.user.id;
   if(refreshLock.current){if(!force)return;await refreshDone.current;if(identity.current!==user){lastRefreshOk.current=false;return;}}
   let finish=()=>{};refreshDone.current=new Promise<void>(resolve=>{finish=resolve;});
+  const onlyCatalog=catalogOnly&&lastRefreshOk.current;
   refreshLock.current=true;lastRefreshOk.current=false;
   try{
    const accessResult=await supabase.rpc('get_my_access');
@@ -178,19 +181,20 @@ function App(){
    if(accessOnly){lastRefreshOk.current=true;return;}
    const loadCatalog=forceCatalog||catalogSync.current.user!==user||catalogDue(catalogSync.current.at);
    const [s,k,m,t]=await Promise.all([
-    access.linked_tables?supabase.rpc('get_linked_table_snapshot'):supabase.from('table_sessions').select(`id,table_id,table_path,orders(${orderFields})`).is('closed_at',null),
-    supabase.from('orders').select(`${orderFields},table_sessions!inner(table_id,closed_at,table_path)`).eq('status','cooking').eq('kitchen_relevant',true).order('created_at').order('id'),
+    onlyCatalog?Promise.resolve({data:null,error:null}):access.linked_tables?supabase.rpc('get_linked_table_snapshot'):supabase.from('table_sessions').select(`id,table_id,table_path,orders(${orderFields})`).is('closed_at',null),
+    onlyCatalog?Promise.resolve({data:null,error:null}):supabase.from('orders').select(`${orderFields},table_sessions!inner(table_id,closed_at,table_path)`).eq('status','cooking').eq('kitchen_relevant',true).order('created_at').order('id'),
     loadCatalog?supabase.from('menu_items').select('id,name,price,category,is_out').eq('is_active',true).order('sort').order('id'):Promise.resolve({data:null,error:null}),
     loadCatalog?supabase.from('restaurant_tables').select('id,name,service_type').eq('is_active',true).order('display_order').order('id'):Promise.resolve({data:null,error:null})
    ]);
    if(s.error||k.error||m.error||t.error){if(loadCatalog&&identity.current===user)catalogSync.current={user,at:0};throw new Error();}
    const snap=s.data as unknown as {sessions:TableSession[];links:unknown};
-   const nextSessions=projectLinkedSessions(access.linked_tables?snap.sessions:s.data as unknown as TableSession[],access.linked_tables?snap.links:[]);
+   const nextSessions=onlyCatalog?[]:projectLinkedSessions(access.linked_tables?snap.sessions:s.data as unknown as TableSession[],access.linked_tables?snap.links:[]);
    if(identity.current===user){
     if(loadCatalog){
     if(JSON.stringify(menuRef.current)!==JSON.stringify(m.data)&&Object.values(draftRef.current).some(d=>Object.values(d).some(n=>n>0)))setMessage('Thực đơn đã thay đổi. Kiểm tra lại giá và món đang chọn trước khi gửi.');
     setTables(prev=>JSON.stringify(prev)===JSON.stringify(t.data??[])?prev:t.data??[]);setSelected(prev=>{if(!prev)return null;const next=(t.data??[]).find(t=>t.id===prev.id);return next&&JSON.stringify(next)!==JSON.stringify(prev)?next:prev;});setMenu(prev=>JSON.stringify(prev)===JSON.stringify(m.data??[])?prev:m.data??[]);catalogSync.current={user,at:Date.now()};}
-    setSessions(prev=>JSON.stringify(prev)===JSON.stringify(nextSessions)?prev:nextSessions);setCooking(prev=>JSON.stringify(prev)===JSON.stringify(k.data)?prev:k.data as unknown as KitchenOrder[]);setLastSync(new Date().toLocaleTimeString('vi-VN'));setSyncError('');liveSync.current=Date.now();lastRefreshOk.current=true;}
+    if(!onlyCatalog){liveSnapshot.current={sessions:nextSessions,kitchen:k.data as unknown as KitchenOrder[]};
+    setSessions(prev=>JSON.stringify(prev)===JSON.stringify(nextSessions)?prev:nextSessions);setCooking(prev=>JSON.stringify(prev)===JSON.stringify(k.data)?prev:k.data as unknown as KitchenOrder[]);setLastSync(new Date().toLocaleTimeString('vi-VN'));setSyncError('');liveSync.current=Date.now();}lastRefreshOk.current=true;}
   }catch{if(identity.current===user)setSyncError('Chưa đồng bộ được đơn hàng. Dữ liệu có thể đã cũ; kiểm tra mạng rồi bấm Đồng bộ.');}
   finally{refreshLock.current=false;finish();}
  },[profile,session?.user.id]);
@@ -200,23 +204,40 @@ function App(){
   const visible=()=>{if(document.visibilityState==='visible')online();};window.addEventListener('online',online);document.addEventListener('visibilitychange',visible);
   return()=>{clearInterval(timer);window.removeEventListener('online',online);document.removeEventListener('visibilitychange',visible);};
  },[refresh,refreshGroups]);
- const invalidateRealtime=useRef<(kinds:ReadonlySet<SyncKind>)=>Promise<boolean>>(async()=>false);
- invalidateRealtime.current=async kinds=>{
-  if(kitchenCompletionLock.current||refreshLock.current)return false;
+ const refreshDelta=async(ids:readonly string[])=>{
+  if(!supabase||!session||!liveSnapshot.current||!lastRefreshOk.current)return false;
+  const user=session.user.id,previous=liveSnapshot.current;
+  let finish=()=>{};refreshDone.current=new Promise<void>(resolve=>{finish=resolve;});refreshLock.current=true;
+  try{
+   const result=await supabase.rpc('get_pos_sync_delta',{p_session_ids:ids});
+   if(identity.current!==user||result.error)return false;
+   const next=mergeRealtimeDelta(previous,ids,result.data);
+   liveSnapshot.current=next;
+   setSessions(old=>JSON.stringify(old)===JSON.stringify(next.sessions)?old:next.sessions);
+   setCooking(old=>JSON.stringify(old)===JSON.stringify(next.kitchen)?old:next.kitchen);
+   setLastSync(new Date().toLocaleTimeString('vi-VN'));setSyncError('');
+   // A partial update never postpones the complete 60-second safety read.
+   return true;
+  }catch{return false;}finally{refreshLock.current=false;finish();}
+ };
+ const invalidateRealtime=useRef<(kinds:ReadonlySet<SyncKind>,ids?:readonly string[])=>Promise<boolean|'busy'>>(async()=>false);
+ invalidateRealtime.current=async(kinds,ids)=>{
+  if(kitchenCompletionLock.current||refreshLock.current)return 'busy';
   if(kinds.has('images'))setImageSyncRevision(n=>n+1);
-  if(kinds.has('orders')||kinds.has('catalog')){
-   await refresh(true,kinds.has('catalog'));
-   if(kinds.has('catalog'))await refreshGroups();
-   return lastRefreshOk.current;
-  }
-  return true;
+  const catalog=kinds.has('catalog');
+  if(kinds.has('orders')){
+   if(!ids?.length||!await refreshDelta(ids))await refresh(true,catalog);
+   else if(catalog)await refresh(true,true,false,true);
+  }else if(catalog)await refresh(true,true,false,true);
+  if(catalog)await refreshGroups();
+  return kinds.has('orders')||catalog?lastRefreshOk.current:true;
  };
  const realtimeUser=profile?.is_active&&!profile.must_change_password&&!recovering?session?.user.id:undefined;
  const realtimeImages=!!profile&&permitted(profile,'kitchen_images.read');
  useEffect(()=>{
   setRealtimeStatus(emptyRealtimeStatus());
   if(!supabase||!realtimeUser)return;
-  return startRealtimeSync(supabase,realtimeImages,{invalidate:kinds=>invalidateRealtime.current(kinds),status:setRealtimeStatus});
+  return startRealtimeSync(supabase,realtimeImages,{invalidate:(kinds,ids)=>invalidateRealtime.current(kinds,ids),status:setRealtimeStatus});
  },[realtimeUser,realtimeImages,reload]);
  async function login(e:React.FormEvent){
   e.preventDefault();if(!supabase)return;setBusy(true);setError('');
