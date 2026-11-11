@@ -1,3 +1,5 @@
+import {createPortal} from 'react-dom';
+import './menu-edit-dialog.css';
 import Toast from './Toast';
 import {useEffect,useRef,useState} from 'react';
 import {supabase} from './supabase';
@@ -27,7 +29,8 @@ export default function MenuPanel({userId,disabled,onPending,onSaved,active,cata
  const [open,setOpen]=useState(false),[items,setItems]=useState<MenuItem[]>([]),[edit,setEdit]=useState<Edit|null>(null);
  const [pending,setPending]=useState<Attempt|null>(null),[storageError,setStorageError]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const orderDirty=JSON.stringify(items.map(i=>i.id))!==JSON.stringify(baseItems.map(i=>i.id));
- const lock=useRef(false),alive=useRef(true);
+ const lock=useRef(false),alive=useRef(true),editDialog=useRef<HTMLDialogElement>(null);
+ useEffect(()=>{if(edit&&active!==false&&!editDialog.current?.open)editDialog.current?.showModal();else if(active===false)editDialog.current?.close();},[edit,active]);
  useEffect(()=>{alive.current=true;try{const raw=localStorage.getItem(key);if(raw){const p=JSON.parse(raw) as Attempt;if(!p.requestId||!p.itemId||!Number.isInteger(p.version)||p.version<0||typeof p.name!=='string'||!Number.isInteger(p.price)||!Number.isInteger(p.sort)||typeof p.active!=='boolean'||typeof p.out!=='boolean')throw new Error();setPending(p);setEdit(asEdit(p));setOpen(true);}}catch{setStorageError(true);}return()=>{alive.current=false;};},[key]);
  useEffect(()=>{try{const raw=localStorage.getItem(orderKey);if(raw){const p=JSON.parse(raw) as MenuOrderAttempt;if(!p.requestId||!Array.isArray(p.expected)||!Array.isArray(p.ordered)||!p.ordered.length||p.ordered.some(id=>typeof id!=='string'))throw new Error();setOrderPending(p);setOpen(true);}}catch{setStorageError(true);}},[orderKey]);
  useEffect(()=>{onPending(!!pending||storageError||busy||groupPending||!!orderPending);},[pending,storageError,busy,groupPending,orderPending,onPending]);
@@ -82,7 +85,7 @@ export default function MenuPanel({userId,disabled,onPending,onSaved,active,cata
  {open&&<>{active===undefined&&<h2>Quản lý thực đơn</h2>}
  {disabled&&!pending&&<p>Xử lý các yêu cầu chờ và gửi hoặc xóa món đang chọn trước khi sửa thực đơn.</p>}
  <button disabled={disabled||busy||!!pending||storageError||groupPending||unavailable||orderDirty||!!orderPending} onClick={()=>start()}>Thêm món mới</button>
- {edit&&<form className="menu-edit-form" onSubmit={e=>{e.preventDefault();void save();}}><h3>{edit.version===0?'Thêm món mới':'Sửa món'}</h3><fieldset disabled={disabled||busy||!!pending||storageError||groupPending||unavailable||orderDirty||!!orderPending}>
+ {edit&&createPortal(<dialog ref={editDialog} className="menu-edit-dialog" aria-label={edit.version===0?'Thêm món mới':'Sửa món'} onCancel={e=>{e.preventDefault();if(!busy&&!pending)setEdit(null);}}><button type="button" className="menu-edit-dialog-close" aria-label="Đóng cửa sổ sửa món" disabled={busy||!!pending} onClick={()=>setEdit(null)}>×</button>{error&&<p role="alert" className="menu-edit-dialog-error">{error}</p>}{pending&&<aside role="status" className="menu-edit-dialog-error"><p>Cập nhật đang chờ xác nhận. Giữ nguyên mã yêu cầu.</p><button disabled={busy} onClick={()=>void save()}>{busy?'Đang lưu…':'Thử lại cùng mã cập nhật'}</button></aside>}<form className="menu-edit-form" onSubmit={e=>{e.preventDefault();void save();}}><h3>{edit.version===0?'Thêm món mới':'Sửa món'}</h3><fieldset disabled={disabled||busy||!!pending||storageError||groupPending||unavailable||orderDirty||!!orderPending}>
  <label>Tên món<input maxLength={120} required value={edit.name} onChange={e=>setEdit({...edit,name:e.target.value})}/></label>
  <label>Giá bán (đồng)<input inputMode="numeric" required value={edit.price} onChange={e=>setEdit({...edit,price:e.target.value})}/></label>
  <label htmlFor="edit-category">Nhóm món</label><div className="menu-group-picker"><select id="edit-category" value={edit.groupId??edit.category} onChange={e=>{const group=groups.find(g=>g.id===e.target.value);if(group)setEdit({...edit,category:group.category,groupId:group.id});}}>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><button className="menu-group-add" type="button" aria-label="Thêm nhóm món" title="Thêm nhóm món" aria-haspopup="dialog" disabled={!catalog} onClick={()=>groupDialog.current?.open(edit.category)}>+</button><button className="menu-group-settings" type="button" aria-label="Thiết lập nhóm đang chọn" title="Thiết lập nhóm đang chọn" disabled={!catalog?.kitchen_settings} onClick={()=>{const g=groups.find(g=>g.id===(edit.groupId??edit.category));if(g)groupDialog.current?.edit(g);}}>⚙</button></div>{groupError&&<p role="status" className="menu-group-load-error">{groupError} <button type="button" onClick={()=>void onGroupsSaved()}>Tải lại nhóm</button></p>}
@@ -90,7 +93,7 @@ export default function MenuPanel({userId,disabled,onPending,onSaved,active,cata
  <label className="checkbox-label"><input type="checkbox" checked={edit.active} onChange={e=>setEdit({...edit,active:e.target.checked})}/>Đang bán</label>
  <label className="checkbox-label"><input type="checkbox" checked={edit.out} onChange={e=>setEdit({...edit,out:e.target.checked})}/>Hết món tạm thời</label>
  {!valid&&<p role="alert">Nhập tên món và giá nguyên từ 0 đến 10.000.000đ, không dấu phân cách.</p>}
- <button className="primary" disabled={!valid||routingChanged} type="submit">Lưu thực đơn</button></fieldset><button type="button" disabled={busy||!!pending} onClick={()=>setEdit(null)}>Đóng chỉnh sửa</button></form>}
+ <button className="primary" disabled={!valid||routingChanged} type="submit">Lưu thực đơn</button></fieldset><button type="button" disabled={busy||!!pending} onClick={()=>setEdit(null)}>Đóng chỉnh sửa</button></form></dialog>,document.body)}
  <p id="menu-sort-help" className="visually-hidden">Kéo nút ⠿ cạnh tên món rồi bấm Lưu thứ tự món. Có thể dùng phím ↑ / ↓ trên nút kéo.</p>
  {orderDirty&&!orderPending&&<div className="menu-order-actions"><button className="primary" disabled={disabled||busy||!!pending||!!edit||groupPending||storageError||!catalog} onClick={()=>void saveOrder()}>Lưu thứ tự món</button><button disabled={busy||!!pending} onClick={()=>void load()}>Hủy sắp xếp món</button></div>}
  {orderPending&&<aside role="status"><p>Thứ tự món đang chờ xác nhận.</p><button disabled={busy} onClick={()=>void saveOrder()}>Thử lại cùng mã sắp xếp món</button></aside>}

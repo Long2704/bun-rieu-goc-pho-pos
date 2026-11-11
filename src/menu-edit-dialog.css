@@ -1,0 +1,7 @@
+.menu-edit-dialog{width:min(600px,calc(100vw - 28px));max-width:calc(100vw - 28px);max-height:calc(100dvh - 32px);margin:auto;padding:0;border:1px solid #ecd0b5;border-radius:22px;background:#fff8ee;color:#603116;box-shadow:0 20px 70px #44220c38;overflow:auto;overscroll-behavior:contain}
+.menu-edit-dialog::backdrop{background:#291a1166}
+.menu-edit-dialog .menu-edit-form{margin:0;padding:24px;border:0;border-radius:0;box-shadow:none;background:transparent}
+.menu-edit-dialog .menu-edit-form h3{margin-top:0;padding-right:40px}
+.menu-edit-dialog-close{position:absolute;top:14px;right:14px;display:grid;place-items:center;width:36px;height:36px;padding:0;border:1px solid #ecd0b5;border-radius:50%;background:#fffdf8;color:#854316;font-size:24px;line-height:1;z-index:1}
+.menu-edit-dialog-error{margin:16px 24px;padding:12px;border:1px solid #e5b99b;border-radius:10px}
+@media(max-width:480px){.menu-edit-dialog .menu-edit-form{padding:20px 16px}.menu-edit-dialog input,.menu-edit-dialog select{font-size:16px}}
