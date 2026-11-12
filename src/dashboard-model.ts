@@ -1,7 +1,7 @@
 import type {RevenueDay,RevenueReport,RevenueSlot} from './revenue-export';
 export type TimeBand={start:string;end:string};
 export const defaultBands:TimeBand[]=[['06:00','09:00'],['09:00','11:00'],['11:00','13:00'],['13:00','15:00'],['15:00','17:00'],['17:00','22:00']].map(([start,end])=>({start,end}));
-export type Sale={id:string;session_id:string;table_no:number;service_label?:string|null;paid_at:string;gross:number;discount:number;total:number;method:string;bill_items:{name:string;qty:number;price:number}[]};
+export type Sale={id:string;session_id:string;table_no:number;service_label?:string|null;paid_at:string;gross:number;discount:number;total:number;method:string;bill_items:{name:string;qty:number;price:number;is_takeaway?:boolean|null}[]};
 export type TableSale={table_id:number;name:string;invoices:number;visits:number;qty:number;total:number};
 export type DashboardReport=RevenueReport&{visits:number;table_sales:TableSale[];filter_label:string;slot_rules:string};
 export const vnToday=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());

@@ -83,7 +83,8 @@
     "test:reference-theme": "node tests/reference-theme-flow.mjs",
     "test:menu-groups": "node tests/menu-groups-sql.mjs",
     "test:menu-groups-ui": "node tests/menu-groups-flow.mjs",
-    "test:realtime": "node tests/realtime-coordinator.mjs && node tests/realtime-delta.mjs && node tests/bill-table-transfer-sql.mjs && node tests/realtime-flow.mjs"
+    "test:realtime": "node tests/realtime-coordinator.mjs && node tests/realtime-delta.mjs && node tests/bill-table-transfer-sql.mjs && node tests/realtime-flow.mjs",
+    "test:item-takeaway": "node tests/item-takeaway-model.mjs && node tests/bill-table-transfer-sql.mjs && node tests/item-takeaway-flow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.0.0",

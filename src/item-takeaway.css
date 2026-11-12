@@ -1,0 +1,16 @@
+.item-takeaway-control{display:inline-flex;flex-direction:column;align-items:flex-start;max-width:100%;margin-right:auto;gap:4px}
+.item-takeaway-button,.item-takeaway-badge{display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:999px;font-size:11px;font-weight:550;line-height:1.25;white-space:nowrap;letter-spacing:0}
+.item-takeaway-button{min-height:32px;padding:6px 10px;border:1px solid #e9d7c6;background:#fffaf4;color:#98775e;box-shadow:none}
+.item-takeaway-button.is-selected,.item-takeaway-badge{border:1px solid #efc39a;background:#fff0dc;color:#a44d16}
+.item-takeaway-badge{padding:3px 7px;margin:3px 0}
+.item-takeaway-button .pos-ui-icon,.item-takeaway-badge .pos-ui-icon{width:13px;height:13px;flex-shrink:0}
+.item-takeaway-button:focus-visible{outline:2px solid #ef944c;outline-offset:3px}
+.item-takeaway-button:disabled{opacity:.6}
+.item-takeaway-control>small{max-width:260px;font-size:11px;white-space:normal;color:#a74420;line-height:1.45}
+.kitchen-service-section+.kitchen-service-section{margin-top:12px;padding-top:10px;border-top:1px dashed #ead6c1}
+.kitchen-service-section>h3{font-size:12px;font-weight:600;color:#9b7861;display:flex;align-items:center;gap:6px;margin:0 0 8px}
+.kitchen-service-section.is-takeaway>h3{color:#ad551b}
+.kitchen-service-section>h3 .pos-ui-icon{width:14px;height:14px}
+.kitchen-service-section{display:block}
+.kitchen-card .kitchen-service-section ul{margin:4px 0 8px}
+.kitchen-card .kitchen-service-section li:last-child{padding-bottom:0}
