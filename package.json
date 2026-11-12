@@ -86,7 +86,7 @@
     "test:realtime": "node tests/realtime-coordinator.mjs && node tests/realtime-delta.mjs && node tests/bill-table-transfer-sql.mjs && node tests/realtime-flow.mjs",
     "test:item-takeaway": "node tests/item-takeaway-model.mjs && node tests/bill-table-transfer-sql.mjs && node tests/item-takeaway-flow.mjs",
     "test:unsent-cancellations": "node tests/bill-table-transfer-sql.mjs && node tests/item-takeaway-model.mjs && node tests/item-takeaway-flow.mjs",
-    "test:kitchen-push": "node tests/kitchen-push-sql.mjs && node tests/kitchen-push-edge.mjs && node tests/kitchen-push-worker.mjs",
+    "test:kitchen-push": "node tests/kitchen-push-sql.mjs && node tests/kitchen-push-edge.mjs && node tests/kitchen-push-worker.mjs && node tests/kitchen-push-foreground.mjs",
     "test:kitchen-push-ui": "node tests/kitchen-push-flow.mjs"
   },
   "dependencies": {

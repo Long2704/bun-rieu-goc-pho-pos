@@ -8,7 +8,7 @@ Phạm vi: phiếu gọi món được gửi từ Phục vụ vào Bếp. Không
 2. iPhone/iPad: iOS 16.4+, mở bằng Safari → Chia sẻ → Thêm vào Màn hình chính. Mở từ biểu tượng POS. Android: dùng Chrome hỗ trợ push, có thể cài POS ra màn hình chính.
 3. Đăng nhập tài khoản Chủ quán hoặc Bếp → Bếp → Thông báo.
 4. Bấm Bật trên thiết bị này → Cho phép. Chỉ bật trên thiết bị thật sự cần nhận phiếu.
-5. Bấm Gửi thông báo thử. Khi đang mở Bếp, push vẫn hiện nhưng im lặng để tránh trùng chuông trong app. Thông báo thử không tạo món, hóa đơn hay số liệu bán hàng.
+5. Bấm Gửi thông báo thử. Khi đang xem Bếp và đồng bộ bình thường, máy chủ bỏ qua push phiếu mới riêng cho thiết bị đó. Nút Gửi thông báo thử chủ động vẫn hiển thị push để kiểm tra. Thông báo thử không tạo món, hóa đơn hay số liệu bán hàng.
 6. Đưa POS ra nền rồi gửi thử lại sau ít nhất 1 phút. Kiểm tra thông báo trên điện thoại, bấm vào để mở Bếp. Âm thanh tuân theo cài đặt hệ điều hành, chế độ Tập trung/Không làm phiền.
 7. Trong lần gọi món thực tế tiếp theo, kiểm tra push ghi tên bàn và số phần. Không cần tạo đơn giả khi quán đang vận hành.
 8. Tắt trên thiết bị này nếu không muốn nhận nữa. Đăng xuất sẽ hủy đăng ký của thiết bị và xóa liên kết tài khoản cục bộ. Đăng nhập lại cần bật lại.
@@ -28,7 +28,7 @@ Nếu không thấy: kiểm tra Internet, quyền thông báo, chế độ Tập
 
 ## Usage
 
-Không thêm subscription Realtime, heartbeat hoặc vòng polling ở client. Push dùng Edge Function Invocations, egress, log hệ thống và lượng metadata database nhỏ. Một phiếu gửi tới N thiết bị tương đương N lượt giao push, không phải N Realtime Messages. Worker xử lý theo lô, nên số invocation không bằng số thiết bị. Ví dụ 200 phiếu/ngày, 2 máy: khoảng 400 lượt giao push/ngày; thường khoảng 200 lượt worker/ngày khi phiếu rải đều và không lỗi, cộng retry/kiểm tra cấu hình/thử. Đây là ước lượng; nhà cung cấp không đảm bảo mọi push được giao.
+Không thêm subscription Realtime hoặc vòng tải đơn mới. Thiết bị đã bật push và đang xem Bếp có một RPC nhỏ gia hạn trạng thái mỗi 60 giây; khi ra nền/rời Bếp thì ngừng. Ví dụ mở Bếp 10 giờ là khoảng 600 lượt gia hạn/thiết bị, cộng thay đổi trạng thái. Push dùng Edge Function Invocations, egress, log hệ thống và lượng metadata database nhỏ. Một phiếu gửi tới N thiết bị tương đương N lượt giao push, không phải N Realtime Messages. Worker xử lý theo lô, nên số invocation không bằng số thiết bị. Ví dụ 200 phiếu/ngày, 2 máy: khoảng 400 lượt giao push/ngày; thường khoảng 200 lượt worker/ngày khi phiếu rải đều và không lỗi, cộng retry/kiểm tra cấu hình/thử. Đây là ước lượng; nhà cung cấp không đảm bảo mọi push được giao.
 
 ## Kiểm thử
 
@@ -37,3 +37,11 @@ Không thêm subscription Realtime, heartbeat hoặc vòng polling ở client. P
 - npm run build; node tests/pwa-flow.mjs: cập nhật chờ đóng các cửa sổ, cache tĩnh, offline/reconnect.
 - AES128GCM và VAPID của web-push@3.6.7 đã kiểm tra bằng khóa giả lập, không gửi mạng. Máy chủ bootstrap khóa thực đã kiểm tra qua trạng thái ready, không đọc/hiện khóa riêng.
 - Cần người dùng kiểm tra giao push thật trên điện thoại bằng nút thử; môi trường kiểm thử không xác nhận thay được cài đặt iOS/Android của thiết bị.
+
+## Chặn push khi đang xem Bếp
+
+Client gửi trạng thái theo từng cửa sổ/tab và thiết bị, gắn với phiên Auth. Lease 90 giây được gia hạn mỗi 60 giây chỉ khi Bếp đang hiện, Internet online và đồng bộ orders sẵn sàng, không có lỗi đồng bộ. Ẩn app/chuyển màn hình/pagehide sẽ cố xóa lease ngay. Nếu hệ điều hành đóng đột ngột hoặc mạng lỗi, lease tự hết hạn sau tối đa 90 giây; trong khoảng đó có thể tạm bỏ qua push. Một tab ẩn không xóa trạng thái của tab Bếp còn hiện. Chưa bật push thì không phát sinh RPC trạng thái.
+
+Worker đánh dấu lượt gửi phiếu thường là skipped/kitchen_visible khi có lease hợp lệ. Các thiết bị khác không bị ảnh hưởng. Nút gửi thử vẫn gửi vì đây là thao tác yêu cầu kiểm tra rõ ràng. Push đã giao cho nhà cung cấp trước lúc mở Bếp có thể vẫn hiện; không thể thu hồi. Service worker vẫn hiển thị push đã nhận (im lặng nếu đang xem Bếp), thay vì bỏ âm thầm có thể khiến Safari thu hồi quyền.
+
+Nguồn: [Apple Web Push requirements](https://developer.apple.com/documentation/usernotifications/sending-web-push-notifications-in-web-apps-and-browsers), [WebKit Meet Web Push](https://webkit.org/blog/12945/meet-web-push/).

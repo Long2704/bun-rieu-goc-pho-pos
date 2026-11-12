@@ -1,0 +1,16 @@
+import {startKitchenForeground} from '../src/push/foreground.ts';
+import assert from 'node:assert/strict';
+const windowEvents=new EventTarget(),documentEvents=new EventTarget(),calls=[];let d=null,active=false,tick=null,stopped=0;
+const device={id:'device',user:'user',proof:'proof'};
+const flush=()=>new Promise(resolve=>setImmediate(resolve));
+const stop=startKitchenForeground({tab:'tab',read:()=>({device:d,active}),send:async(device,tab,on)=>{calls.push({id:device.id,tab,on});},windowEvents,documentEvents,schedule:(fn,ms)=>{assert.equal(ms,60000);tick=fn;return 1;},cancel:()=>{stopped++;tick=null;}});
+await flush();assert.equal(calls.length,0,'no requests without opt-in');
+d=device;windowEvents.dispatchEvent(new Event('kitchen-push-change'));await flush();assert.equal(calls.length,0,'no requests outside Kitchen');
+active=true;windowEvents.dispatchEvent(new Event('kitchen-view-change'));await flush();assert.equal(calls.at(-1).on,true);assert.ok(tick);
+tick();await flush();assert.equal(calls.length,2,'one lease renewal per minute');
+active=false;documentEvents.dispatchEvent(new Event('visibilitychange'));await flush();assert.equal(calls.at(-1).on,false);assert.equal(tick,null,'no heartbeat while hidden');
+active=true;documentEvents.dispatchEvent(new Event('visibilitychange'));await flush();assert.equal(calls.at(-1).on,true);
+d=null;windowEvents.dispatchEvent(new Event('kitchen-push-change'));await flush();assert.equal(calls.at(-1).on,false,'disable clears the lease');
+d=device;windowEvents.dispatchEvent(new Event('kitchen-push-change'));await flush();windowEvents.dispatchEvent(new Event('pagehide'));await flush();assert.equal(calls.at(-1).on,false);assert.equal(tick,null);
+windowEvents.dispatchEvent(new Event('pageshow'));await flush();assert.equal(calls.at(-1).on,true);stop();await flush();assert.equal(calls.at(-1).on,false);const n=calls.length;windowEvents.dispatchEvent(new Event('pageshow'));await flush();assert.equal(calls.length,n);assert.ok(stopped>0);
+console.log('PASS foreground controller: opt-in only, visible/hidden, 60s renewal, disable, pagehide, restore and cleanup');

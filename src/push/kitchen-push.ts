@@ -17,17 +17,19 @@ export async function enablePush(user:string){
  const key=Uint8Array.from(atob(settings.public_key.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
  const existing=await reg.pushManager.getSubscription();
  const subscription=existing??await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
- try{const result=await rpc('register_kitchen_push',{p_proof:proof,p_subscription:subscription.toJSON()});const d={user,id:result.id,proof};localStorage.setItem(KEY,JSON.stringify(d));await bind(reg,d);return d;}
+ try{const result=await rpc('register_kitchen_push',{p_proof:proof,p_subscription:subscription.toJSON()});const d={user,id:result.id,proof};localStorage.setItem(KEY,JSON.stringify(d));await bind(reg,d);window.dispatchEvent(new Event('kitchen-push-change'));return d;}
  catch(error){if(!existing)await subscription.unsubscribe().catch(()=>false);throw error;}
 }
 export async function disablePush(user:string){
  const d=device(),reg=await navigator.serviceWorker.getRegistration('/');
  // Revoke server delivery before removing the local subscription, so a retry remains possible on failure.
  if(d?.user===user)await rpc('disable_kitchen_push',{p_device:d.id,p_proof:d.proof});
- if(reg){await bind(reg,null);await (await reg.pushManager.getSubscription())?.unsubscribe();}localStorage.removeItem(KEY);
+ if(reg){await bind(reg,null);await (await reg.pushManager.getSubscription())?.unsubscribe();}localStorage.removeItem(KEY);window.dispatchEvent(new Event('kitchen-push-change'));
 }
 export async function detachKitchenPush(user:string){
  if(!('serviceWorker' in navigator)||!device())return;
  try{await disablePush(user);}catch{try{const reg=await navigator.serviceWorker.getRegistration('/');if(reg)await bind(reg,null);}catch{/* Auth session revocation also blocks future deliveries. */}localStorage.removeItem(KEY);}
 }
 export async function testPush(user:string){const d=device();if(d?.user!==user)throw Error('Bật thông báo trên thiết bị này trước.');await rpc('request_kitchen_push_test',{p_device:d.id,p_proof:d.proof});}
+
+export async function setKitchenForeground(d:PushDevice,tab:string,active:boolean){await rpc('set_kitchen_push_foreground',{p_device:d.id,p_proof:d.proof,p_tab:tab,p_active:active});}
