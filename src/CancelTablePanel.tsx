@@ -5,7 +5,7 @@ import {supabase} from './supabase';
 import type {OrderLine,TableSession} from './order-model';
 import ConfirmDialog from './ConfirmDialog';
 type Attempt={tableName?:string;requestId:string;sessionId:string;tableId:number;items:OrderLine[]};
-export default function CancelTablePanel({userId,table,sessions,disabled,onPending,onChanged,onMessage}:{userId:string;table:{id:number;name:string}|null;sessions:TableSession[];disabled:boolean;onPending:(v:boolean)=>void;onChanged:()=>Promise<void>;onMessage:(message:string)=>void}){
+export default function CancelTablePanel({userId,table,sessions,disabled,onPending,onChanged,onCancelled,onMessage}:{userId:string;table:{id:number;name:string}|null;sessions:TableSession[];disabled:boolean;onPending:(v:boolean)=>void;onChanged:()=>Promise<void>;onCancelled:()=>void;onMessage:(message:string)=>void}){
  const key=`goc-pho-cancel-table-v1:${userId}`;
  const [pending,setPending]=useState<Attempt|null>(null),[draft,setDraft]=useState<Attempt|null>(null),[storageError,setStorageError]=useState(false),[busy,setBusy]=useState(false),[open,setOpen]=useState(false),[error,setError]=useState('');
  const lock=useRef(false),alive=useRef(true);
@@ -28,7 +28,7 @@ export default function CancelTablePanel({userId,table,sessions,disabled,onPendi
     throw new Error(['PGRST202','42883'].includes(r.error.code)?'Cần chạy migration 011_cancellations_kitchen_history.sql rồi Thử lại cùng mã hủy bàn.':`Chưa xác nhận hủy bàn: ${r.error.message}. Thử lại cùng mã hủy bàn.`);
    }
    if(alive.current)setOpen(false);await onChanged();localStorage.removeItem(key);
-   if(alive.current){setPending(null);setDraft(null);onMessage(`Đã hủy các món chưa thanh toán của ${attempt.tableName??placeLabel(attempt.tableId)}. Hóa đơn đã trả được giữ nguyên.`);}
+   if(alive.current){setPending(null);setDraft(null);onMessage(`Đã hủy các món chưa thanh toán của ${attempt.tableName??placeLabel(attempt.tableId)}. Hóa đơn đã trả được giữ nguyên.`);onCancelled();}
   }catch(e){if(alive.current)setError(e instanceof Error?e.message:'Chưa xác nhận hủy bàn. Thử lại cùng mã hủy bàn.');}
   finally{lock.current=false;if(alive.current)setBusy(false);}
  }
