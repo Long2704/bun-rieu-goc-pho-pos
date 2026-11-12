@@ -27,7 +27,7 @@ export async function disablePush(user:string){
  if(reg){await bind(reg,null);await (await reg.pushManager.getSubscription())?.unsubscribe();}localStorage.removeItem(KEY);
 }
 export async function detachKitchenPush(user:string){
- if(!('serviceWorker' in navigator))return;
+ if(!('serviceWorker' in navigator)||!device())return;
  try{await disablePush(user);}catch{try{const reg=await navigator.serviceWorker.getRegistration('/');if(reg)await bind(reg,null);}catch{/* Auth session revocation also blocks future deliveries. */}localStorage.removeItem(KEY);}
 }
 export async function testPush(user:string){const d=device();if(d?.user!==user)throw Error('Bật thông báo trên thiết bị này trước.');await rpc('request_kitchen_push_test',{p_device:d.id,p_proof:d.proof});}
