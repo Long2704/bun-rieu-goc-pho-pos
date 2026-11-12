@@ -1,0 +1,13 @@
+/* Short, finite feedback. The business action never waits for an animation. */
+.pos-cart-flight{position:fixed;z-index:1000;width:40px;height:40px;display:grid;place-items:center;border-radius:14px;color:#e96300;background:#fff0db;box-shadow:0 3px 12px #a8441426;pointer-events:none;contain:layout style paint;will-change:transform,opacity}
+.pos-cart-flight svg{width:25px;height:25px}
+.pos-menu-bottom .primary>span{display:inline-block;transform-origin:center}
+:where(dialog[open]){animation:pos-dialog-arrive .18s cubic-bezier(.22,1,.36,1)}
+:where(dialog[open])::backdrop{animation:pos-backdrop-arrive .15s ease-out}
+.pos-product-selected{animation:pos-check-arrive .18s ease-out}
+.pos-product-add:active:not(:disabled),.pos-quantity-control button:active:not(:disabled){transform:scale(.94)}
+.new-order-badge{display:inline-block;animation:pos-check-arrive .22s ease-out}
+@keyframes pos-dialog-arrive{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes pos-backdrop-arrive{from{opacity:0}to{opacity:1}}
+@keyframes pos-check-arrive{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.pos-cart-flight{display:none}:where(dialog[open]),:where(dialog[open])::backdrop,.pos-product-selected,.new-order-badge{animation:none}.pos-product-add:active:not(:disabled),.pos-quantity-control button:active:not(:disabled){transform:none}}

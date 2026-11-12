@@ -21,6 +21,7 @@ import {latestCompleted,fifo, savedTotal, tableStatus, placeLabel} from './order
 import type {Order, TableSession} from './order-model';
 import './style.css';
 import './pos/pos.css';
+import './ui-motion.css';
 import './warm-orange-theme.css';
 import './restaurant-reference-v2.css';
 import './mobile-layout-hotfix.css';
