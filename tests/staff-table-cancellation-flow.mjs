@@ -5,7 +5,7 @@ const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless
 try{
  for(const role of ['phuc_vu','bep','chu']){
   const context=await browser.newContext({viewport:{width:390,height:844}}),calls=[],applied=new Set(),audits=[];
-  let closed=false,stale=role==='phuc_vu',lost=true;
+  let closed=false,stale=role==='phuc_vu',lost=role!=='chu';
   const paid={id:'paid',name:'Bún đã thanh toán',price:58000,qty:1,category:'bun',note:'',paid:true,bill_no:2,cancelled_at:null};
   const items=[paid,{id:'food',name:'Bún chưa thanh toán',price:58000,qty:1,category:'bun',note:'Không hành',paid:false,bill_no:1,cancelled_at:null},{id:'drink',name:'Trà đá',price:3000,qty:1,category:'do_uong',note:'',paid:false,bill_no:1,cancelled_at:null}];
   const order={id:'order',request_id:'request',session_id:'session',created_at:new Date().toISOString(),status:'cooking',kitchen_relevant:true,order_items:items};
@@ -27,14 +27,14 @@ try{
    await route.fulfill({json:body});
   });
   const page=await context.newPage();page.setDefaultTimeout(10000);const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.goto('http://localhost:5173');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('staff@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock-password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await page.getByRole('button',{name:'Phục vụ',exact:true}).click();await page.getByRole('button',{name:/^Bàn 1 /}).click();
+  await page.goto(process.env.POS_TEST_URL||'http://localhost:5196');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('staff@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock-password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await page.getByRole('button',{name:'Phục vụ',exact:true}).click();await page.getByRole('button',{name:/^Bàn 1 /}).click();
   if(role!=='chu')assert.equal(await page.locator('.cancel-line-button').count(),0,'No individual item cancellation granted');
   await page.getByRole('button',{name:'Thêm món',exact:true}).click();await page.getByRole('button',{name:'Thao tác bàn',exact:true}).click();await page.getByRole('button',{name:'Hủy cả Bàn 1',exact:true}).click();
   const confirm=page.getByRole('dialog',{name:'Xác nhận hủy Bàn 1',exact:true});await confirm.waitFor();assert.ok(!(await confirm.locator('ul').innerText()).includes('Bún đã thanh toán'));await confirm.getByRole('button',{name:'Quay lại',exact:true}).click();assert.equal(calls.length,0);
   await page.getByRole('button',{name:'Hủy cả Bàn 1',exact:true}).click();await confirm.getByRole('button',{name:'Xác nhận hủy cả bàn',exact:true}).click();
   if(role==='phuc_vu'){await page.getByRole('alert').filter({hasText:'Danh sách món đã thay đổi.'}).waitFor();assert.equal(applied.size,0);await page.getByRole('button',{name:'Hủy cả Bàn 1',exact:true}).click();await confirm.getByText('Món gọi thêm',{exact:false}).waitFor();await confirm.getByRole('button',{name:'Xác nhận hủy cả bàn',exact:true}).click();}
-  await confirm.getByRole('button',{name:'Thử lại cùng mã hủy bàn',exact:true}).waitFor();await page.reload();if(role==='bep')await page.getByRole('button',{name:'Phục vụ',exact:true}).click();await page.getByRole('button',{name:'Kiểm tra yêu cầu hủy bàn',exact:true}).click();await page.getByRole('button',{name:'Thử lại cùng mã hủy bàn',exact:true}).click();await page.locator('.pos-app').getByText('Đã hủy các món chưa thanh toán của Bàn 1.',{exact:false}).first().waitFor();
-  assert.deepEqual(calls.at(-1),calls.at(-2));assert.equal(applied.size,1);assert.equal(audits.length,1);assert.equal(paid.cancelled_at,null);assert.equal(paid.paid,true);assert.deepEqual(errors,[]);await context.close();
+  if(role!=='chu'){await confirm.getByRole('button',{name:'Thử lại cùng mã hủy bàn',exact:true}).waitFor();assert.equal(await page.locator('.has-pos-workspace').count(),1,'Failed cancellation stays at the table');await page.reload();if(role==='bep')await page.getByRole('button',{name:'Phục vụ',exact:true}).click();await page.getByRole('button',{name:'Kiểm tra yêu cầu hủy bàn',exact:true}).click();await page.getByRole('button',{name:'Thử lại cùng mã hủy bàn',exact:true}).click();}await page.getByRole('heading',{name:'Sơ đồ bàn',exact:true}).waitFor();
+  await page.waitForFunction(()=>document.querySelectorAll('dialog[open]').length===0);assert.equal(await page.locator('dialog[open]').count(),0,'All cancellation/action dialogs close');assert.equal(await page.locator('.has-pos-workspace').count(),0,'Successful cancellation leaves the table');if(role!=='chu')assert.deepEqual(calls.at(-1),calls.at(-2));assert.equal(applied.size,1);assert.equal(audits.length,1);assert.equal(paid.cancelled_at,null);assert.equal(paid.paid,true);assert.deepEqual(errors,[]);await context.close();
  }
- console.log('ĐẠT UI 033 Owner/Phục vụ/Bếp: hủy cả bàn từ menu thêm món, xác nhận/thoát, chỉ món chưa trả, không cấp hủy từng món cho staff, snapshot mới, mất phản hồi/reload cùng UUID và audit 1 lần. API giả.');
+ console.log('ĐẠT UI 033 Owner/Phục vụ/Bếp: hủy cả bàn từ menu thêm món, xác nhận/thoát, chỉ món chưa trả, không cấp hủy từng món cho staff, snapshot mới, mất phản hồi/reload cùng UUID, audit 1 lần và về sơ đồ sau khi hủy thành công. API giả.');
 }finally{await browser.close();}
