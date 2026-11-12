@@ -31,5 +31,5 @@ function searchableName(product:Product){
 }
 export function searchProducts(products: Product[], category: string, query: string) {
     const needle = normalize(query.trim());
-    return products.filter(p => !p.is_out && (category === 'all' || (p.group_id??p.category) === category) && searchableName(p).includes(needle));
+    return products.filter(p => (category === 'all' || (p.group_id??p.category) === category) && searchableName(p).includes(needle));
 }
