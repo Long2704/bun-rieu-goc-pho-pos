@@ -1,8 +1,9 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
+import type {ReactNode} from 'react';
 import PosIcon from './PosIcon';
-type Props={orders:{id:string;bill_transfer_origin?:string|null}[];ready:boolean};
+type Props={orders:{id:string;bill_transfer_origin?:string|null}[];ready:boolean;syncControl?:ReactNode};
 const audioConstructor=()=>window.AudioContext??(window as Window&{webkitAudioContext?:typeof AudioContext}).webkitAudioContext;
-export default function KitchenTools({orders,ready}:Props){
+export default function KitchenTools({orders,ready,syncControl}:Props){
  const [sound,setSound]=useState(false),[audioBusy,setAudioBusy]=useState(false),[soundError,setSoundError]=useState('');
  const [visible,setVisible]=useState(()=>document.visibilityState==='visible');
  const known=useRef(new Set<string>()),initialized=useRef(false),audio=useRef<AudioContext|null>(null),soundEnabled=useRef(false),audioLock=useRef(false),alive=useRef(true);
@@ -61,6 +62,7 @@ export default function KitchenTools({orders,ready}:Props){
    onClick={()=>sound?mute():void enableSound()}>
    <PosIcon name={sound?'bell':'bellOff'}/>
   </button>
+  {syncControl}
   <span className="visually-hidden" role="status">{!soundSupported?'Thiết bị chưa hỗ trợ chuông trong trình duyệt.':sound?'Đã bật âm thanh đơn mới.':'Đã tắt âm thanh đơn mới.'}</span>
   {soundError&&<span className="kitchen-sound-error" role="alert">{soundError}</span>}
  </div>;

@@ -27,10 +27,23 @@
 .pos-app.has-staff-shell[data-view="kitchen"]::after{display:none!important;background-image:none!important}
 
 .pos-app.has-staff-shell[data-view="kitchen"]>.app-header .brand{display:none!important}
-.pos-app.has-staff-shell[data-view="kitchen"]>.app-header{height:64px!important;min-height:64px!important;max-height:64px!important;padding:0!important;background:transparent}
+/* Kitchen controls share the title row; no empty branded header remains. */
+.pos-app.has-staff-shell[data-view="kitchen"]>.app-header{display:none!important}
+.pos-app.has-staff-shell[data-view="kitchen"]>.app-main{padding-top:calc(12px + env(safe-area-inset-top,0px))}
+.pos-app.has-staff-shell[data-view="kitchen"] .workspace-title-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center}
+.pos-app.has-staff-shell[data-view="kitchen"] .workspace-title-row h1{margin:0;font-size:20px;line-height:1.2;letter-spacing:-.3px}
+.pos-app.has-staff-shell[data-view="kitchen"] .kitchen-tools{display:grid;grid-template-columns:36px 36px;gap:6px;align-items:center}
+.pos-app.has-staff-shell[data-view="kitchen"] .kitchen-tools>button{display:grid;place-items:center;width:36px;height:36px;min-height:36px;padding:0;border-radius:50%;background:#fffdfb;color:#7b8899}
+.pos-app.has-staff-shell[data-view="kitchen"] .kitchen-tools>.kitchen-bell[aria-pressed=true]{color:var(--brand);background:var(--brand-soft)}
+.pos-app.has-staff-shell[data-view="kitchen"] .kitchen-tools>.kitchen-bell.has-error{color:#b73529;border-color:#edc5c0}
+.pos-app.has-staff-shell[data-view="kitchen"] .kitchen-tools>button>span{display:none}
+.pos-app.has-staff-shell[data-view="kitchen"] .kitchen-sound-error{grid-column:1/-1;overflow-wrap:anywhere}
+.pos-app.has-staff-shell[data-view="kitchen"] .workspace-title-row>.logout-button{min-height:36px;padding:8px 12px;border-radius:999px;font-size:12px;background:#fffdfb;border-color:#e6cdbc;color:#6b2f16}
+ .pos-app.has-staff-shell[data-view="kitchen"] .kitchen-heading{margin-bottom:10px}
+@media(max-width:360px){
+ .pos-app.has-staff-shell[data-view="kitchen"] .workspace-title-row h1{font-size:18px}
+}
 @media(min-width:1024px){
- .pos-app.has-staff-shell[data-view="kitchen"]>.app-header{height:72px!important;min-height:72px!important;max-height:72px!important}
- .pos-app.has-staff-shell[data-view="kitchen"]>.app-header .account{top:16px}
- .pos-app.has-staff-shell[data-view="kitchen"]>.app-navigation{top:96px}
- .pos-app.has-staff-shell[data-view="kitchen"]>.app-navigation>.sync-tools{top:32px}
+ .pos-app.has-staff-shell[data-view="kitchen"]>.app-navigation{top:32px}
+ .pos-app.has-staff-shell[data-view="kitchen"] .workspace-title-row h1{font-size:22px}
 }
