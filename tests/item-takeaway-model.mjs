@@ -10,6 +10,14 @@ assert.equal(kitchenFulfillmentTitle({order_items:[b,c,drink]},'Bàn 5'),'Bàn 5
 const hidden={...a,cancelled_at:'2026-11-12T00:00:00Z',cancelled_before_kitchen:true};assert.deepEqual(kitchenLines({order_items:[hidden,b,c]}).map(i=>i.id),['b','c']);assert.equal(kitchenFulfillmentTitle({order_items:[hidden,b]},'Bàn 5'),'Bàn 5 (Mang về)');
 assert.deepEqual(fulfillmentSections([a,b,c]).map(s=>s.lines.map(i=>i.id)),[['a'],['b','c']]);
 assert.equal(groupSavedOrders([{id:'o',status:'cooking',order_items:[a,b]}]).groups.length,2,'same dish with different service mode must not merge');
+const completionGroups=groupSavedOrders([
+ {id:'finished',status:'done',kitchen_relevant:true,is_draft:false,order_items:[a]},
+ {id:'later',status:'cooking',kitchen_relevant:true,is_draft:false,order_items:[{...a,id:'later-line'}]},
+ {id:'drink',status:'done',kitchen_relevant:false,is_draft:false,order_items:[drink]},
+ {id:'pending',status:'cooking',kitchen_relevant:false,is_draft:true,order_items:[{...a,id:'pending-line'}]}
+]);
+const completionById=new Map(completionGroups.groups.flatMap(g=>g.rows.map(r=>[r.line.id,r.kitchenCompleted])));
+assert.equal(completionById.get(a.id),true);assert.equal(completionById.get('later-line'),false);assert.equal(completionById.get(drink.id),false);assert.equal(completionById.get('pending-line'),false);
 const sale=(id,label,items)=>{const gross=items.reduce((s,i)=>s+i.qty*i.price,0);return {id,session_id:id,table_no:5,service_label:label,paid_at:'2026-11-12T08:00:00+07:00',gross,total:gross,discount:0,method:'cash',bill_items:items};};
 const items=[sale('1','Bàn 5',[line('1',false,{qty:2}),line('2',true)]),sale('2','Mang về 4',[line('3',false,{qty:2}),line('4',true)]),sale('3','Mang về 1',[line('5',undefined,{qty:2})]),sale('4','ABCD',[line('6',true)])];
 const report=aggregateSales(items,'2026-11-12T00:00:00','2026-11-12T23:59:59',defaultBands,'Tất cả','2026-11-12T10:00:00Z');

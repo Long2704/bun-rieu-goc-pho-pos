@@ -158,7 +158,7 @@ try {
   await checkDrinkNotes(db,uid(1),uid(2),food,drink);
   await checkPrivateRealtime(db,uid(2),food);
   await checkScopedRealtime(db,uid(2),food,drink);
-  await checkItemTakeaway(db,uid(2),food,drink);
+  await checkItemTakeaway(db,uid(2),food,drink,uid(3));
   await checkUnsentCancellations(db,uid(2),food);
   console.log('PASS bill transfer SQL: staff permissions, exact whole-bill snapshot, empty/occupied target and target-session guard, partial kitchen-ticket split without copied items/new-food audit, same status/time/path/position, untouched source bills, close last source bill, request replay, paid protection, kitchen completion, private ledger.');
 } finally {await db.close();}
