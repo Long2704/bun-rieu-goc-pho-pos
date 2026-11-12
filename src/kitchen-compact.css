@@ -9,7 +9,7 @@
 .kitchen-page .kitchen-card ul{margin:7px 0 9px;padding-left:18px;font-size:14px;line-height:1.4}
 .kitchen-page .kitchen-card li{padding:3px 0}
 .kitchen-page .kitchen-card .item-note{margin:2px 0 0;font-size:14px;font-weight:700;line-height:1.35;color:#9a4b1e;border-left-color:#df9558}
-.kitchen-page .kitchen-card .note-edited-label{margin-top:2px}
+.kitchen-page .kitchen-card .note-edited-label{margin:0;line-height:1.1}
 .kitchen-page .kitchen-card>.primary{min-height:44px;padding:8px 12px;font-size:14px;border-radius:12px}
 .kitchen-page .kitchen-service-section{margin-top:7px}
 .kitchen-page .kitchen-service-section+.kitchen-service-section{margin-top:7px;padding-top:7px}
