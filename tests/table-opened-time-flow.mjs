@@ -8,7 +8,7 @@ try{
  const meal={id:'food',name:'Bún riêu truyền thống',price:58000,category:'bun',is_out:false};
  const order=id=>({id:'order-'+id,session_id:id,request_id:id,is_draft:false,status:'cooking',kitchen_relevant:true,created_at:'2026-11-12T07:40:00Z',order_items:[{...meal,id:'line-'+id,menu_item_id:'food',qty:1,note:'Ít bún',paid:false,bill_no:1}]});
  const original={id:sid,table_id:11,opened_at:'2026-11-12T07:07:00Z',orders:[order(sid)]};
- let sessions=[original,{id:other,table_id:12,opened_at:'2026-11-11T23:02:00Z',orders:[{...order(other),status:'done',kitchen_relevant:false}]}];
+ let sessions=[original,{id:other,table_id:12,opened_at:'2026-11-10T23:02:00Z',orders:[{...order(other),status:'done',kitchen_relevant:false}]}];
  const links=()=>sessions.filter(s=>s.table_id===11).flatMap(s=>[{table_id:11,session_id:s.id},{table_id:14,session_id:s.id}]);
  const kitchen=()=>sessions.flatMap(s=>s.orders.filter(o=>o.status==='cooking').map(o=>({...o,table_sessions:{table_id:s.table_id,closed_at:null}})));
  const notify=ids=>peers.forEach(({socket,joined})=>{const m=joined.get('realtime:pos:orders');if(m)for(const session_id of ids)socket.send(JSON.stringify([m[0],null,m[2],'broadcast',{event:'invalidate',payload:{version:2,session_id},type:'broadcast'}]));});
@@ -28,25 +28,38 @@ try{
   await route.fulfill({json:body});
  });
  const page=await context.newPage();page.setDefaultTimeout(12000);page.on('pageerror',e=>errors.push(e.message));
- await page.addInitScript(()=>sessionStorage.setItem('goc-pho-install-dismissed','1'));
+ await page.clock.setFixedTime(new Date('2026-11-12T07:19:34Z'));
+ await page.addInitScript(()=>{
+  sessionStorage.setItem('goc-pho-install-dismissed','1');
+  window.__counterTimers=new Set();const set=window.setInterval.bind(window),clear=window.clearInterval.bind(window);
+  window.setInterval=(fn,delay,...args)=>{const id=set(fn,delay,...args);if(delay===1000)window.__counterTimers.add(id);return id;};
+  window.clearInterval=id=>{window.__counterTimers.delete(id);clear(id);};
+  let visibility='visible';Object.defineProperty(document,'visibilityState',{get:()=>visibility,configurable:true});window.__setTableVisibility=value=>{visibility=value;document.dispatchEvent(new Event('visibilitychange'));};
+ });
  await page.goto(process.env.POS_TEST_URL||'http://localhost:5196');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('staff@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  const card=id=>page.locator('.table-card[data-table-id="'+id+'"]'),time=id=>card(id).locator('time');
- await time(11).waitFor();assert.equal(await time(11).innerText(),'14:07');assert.equal(await time(14).innerText(),'14:07');assert.equal(await time(12).innerText(),'06:02');assert.equal(await time(13).count(),0);
- assert.equal(await time(11).getAttribute('datetime'),original.opened_at);assert.ok(!(await card(11).innerText()).includes('Mở lúc'));
+ await time(11).waitFor();assert.equal(await time(11).innerText(),'00:12:34');assert.equal(await time(14).innerText(),'00:12:34');assert.equal(await time(12).innerText(),'32:17:34');assert.equal(await time(13).count(),0);
+ assert.equal(await time(11).getAttribute('datetime'),'PT754S');assert.ok(!(await card(11).innerText()).includes('Mở lúc'));
+ assert.equal(await page.evaluate(()=>window.__counterTimers.size),1,'all cards share one local ticker');
  for(const width of [320,390,768,1440]){
   await page.setViewportSize({width,height:900});
   const box=await card(11).boundingBox(),clock=await time(11).boundingBox(),name=await card(11).locator('.table-card-heading>strong').boundingBox();
-  assert.ok(clock.x>=box.x+8&&clock.y>=box.y+7&&clock.y<box.y+20);assert.ok(clock.y+clock.height<name.y);assert.ok(clock.x+clock.width<box.x+box.width-8);
+  assert.ok(clock.x>=box.x+8&&clock.y>=box.y+7&&clock.y<box.y+20);assert.ok(clock.y+clock.height<name.y);assert.ok(clock.x+clock.width<box.x+box.width-8);const icon=await card(11).locator('.table-card-icon').boundingBox();assert.ok(clock.x+clock.width<=icon.x||clock.y+clock.height<=icon.y,JSON.stringify({clock,icon}));
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:'/workspace/artifacts/table-opening-time-'+width+'.png'});
  }
  await page.setViewportSize({width:390,height:844});
+ await page.clock.setFixedTime(new Date('2026-11-12T07:19:35Z'));await page.waitForFunction(()=>document.querySelector('[data-table-id="11"] time')?.textContent==='00:12:35');
+ await page.clock.setFixedTime(new Date('2026-11-12T07:20:00Z'));await page.reload();await time(11).waitFor();assert.equal(await time(11).innerText(),'00:13:00','reload derives elapsed time from persisted opening timestamp');
+ await page.evaluate(()=>window.__setTableVisibility('hidden'));assert.equal(await page.evaluate(()=>window.__counterTimers.size),0);
+ await page.clock.setFixedTime(new Date('2026-11-12T07:22:00Z'));await page.evaluate(()=>window.__setTableVisibility('visible'));
+ await page.waitForFunction(()=>document.querySelector('[data-table-id="11"] time')?.textContent==='00:15:00');assert.equal(await page.evaluate(()=>window.__counterTimers.size),1);
  // Adding another order must not replace the session clock with its later creation time.
- original.orders.push({...order(sid),id:'later-order',created_at:'2026-11-12T08:00:00Z'});notify([sid]);await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();assert.equal(await time(11).innerText(),'14:07');
+ original.orders.push({...order(sid),id:'later-order',created_at:'2026-11-12T08:00:00Z'});notify([sid]);await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();assert.equal(await time(11).innerText(),'00:15:00');
  // Closed sessions remove their clocks, including linked table projections.
  sessions=sessions.filter(s=>s.id!==sid);notify([sid]);await page.waitForFunction(()=>!document.querySelector('[data-table-id="11"] time'));assert.equal(await time(14).count(),0);
  // A new customer gets the new session opening time through the scoped Realtime read.
- sessions.push({id:fresh,table_id:11,opened_at:'2026-11-12T08:20:00Z',orders:[order(fresh)]});notify([fresh]);await page.waitForFunction(()=>document.querySelector('[data-table-id="11"] time')?.textContent==='15:20');assert.equal(await time(14).innerText(),'15:20');
- await card(11).click({position:{x:17,y:17}});await page.locator('.pos-order-workspace').waitFor();assert.deepEqual(writes,[]);assert.deepEqual(errors,[]);
- console.log('PASS table opening time: HH:mm at upper-left, Vietnam time despite foreign device zone, overnight timestamp, empty hidden, linked shared time, later orders stable, close removes clocks/new session resets via scoped Realtime, no overlap 320/390/768/1440, timestamp click opens order, no sales writes. All HTTP/WebSocket mocked.');
+ sessions.push({id:fresh,table_id:11,opened_at:'2026-11-12T07:22:00Z',orders:[order(fresh)]});notify([fresh]);await page.waitForFunction(()=>document.querySelector('[data-table-id="11"] time')?.textContent==='00:00:00');assert.equal(await time(14).innerText(),'00:00:00');
+ await card(11).click({position:{x:17,y:17}});await page.locator('.pos-order-workspace').waitFor();assert.equal(await page.evaluate(()=>window.__counterTimers.size),0,'leaving table map stops the ticker');assert.deepEqual(writes,[]);assert.deepEqual(errors,[]);
+ console.log('PASS table elapsed timer: HH:mm:ss, one local ticker for every card, seconds advance, reload retains elapsed time, background pauses/resume catches up, leaving map stops ticker, >24h no wrap and device timezone independent, empty hidden, linked shared time, later calls stable, close hides/new session starts zero via Realtime, no overlap at 320/390/768/1440, no sales writes. All HTTP/WebSocket mocked.');
  await context.close();
 }finally{await browser.close();}
