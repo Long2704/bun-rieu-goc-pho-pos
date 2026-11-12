@@ -1,0 +1,3 @@
+/* Session start time stays separate from the table name, amount and status. */
+.table-card .table-opened-time{position:absolute;top:10px;left:12px;max-width:calc(100% - 24px);font-size:11px;font-weight:500;line-height:1.2;letter-spacing:.1px;color:#8a6851;pointer-events:none;font-variant-numeric:tabular-nums;white-space:nowrap}
+.table-card.is-priority .table-opened-time{color:#fff8ee}
