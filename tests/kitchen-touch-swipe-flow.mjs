@@ -7,7 +7,8 @@ const context=await browser.newContext({viewport:{width:390,height:844},hasTouch
 const menu=[{id:'food',name:'Bún riêu',price:58000,category:'bun',is_out:false},{id:'side',name:'Giò khoanh',price:10000,category:'an_them',is_out:false},{id:'drink',name:'Trà đá',price:3000,category:'do_uong',is_out:false}];
 const makeLine=(product,n)=>({...product,id:'line-'+n,menu_item_id:product.id,qty:1,note:'Ghi chú '+n,paid:false,bill_no:1,cancelled_at:null,kitchen_position:n});
 const orders=[{id:'first',request_id:'first',session_id:'s1',status:'cooking',kitchen_relevant:true,created_at:'2026-11-09T01:00:00Z',order_items:[makeLine(menu[1],1),makeLine(menu[0],2),makeLine(menu[0],3),makeLine(menu[2],4)]},{id:'second',request_id:'second',session_id:'s2',status:'cooking',kitchen_relevant:true,created_at:'2026-11-09T02:00:00Z',order_items:[makeLine(menu[0],5)]}];
-let closed=false,cancelCalls=0,lose=true,completeCalls=0,mode='success';
+let closed=false,cancelCalls=0,lose=true,completeCalls=0,mode='success',acknowledged=0;
+await context.routeWebSocket('**/realtime/v1/websocket**',socket=>socket.onMessage(()=>{}));
 await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
  if(await mockLegacyMenuGroups(route))return;
  const req=route.request(),path=new URL(req.url()).pathname;let body;
@@ -21,7 +22,7 @@ await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
  else if(path.endsWith('/cancel_order_item')){
   cancelCalls++;const line=orders[0].order_items.find(i=>i.id===req.postDataJSON().p_item_id);assert.ok(line);assert.equal(line.paid,false);line.cancelled_at??='2026-11-09T03:00:00Z';closed=orders[0].order_items.every(i=>i.cancelled_at);
   if(lose){lose=false;return route.fulfill({status:503,json:{message:'Lost cancellation ACK'}});}body=null;
- }else if(path.endsWith('/complete_kitchen_order')){completeCalls++;await new Promise(r=>setTimeout(r,180));if(mode==='fail')return route.fulfill({status:503,json:{message:'Simulated completion failure'}});orders.find(o=>o.id===req.postDataJSON().p_order_id).status='done';body=null;}
+ }else if(path.endsWith('/complete_kitchen_order')){completeCalls++;await new Promise(r=>setTimeout(r,900));if(mode==='fail')return route.fulfill({status:503,json:{message:'Simulated completion failure'}});orders.find(o=>o.id===req.postDataJSON().p_order_id).status='done';acknowledged++;body=null;}
  else throw Error('Unexpected API '+path);
  await route.fulfill({json:body});
 });
@@ -44,8 +45,13 @@ await touch(name(),30);await page.waitForTimeout(300);assert.equal(completeCalls
 await touch(name(),5,-65);await page.waitForTimeout(300);assert.equal(completeCalls,0);
 await touch(name(),144,1,true);await page.waitForTimeout(300);assert.equal(completeCalls,0);assert.equal(await first().evaluate(e=>new DOMMatrixReadOnly(getComputedStyle(e).transform).m41),0);
 mode='fail';await touch(first().locator('.item-note').first(),144,1);await page.getByRole('alert').filter({hasText:'Chưa hoàn thành đơn'}).first().waitFor();await page.waitForTimeout(300);assert.equal(completeCalls,1);assert.equal(await page.locator('.kitchen-card').count(),2);assert.equal(await first().evaluate(e=>new DOMMatrixReadOnly(getComputedStyle(e).transform).m41),0);
-mode='success';await touch(name(),144,1);await page.waitForFunction(()=>document.querySelectorAll('.kitchen-card').length===1);assert.equal(completeCalls,2,'Touch retry must send exactly once');assert.match(await first().innerText(),/Bàn 2/);
+mode='success';await touch(name(),144,1);
+await page.waitForTimeout(350);
+assert.equal(acknowledged,0,'flight/collapse finishes before slow server ACK');
+assert.ok(await page.locator('.swipe-order').first().evaluate(e=>e.getBoundingClientRect().height)<2,'ticket collapses without waiting for ACK');
+assert.equal(await page.locator('.swipe-order').first().getAttribute('aria-busy'),'true');
+await page.waitForFunction(()=>document.querySelectorAll('.kitchen-card').length===1);assert.equal(completeCalls,2,'Touch retry must send exactly once');assert.match(await first().innerText(),/Bàn 2/);
 const events=await page.evaluate(()=>window.__captures);assert.ok(events.some(e=>e.type==='lostpointercapture'&&e.target==='STRONG'),'Exercise native implicit capture transfer from a nested child');
 await touch(first().locator('.order-heading>span'),-144,1);await page.waitForFunction(()=>document.querySelectorAll('.kitchen-card').length===0);assert.equal(completeCalls,3);assert.deepEqual(errors,[]);await context.close();
-console.log('PASS real touch input: nested dish names/notes/time labels transfer implicit capture without cancelling swipe; left/right, short/vertical/cancelled touches, failure restoration, retry once, FIFO. Reproduced zero submits before fix, correct completion after fix. Chromium mobile touch, mock API.');
+console.log('PASS real touch input: nested dish names/notes/time labels transfer implicit capture without cancelling swipe; left/right, short/vertical/cancelled touches, slow-ACK immediate collapse, failure restoration, retry once, FIFO. Reproduced zero submits before fix, correct completion after fix. Chromium mobile touch, mock API.');
 }finally{await browser.close();}

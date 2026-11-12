@@ -9,6 +9,7 @@ const order=(table,id)=>({id:'order'+id,session_id:'s'+table,request_id:'req'+id
 let sessions=[{id:'s1',table_id:1,orders:[order(1,1)]},{id:'s2',table_id:2,orders:[order(2,2)]},{id:'s3',table_id:3,orders:[order(3,3)]}];
 let bills=[],attempts=[],lostResponse=true,receiptUnavailable=false,role='bep',stale=false;
 sessions=sessions.slice(0,1);
+await context.routeWebSocket('**/realtime/v1/websocket**',socket=>socket.onMessage(()=>{}));
 await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
  const req=route.request(),u=new URL(req.url());let body;
  if(u.pathname==='/auth/v1/token')body={access_token:'test-access-token',refresh_token:'test-refresh-token',token_type:'bearer',expires_in:3600,user:{id:'payment-test-user',email:'test@example.com',aud:'authenticated',role:'authenticated'}};
@@ -58,7 +59,7 @@ const page=await context.newPage();page.setDefaultTimeout(10000);const errors=[]
 
 async function management(name){const control=page.locator('.management-menu');if(!await control.evaluate(e=>e.open))await control.locator('summary').click();await page.getByRole('button',{name,exact:true}).click();}
 async function tableActions(){const control=page.locator('.table-operations');if(!await control.evaluate(e=>e.open))await control.locator('summary').click();}
-await page.goto('http://localhost:5173');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('test@example.com');await page.getByLabel('Mật khẩu',{exact:true}).fill('fake-test-password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+await page.goto(process.env.POS_TEST_URL||'http://localhost:5196');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('test@example.com');await page.getByLabel('Mật khẩu',{exact:true}).fill('fake-test-password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
 await page.getByRole('button',{name:/^Bếp \(/}).click();await page.getByRole('heading',{name:'Bàn 1',exact:true}).waitFor();
 assert.equal(await page.locator('.new-order-badge').count(),0);assert.equal(await page.evaluate(()=>window.deviceCalls.notes),0);
 await page.getByRole('button',{name:'Bật chuông đơn mới',exact:true}).click();await page.getByRole('button',{name:'Tắt chuông đơn mới',exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.deviceCalls.notes),2);
@@ -82,11 +83,10 @@ if(process.env.POS_SCREENSHOT_DIR){
 
 // Cùng id cập nhật/đổi bàn không báo lại.
 sessions[0].table_id=4;await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await page.getByRole('heading',{name:'Bàn 4',exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.deviceCalls.notes),2);
-sessions[0].orders.push({...sessions[0].orders[0],id:'moved-fragment',request_id:'moved-fragment',bill_transfer_origin:sessions[0].orders[0].id});await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await page.waitForTimeout(150);assert.equal(await page.evaluate(()=>window.deviceCalls.notes),2,'bill fragment does not chime as new food');assert.equal(await page.locator('.new-order-badge').count(),0);sessions[0].orders.pop();sessions[0].orders.push(order(4,4));await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await page.getByRole('button',{name:'Có 1 đơn bếp mới chưa xem',exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.deviceCalls.notes),4);assert.equal(await page.locator('.new-kitchen-order').count(),1);
+sessions[0].orders.push({...sessions[0].orders[0],id:'moved-fragment',request_id:'moved-fragment',bill_transfer_origin:sessions[0].orders[0].id});await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await page.waitForTimeout(150);assert.equal(await page.evaluate(()=>window.deviceCalls.notes),2,'bill fragment does not chime as new food');assert.equal(await page.locator('.new-order-badge').count(),0);sessions[0].orders.pop();sessions[0].orders.push(order(4,4));await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.kitchen-card').length===2);await page.waitForFunction(()=>window.deviceCalls.notes===4);assert.equal(await page.locator('.new-kitchen-order,.new-order-badge,.new-kitchen-alert').count(),0);
 await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();assert.equal(await page.evaluate(()=>window.deviceCalls.notes),4);
-await page.getByRole('button',{name:'Lịch sử',exact:true}).click();await page.getByRole('button',{name:'Có 1 đơn bếp mới chưa xem',exact:true}).click();await page.locator('.new-kitchen-order').waitFor();
-await page.getByRole('button',{name:'Đánh dấu đã xem',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('.new-order-badge'));assert.equal(sessions[0].orders[1].status,'cooking');
-await page.getByRole('button',{name:'Tắt chuông đơn mới',exact:true}).click();sessions[0].orders.push(order(4,5));await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await page.getByRole('button',{name:'Có 1 đơn bếp mới chưa xem',exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.deviceCalls.notes),4);
+await page.getByRole('button',{name:'Lịch sử',exact:true}).click();assert.equal(await page.locator('.new-kitchen-alert').count(),0);await page.getByRole('button',{name:/^Đang làm/}).click();
+await page.getByRole('button',{name:'Tắt chuông đơn mới',exact:true}).click();sessions[0].orders.push(order(4,5));await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.kitchen-card').length===3);assert.equal(await page.evaluate(()=>window.deviceCalls.notes),4);
 // Hoàn thành/hủy hết đơn sẽ xóa đánh dấu mới khỏi danh sách.
 sessions[0].orders[2].status='done';await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('.new-kitchen-alert'));
 assert.equal(await page.getByRole('button',{name:'Giữ màn hình bếp sáng',exact:true}).count(),0);
@@ -110,5 +110,5 @@ await page.setViewportSize({width:320,height:740});
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 await page.setViewportSize({width:390,height:844});
 await page.evaluate(()=>localStorage.setItem('test-unsupported','true'));await page.reload();await page.getByRole('button',{name:/^Bếp \(/}).click();assert.equal(await page.getByRole('button',{name:'Bật chuông đơn mới',exact:true}).isDisabled(),true);assert.equal(await page.getByRole('button',{name:'Giữ màn hình bếp sáng',exact:true}).count(),0);
-assert.deepEqual(errors,[]);console.log('PASS: compact bell beside title, no large help panel, first order above fold, keyboard toggle/error recovery, no backlog alarm, enabled/muted new-order chimes, deduplication and table transfer, highlight/acknowledgment, history navigation, no wake lock controls or requests, audio cleanup, unsupported devices and mobile. Device APIs and Supabase mocked.');
+assert.deepEqual(errors,[]);console.log('PASS: compact bell beside title, no large help panel, first order above fold, keyboard toggle/error recovery, no backlog alarm, enabled/muted new-order chimes, deduplication and table transfer, no new-order counters/badges, history navigation, no wake lock controls or requests, audio cleanup, unsupported devices and mobile. Device APIs and Supabase mocked.');
 }finally{await browser.close();}
