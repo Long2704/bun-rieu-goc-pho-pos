@@ -1,10 +1,10 @@
 import type {Order,OrderLine} from '../order-model';
-export type SavedSource={orderId:string;status:Order['status'];line:OrderLine};
+export type SavedSource={orderId:string;status:Order['status'];kitchenCompleted:boolean;line:OrderLine};
 export type SavedGroup={pending?:boolean;key:string;billNo:number;productId:string|null;name:string;category:string;qty:number;amount:number;rows:SavedSource[]};
 export function groupSavedOrders(orders:Order[],separateSelections=false){
  const groups=new Map<string,SavedGroup>(),history:SavedSource[]=[];
  for(const order of orders)for(const line of order.order_items){
-  const source={orderId:order.id,status:order.status,line};
+  const source={orderId:order.id,status:order.status,kitchenCompleted:!order.is_draft&&order.kitchen_relevant&&order.status==='done'&&line.category!=='do_uong',line};
   if(line.paid||line.cancelled_at){history.push(source);continue;}
   const productId=line.menu_item_id??null,billNo=line.bill_no??1,key=`bill:${billNo}:${productId??`line:${line.id}`}${line.is_takeaway?':takeaway':''}${separateSelections?`:line:${line.id}`:''}`;
   let group=groups.get(key);
