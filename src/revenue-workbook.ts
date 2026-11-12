@@ -75,7 +75,7 @@ function referenceMatrix(report:RevenueReport,current:readonly Sale[],options:Ex
    const key=normalizedName(item.name),m=byName.get(key),rowKey=m?key:JSON.stringify([key,item.price]);
    const row=rows.get(rowKey)??{name:m?.name??item.name,price:m?.price??item.price,main:m?.category==='bun',counts:Array(8).fill(0),fallback:!m};
    row.counts[band]+=item.qty;rows.set(rowKey,row);
-   if(row.main){main[band]+=item.qty;if(isTakeaway(saleName(sale)))takeaway[band]+=item.qty;}
+   if(row.main){main[band]+=item.qty;if(item.is_takeaway??isTakeaway(saleName(sale)))takeaway[band]+=item.qty;}
    if(key===normalizedName('Chả ốc (Tặng)'))gift[band]+=item.qty;
   }
  }
@@ -92,7 +92,7 @@ function referenceMatrix(report:RevenueReport,current:readonly Sale[],options:Ex
  sheet.rows.push([], [cell('Tiền món theo hóa đơn',9),...Array(last-1).fill(cell('')),money(report.gross)], [cell('Chênh lệch giá menu / hóa đơn',9),...Array(last-1).fill(cell('')),money(amount-report.gross)]);
  const notes=[
   'Dòng xanh: số lượng chỉ cộng nhóm Món chính; cột Thành tiền cộng tất cả món trong bảng.',
-  'Mang về (tô): chỉ đếm món chính trên hóa đơn của các bàn/điểm bán bắt đầu bằng “Mang về”.',
+  'Mang về (tô): đếm món chính có dấu Mang về trên hóa đơn; dữ liệu cũ chưa có dấu dùng tên bàn bắt đầu bằng “Mang về”.',
   'Chả ốc (Tặng): chỉ đếm đúng món này; không đếm Chả ốc bán thường hoặc món khác có giá 0đ.',
   'Giá là giá menu tại lúc xuất. Thành tiền = Giá × Tổng cộng; thực thu Dashboard không bị thay đổi.',
   '† Món cũ không còn trong menu: giữ giá hóa đơn, chưa đưa vào tổng món chính nếu không xác định được nhóm.',
@@ -111,7 +111,7 @@ function exportDetail(report:RevenueReport,sales:readonly Sale[]){
  for(const k of keys)if(sourceTotals[k]!==report[k])throw Error('Chi tiết hóa đơn không khớp báo cáo');
  const products=new Map<string,ProductBucket>(),daily=new Map<string,Map<string,ProductBucket>>(),invoices=Array(8).fill(0) as number[],takeaway=Array(8).fill(0) as number[],free=Array(8).fill(0) as number[];
  for(const sale of current){const local=localTime(sale.paid_at),day=local.slice(0,10),time=local.slice(11,16),idx=PERIOD_BANDS.findIndex(([a,b])=>time>=a&&time<b),band=idx<0?7:idx;invoices[band]++;const dayProducts=daily.get(day)??new Map<string,ProductBucket>();daily.set(day,dayProducts);
-  for(const item of sale.bill_items){const k=JSON.stringify([item.name,item.price]);for(const map of [products,dayProducts]){const bucket=map.get(k)??{name:item.name,price:item.price,qty:Array(8).fill(0),gross:0};bucket.qty[band]+=item.qty;bucket.gross+=item.qty*item.price;map.set(k,bucket);}if(isTakeaway(saleName(sale)))takeaway[band]+=item.qty;if(item.price===0)free[band]+=item.qty;}
+  for(const item of sale.bill_items){const k=JSON.stringify([item.name,item.price]);for(const map of [products,dayProducts]){const bucket=map.get(k)??{name:item.name,price:item.price,qty:Array(8).fill(0),gross:0};bucket.qty[band]+=item.qty;bucket.gross+=item.qty*item.price;map.set(k,bucket);}if(item.is_takeaway??isTakeaway(saleName(sale)))takeaway[band]+=item.qty;if(item.price===0)free[band]+=item.qty;}
  }
  const ordered=(map:Map<string,ProductBucket>)=>[...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'vi',{numeric:true})||a.price-b.price);
  return {current,products:ordered(products),daily:[...daily].map(([day,p])=>({day,products:ordered(p)})),invoices,takeaway,free};
