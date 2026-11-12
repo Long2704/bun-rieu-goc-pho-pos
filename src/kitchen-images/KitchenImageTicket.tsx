@@ -17,6 +17,6 @@ export default function KitchenImageTicket({ticket,cache,disabled,onComplete}:{t
    <PrivateImage path={ticket.preview_path} cache={cache} ratio={ticket.width/ticket.height}/>
   </div>
   <button className="image-open" onClick={()=>setZoom(true)}>Xem ảnh lớn</button>
-  <button className="primary" disabled={disabled} onClick={()=>void onComplete()}>Xong</button>
+  <button data-complete-ticket className="primary" disabled={disabled} onClick={()=>void onComplete()}>Xong</button>
  </SwipeOrderCard>{zoom&&<KitchenImageZoom path={ticket.image_path} cache={cache} onClose={()=>setZoom(false)}/>}</>;
 }

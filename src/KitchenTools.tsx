@@ -1,9 +1,9 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import PosIcon from './PosIcon';
-type Props={orders:{id:string;bill_transfer_origin?:string|null}[];ready:boolean;onFreshChange:(ids:string[])=>void;onShowQueue:()=>void};
+type Props={orders:{id:string;bill_transfer_origin?:string|null}[];ready:boolean};
 const audioConstructor=()=>window.AudioContext??(window as Window&{webkitAudioContext?:typeof AudioContext}).webkitAudioContext;
-export default function KitchenTools({orders,ready,onFreshChange,onShowQueue}:Props){
- const [fresh,setFresh]=useState<string[]>([]),[sound,setSound]=useState(false),[audioBusy,setAudioBusy]=useState(false),[soundError,setSoundError]=useState('');
+export default function KitchenTools({orders,ready}:Props){
+ const [sound,setSound]=useState(false),[audioBusy,setAudioBusy]=useState(false),[soundError,setSoundError]=useState('');
  const [visible,setVisible]=useState(()=>document.visibilityState==='visible');
  const known=useRef(new Set<string>()),initialized=useRef(false),audio=useRef<AudioContext|null>(null),soundEnabled=useRef(false),audioLock=useRef(false),alive=useRef(true);
  const soundSupported=!!audioConstructor();
@@ -33,10 +33,8 @@ export default function KitchenTools({orders,ready,onFreshChange,onShowQueue}:Pr
   if(!initialized.current){known.current=new Set([...current,...orders.flatMap(order=>order.bill_transfer_origin?[order.bill_transfer_origin]:[])]);initialized.current=true;return;}
   const incoming=orders.filter(order=>!known.current.has(order.id)&&(!order.bill_transfer_origin||!known.current.has(order.bill_transfer_origin))).map(order=>order.id);
   orders.forEach(order=>{known.current.add(order.id);if(order.bill_transfer_origin)known.current.add(order.bill_transfer_origin);});
-  setFresh(old=>{const kept=old.filter(id=>current.has(id));return incoming.length||kept.length!==old.length?[...kept,...incoming]:old;});
   if(incoming.length&&soundEnabled.current&&document.visibilityState==='visible')chime();
  },[orders,ready,chime]);
- useEffect(()=>{onFreshChange(fresh);},[fresh,onFreshChange]);
  useEffect(()=>{
   if(visible&&soundEnabled.current&&audio.current?.state==='suspended'){
    void audio.current.resume().then(()=>{if(alive.current&&audio.current?.state!=='running'){soundEnabled.current=false;setSound(false);setSoundError('Bấm Bật chuông đơn mới để kích hoạt lại âm thanh.');}}).catch(()=>{if(alive.current){soundEnabled.current=false;setSound(false);setSoundError('Bấm Bật chuông đơn mới để kích hoạt lại âm thanh.');}});
@@ -63,12 +61,6 @@ export default function KitchenTools({orders,ready,onFreshChange,onShowQueue}:Pr
    onClick={()=>sound?mute():void enableSound()}>
    <PosIcon name={sound?'bell':'bellOff'}/>
   </button>
-  {!!fresh.length&&<div className="new-kitchen-alert" role="status">
-   <button className="kitchen-fresh-count" aria-label={`Có ${fresh.length} đơn bếp mới chưa xem`} title="Xem đơn đang làm" onClick={onShowQueue}>
-    <strong>{fresh.length}</strong> mới
-   </button>
-   <button className="kitchen-acknowledge" aria-label="Đánh dấu đã xem" title="Đánh dấu đã xem" onClick={()=>setFresh([])}><PosIcon name="check"/></button>
-  </div>}
   <span className="visually-hidden" role="status">{!soundSupported?'Thiết bị chưa hỗ trợ chuông trong trình duyệt.':sound?'Đã bật âm thanh đơn mới.':'Đã tắt âm thanh đơn mới.'}</span>
   {soundError&&<span className="kitchen-sound-error" role="alert">{soundError}</span>}
  </div>;
