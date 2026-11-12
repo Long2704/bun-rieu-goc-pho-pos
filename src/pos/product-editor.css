@@ -39,3 +39,11 @@
 .pos-product-inline-quantity .pos-quantity-control{width:126px;max-width:100%}
 .pos-product-add{display:grid;place-items:center;width:40px;height:40px;padding:8px;border:1px solid #f1bb8d;border-radius:9px;background:#fff2df;color:#df6500}
 @media(max-width:440px){.pos-product-select-card>.pos-product-hit{gap:10px}.pos-product-inline-quantity .pos-quantity-control{width:100px}.pos-product-inline-quantity .pos-quantity-control button{min-width:30px;width:30px}.pos-product-select-card .pos-product-art{width:48px;height:56px}}
+
+.pos-order-workspace .pos-product-select-card.is-out{background:#f5f1ec!important;border-color:#e4d9cc;box-shadow:none}
+.pos-product-select-card.is-out .pos-product-name{color:#796b60}
+.pos-product-select-card.is-out .pos-product-inline-quantity{display:flex;flex-direction:column;align-items:flex-end;gap:7px}
+.pos-product-unavailable{display:inline-flex;align-items:center;white-space:nowrap;padding:4px 8px;border:1px solid #ddd0c0;border-radius:999px;background:#ece4d9;color:#75604b;font-size:11px;font-weight:600;line-height:1.2}
+.pos-product-select-card.is-out .pos-product-add:disabled{opacity:.35;cursor:not-allowed}
+
+.pos-product-select-card.is-out>.pos-product-hit:disabled{opacity:.75}
