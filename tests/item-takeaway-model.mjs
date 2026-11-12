@@ -1,3 +1,4 @@
+import {kitchenLines} from '../src/order-model.ts';
 import assert from 'node:assert/strict';
 import {kitchenFulfillmentTitle,fulfillmentSections,takeawayTitle} from '../src/item-fulfillment.ts';
 import {groupSavedOrders} from '../src/pos/saved-order-groups.ts';
@@ -6,6 +7,7 @@ import {revenueWorkbook} from '../src/revenue-workbook.ts';
 const line=(id,takeaway,extra={})=>({id,name:'Bún riêu',menu_item_id:'food',qty:1,price:58000,category:'bun',note:'Ít bún',paid:false,bill_no:1,is_takeaway:takeaway,...extra});
 const a=line('a',false),b=line('b',true),c=line('c',true,{cancelled_at:'2026-11-12T00:00:00Z'}),drink=line('d',false,{category:'do_uong'});
 assert.equal(kitchenFulfillmentTitle({order_items:[b,c,drink]},'Bàn 5'),'Bàn 5 (Mang về)');assert.equal(kitchenFulfillmentTitle({order_items:[a,b]},'Bàn 5'),'Bàn 5');assert.equal(takeawayTitle('Mang về 4'),'Mang về 4');
+const hidden={...a,cancelled_at:'2026-11-12T00:00:00Z',cancelled_before_kitchen:true};assert.deepEqual(kitchenLines({order_items:[hidden,b,c]}).map(i=>i.id),['b','c']);assert.equal(kitchenFulfillmentTitle({order_items:[hidden,b]},'Bàn 5'),'Bàn 5 (Mang về)');
 assert.deepEqual(fulfillmentSections([a,b,c]).map(s=>s.lines.map(i=>i.id)),[['a'],['b','c']]);
 assert.equal(groupSavedOrders([{id:'o',status:'cooking',order_items:[a,b]}]).groups.length,2,'same dish with different service mode must not merge');
 const sale=(id,label,items)=>{const gross=items.reduce((s,i)=>s+i.qty*i.price,0);return {id,session_id:id,table_no:5,service_label:label,paid_at:'2026-11-12T08:00:00+07:00',gross,total:gross,discount:0,method:'cash',bill_items:items};};
