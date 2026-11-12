@@ -3,3 +3,8 @@
 verify_jwt = true
 import_map = "./functions/kitchen-image-upload/deno.json"
 static_files = ["./functions/kitchen-image-upload/magick.NOTICE"]
+
+[functions.kitchen-push]
+# Authenticated internally with a 256-bit worker token held only in Vault.
+verify_jwt = false
+import_map = "./functions/kitchen-push/deno.json"
