@@ -82,7 +82,7 @@ function App(){
  const [error,setError]=useState(''),[message,setMessage]=useState(''),[reload,setReload]=useState(0);
  useEffect(()=>{
   if(!message.startsWith('Đã lưu đơn '))return;
-  const current=message,timer=setTimeout(()=>setMessage(value=>value===current?'':value),2000);
+  const current=message,timer=setTimeout(()=>setMessage(value=>value===current?'':value),1000);
   return()=>clearTimeout(timer);
  },[message]);
  const wasOnline=useRef(online);
