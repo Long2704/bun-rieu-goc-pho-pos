@@ -1,6 +1,7 @@
+import {startKitchenForeground} from './foreground';
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {bind,device,disablePush,enablePush,supported,testPush} from './kitchen-push';
+import {bind,device,disablePush,enablePush,supported,testPush,setKitchenForeground} from './kitchen-push';
 import './kitchen-push.css';
 export function KitchenPushControl({user,online}:{user:string;online:boolean}){
  const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[enabled,setEnabled]=useState(false),[notice,setNotice]=useState('');const dialog=useRef<HTMLDialogElement>(null);
@@ -17,16 +18,18 @@ export function KitchenPushControl({user,online}:{user:string;online:boolean}){
    else{await testPush(user);setNotice('Đã xếp hàng thông báo thử. Có thể mất đến 1 phút; mỗi phút gửi tối đa một lần.');}
   }catch(e){setNotice(e instanceof Error?e.message:'Chưa thực hiện được. Vui lòng thử lại.');}finally{setBusy(false);}
  }
- return <><button className="kitchen-push-trigger" onClick={()=>setOpen(true)}>Thông báo</button>{createPortal(<dialog ref={dialog} className="confirm-dialog kitchen-push-dialog" aria-label="Thông báo phiếu bếp" onCancel={e=>{if(busy)e.preventDefault();else setOpen(false);}}><h2>Thông báo phiếu bếp</h2><p>Nhận push khi có phiếu bếp mới, kể cả khi app ở nền. Chỉ bật trên thiết bị cần nhận thông báo bếp.</p><p><strong>iPhone / iPad:</strong> iOS 16.4 trở lên → Safari → Chia sẻ → Thêm vào Màn hình chính → mở POS từ biểu tượng vừa thêm.</p><p>Push cần Internet và có thể bị trễ do cài đặt điện thoại. Khi đang làm bếp, tiếp tục dùng phiếu và chuông trong app để theo dõi đơn.</p><p role="status">{notice||`Thiết bị này: ${enabled?'đã bật':'chưa bật'}.`}</p><div className="push-actions"><button className="primary" disabled={busy||!online} onClick={()=>void action(enabled?'disable':'enable')}>{busy?'Đang xử lý…':enabled?'Tắt trên thiết bị này':'Bật trên thiết bị này'}</button>{enabled&&<button disabled={busy||!online} onClick={()=>void action('test')}>Gửi thông báo thử</button>}<button disabled={busy} onClick={()=>setOpen(false)}>Đóng</button></div></dialog>,document.body)}</>;
+ return <><button className="kitchen-push-trigger" onClick={()=>setOpen(true)}>Thông báo</button>{createPortal(<dialog ref={dialog} className="confirm-dialog kitchen-push-dialog" aria-label="Thông báo phiếu bếp" onCancel={e=>{if(busy)e.preventDefault();else setOpen(false);}}><h2>Thông báo phiếu bếp</h2><p>Nhận push khi có phiếu bếp mới, kể cả khi app ở nền. Chỉ bật trên thiết bị cần nhận thông báo bếp.</p><p><strong>iPhone / iPad:</strong> iOS 16.4 trở lên → Safari → Chia sẻ → Thêm vào Màn hình chính → mở POS từ biểu tượng vừa thêm.</p><p>Push cần Internet và có thể bị trễ do cài đặt điện thoại. Khi đang xem Bếp và đồng bộ bình thường, máy chủ không gửi push cho phiếu mới; app dùng phiếu và chuông tại đây. Nút gửi thử vẫn hiện thông báo để kiểm tra.</p><p role="status">{notice||`Thiết bị này: ${enabled?'đã bật':'chưa bật'}.`}</p><div className="push-actions"><button className="primary" disabled={busy||!online} onClick={()=>void action(enabled?'disable':'enable')}>{busy?'Đang xử lý…':enabled?'Tắt trên thiết bị này':'Bật trên thiết bị này'}</button>{enabled&&<button disabled={busy||!online} onClick={()=>void action('test')}>Gửi thông báo thử</button>}<button disabled={busy} onClick={()=>setOpen(false)}>Đóng</button></div></dialog>,document.body)}</>;
 }
 export function KitchenPushLifecycle({user,active,onOpen}:{user:string|null;active:boolean;onOpen:()=>void}){
  const state=useRef({user,active,onOpen});state.current={user,active,onOpen};
+ useEffect(()=>{window.dispatchEvent(new Event('kitchen-view-change'));},[active]);
  useEffect(()=>{
   if(!('serviceWorker' in navigator))return;
   let cancelled=false;
   void navigator.serviceWorker.getRegistration('/').then(async reg=>{if(cancelled||!reg?.active)return;const d=device();try{await bind(reg,d?.user===user?d:null);}catch{/* An older worker is upgraded when all POS windows close. */}});
+  const stopForeground=startKitchenForeground({tab:crypto.randomUUID(),read:()=>{const s=state.current,d=device();return {device:d?.user===s.user?d:null,active:s.active&&document.visibilityState==='visible'&&navigator.onLine};},send:setKitchenForeground,windowEvents:window,documentEvents:document});
   const receive=(event:MessageEvent)=>{const s=state.current;if(event.data?.type==='KITCHEN_PUSH_PRESENCE'){const d=device();event.ports[0]?.postMessage({active:!!s.user&&s.active&&d?.user===s.user&&d.id===event.data.device_id&&document.visibilityState==='visible'});}if(event.data?.type==='OPEN_KITCHEN_PUSH'&&s.user)s.onOpen();};
-  navigator.serviceWorker.addEventListener('message',receive);return()=>{cancelled=true;navigator.serviceWorker.removeEventListener('message',receive);};
+  navigator.serviceWorker.addEventListener('message',receive);return()=>{stopForeground();cancelled=true;navigator.serviceWorker.removeEventListener('message',receive);};
  },[user]);
  useEffect(()=>{if(user&&new URLSearchParams(location.search).get('open')==='kitchen'){state.current.onOpen();const url=new URL(location.href);url.searchParams.delete('open');window.history.replaceState(null,'',url.pathname+url.search+url.hash);}},[user]);
  return null;
