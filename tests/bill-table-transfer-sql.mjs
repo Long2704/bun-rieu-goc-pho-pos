@@ -1,3 +1,4 @@
+import {checkSaveSelectionSnapshot} from './support/save-selection-snapshot.mjs';
 import {checkUnsentCancellations} from './support/unsent-cancellations.mjs';
 import {checkTableOpenedTime} from './support/table-opened-time.mjs';
 import {checkItemTakeaway} from './support/item-takeaway.mjs';
@@ -162,5 +163,6 @@ try {
   await checkItemTakeaway(db,uid(2),food,drink,uid(3));
   await checkUnsentCancellations(db,uid(2),food);
   await checkTableOpenedTime(db,uid(2),food);
+  await checkSaveSelectionSnapshot(db,uid(2),food);
   console.log('PASS bill transfer SQL: staff permissions, exact whole-bill snapshot, empty/occupied target and target-session guard, partial kitchen-ticket split without copied items/new-food audit, same status/time/path/position, untouched source bills, close last source bill, request replay, paid protection, kitchen completion, private ledger.');
 } finally {await db.close();}

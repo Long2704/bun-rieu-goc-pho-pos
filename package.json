@@ -89,7 +89,8 @@
     "test:kitchen-push": "node tests/kitchen-push-sql.mjs && node tests/kitchen-push-edge.mjs && node tests/kitchen-push-worker.mjs && node tests/kitchen-push-foreground.mjs",
     "test:kitchen-push-ui": "node tests/kitchen-push-flow.mjs",
     "test:kitchen-order-staff": "node tests/kitchen-order-staff-sql.mjs",
-    "test:kitchen-order-staff-ui": "node tests/kitchen-order-staff-flow.mjs"
+    "test:kitchen-order-staff-ui": "node tests/kitchen-order-staff-flow.mjs",
+    "test:save-selection-fast": "node tests/save-selection-model.mjs && node tests/save-selection-latency-flow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.0.0",

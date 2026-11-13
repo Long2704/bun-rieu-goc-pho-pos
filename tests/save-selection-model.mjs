@@ -1,0 +1,11 @@
+import {build} from 'esbuild';
+import assert from 'node:assert/strict';
+const {outputFiles}=await build({entryPoints:['src/save-selection.ts'],bundle:true,platform:'node',format:'esm',write:false});
+const {mergeSavedSelection}=await import('data:text/javascript;base64,'+Buffer.from(outputFiles[0].text).toString('base64'));
+const sid='10000000-0000-0000-0000-000000000001',other='10000000-0000-0000-0000-000000000002',oid='20000000-0000-0000-0000-000000000001';
+const untouched={id:other,table_id:2,orders:[]},previous={sessions:[untouched],kitchen:[]},request={requestId:'request',tableId:1};
+const reply={request_id:'request',table_id:1,order_id:oid,session_id:sid,snapshot:{session_ids:[sid],sessions:[{id:sid,table_id:1,orders:[{id:oid,request_id:'request',session_id:sid,order_items:[],status:'cooking',kitchen_relevant:false,is_draft:true}]}],links:[],kitchen:[]}};
+const merged=mergeSavedSelection(previous,request,reply);assert.equal(merged.next.sessions[0],untouched);assert.equal(merged.next.sessions.length,2);assert.equal(previous.sessions.length,1);
+for(const bad of [{...reply,request_id:'other'},{...reply,table_id:2},{...reply,session_id:'invalid'},{...reply,snapshot:{...reply.snapshot,sessions:[{...reply.snapshot.sessions[0],orders:[]}]}},{...reply,snapshot:{...reply.snapshot,session_ids:[other]}}])assert.throws(()=>mergeSavedSelection(previous,request,bad));
+assert.equal(mergeSavedSelection(previous,request,{...reply,snapshot:{...reply.snapshot,sessions:[]}}).next.sessions.length,1,'a replay after table closure can acknowledge without reopening the table');
+console.log('PASS save receipt: exact request/table/scope, known saved order, unrelated tables preserved, malformed replies rejected, closed-session replay');
