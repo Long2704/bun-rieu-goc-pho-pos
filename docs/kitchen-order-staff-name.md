@@ -9,3 +9,5 @@ Phiếu gom từ nhiều lượt chọn dùng tác giả của phiếu đại di
 Không mở quyền đọc profiles, không thêm API/polling/Realtime channel. Cột tên đi cùng select * và to_jsonb của các luồng snapshot/delta hiện có. Backfill một lần chỉ cập nhật metadata tên; không đổi trạng thái, món, giá, thanh toán hoặc phát push mới. Có invalidation Realtime một lần do metadata cũ được cập nhật; các giao dịch mới chỉ tăng nhẹ số byte dữ liệu tên.
 
 Kiểm tra: node tests/kitchen-order-staff-sql.mjs; node tests/kitchen-order-staff-flow.mjs (mock API); npm run build. Không tạo đơn hoặc hủy/hoàn thành đơn thật để kiểm thử.
+
+Tên hiển thị của tài khoản owner đã đổi thành Admin. Snapshot phiếu cũ mang tên Chủ quán Bún Riêu Góc Phố được hiển thị bằng bí danh Admin; dữ liệu lịch sử gốc không bị viết lại. Tên thương hiệu của quán không đổi.

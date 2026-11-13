@@ -5,7 +5,7 @@ const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'
 try{
 const context=await browser.newContext({viewport:{width:390,height:844}});
 const menu=[{id:'food',name:'Bún riêu truyền thống',price:58000,category:'bun',is_out:false},{id:'drink',name:'Trà đá',price:3000,category:'do_uong',is_out:false}];
-const order=(table,id)=>({id:'order'+id,session_id:'s'+table,request_id:'req'+id,ordered_by_name:id===1?'Bo':'Lan',status:'cooking',kitchen_relevant:true,created_at:new Date().toISOString(),order_items:menu.map((m,n)=>({...m,id:`line${id}-${n}`,qty:1,note:n?'':'Không hành',paid:false,bill_no:1}))});
+const order=(table,id)=>({id:'order'+id,session_id:'s'+table,request_id:'req'+id,ordered_by_name:id===1?'Chủ quán Bún Riêu Góc Phố':'Lan',status:'cooking',kitchen_relevant:true,created_at:new Date().toISOString(),order_items:menu.map((m,n)=>({...m,id:`line${id}-${n}`,qty:1,note:n?'':'Không hành',paid:false,bill_no:1}))});
 let sessions=[{id:'s1',table_id:1,orders:[order(1,1)]},{id:'s2',table_id:2,orders:[order(2,2)]},{id:'s3',table_id:3,orders:[order(3,3)]}];
 let bills=[],attempts=[],lostResponse=true,receiptUnavailable=false,role='bep',stale=false;
 sessions=sessions.slice(0,2);sessions[1].orders[0].status='done';sessions[1].orders[0].done_at=new Date().toISOString();
@@ -62,7 +62,7 @@ async function tableActions(){const control=page.locator('.table-operations');if
 await page.goto(process.env.POS_TEST_URL||'http://localhost:5196');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('test@example.com');await page.getByLabel('Mật khẩu',{exact:true}).fill('fake-test-password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
 await page.getByRole('button',{name:/^Bếp \(/}).click();
 const cooking=page.locator('.kitchen-card').filter({has:page.getByRole('heading',{name:'Bàn 1',exact:true})});
-await cooking.locator('.kitchen-order-staff').waitFor();assert.equal(await cooking.locator('.kitchen-order-staff').innerText(),'Bo');
+await cooking.locator('.kitchen-order-staff').waitFor();assert.equal(await cooking.locator('.kitchen-order-staff').innerText(),'Admin');
 assert.equal(await cooking.getByText(/Người order/).count(),0);assert.equal(await cooking.getByText(/payment-test-user/).count(),0);
 const style=await cooking.locator('.kitchen-order-staff').evaluate(e=>{const s=getComputedStyle(e);return {color:s.color,weight:s.fontWeight,align:s.textAlign};});assert.deepEqual(style,{color:'rgb(180, 35, 24)',weight:'700',align:'right'});
 await page.screenshot({path:'/tmp/kitchen-staff-cooking.png'});

@@ -5,13 +5,13 @@ const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless
 try{
  const context=await browser.newContext({viewport:{width:390,height:844}});
  const employee={id:'waiter',name:'Phục vụ thử',staff_code:'NV01',username:'nv01',role:'phuc_vu',is_active:true,staff_version:1,created_at:'2026-10-30T00:00:00Z'};
- const owner={...employee,id:'owner',name:'Owner',staff_code:null,role:'chu'};
+ const owner={...employee,id:'owner',name:'Admin',username:'owner',staff_code:null,role:'chu'};
  const calls=[],stored=new Map();let mode='lost';
  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
   const path=new URL(route.request().url()).pathname;let body;
   if(path==='/auth/v1/token')body={access_token:'mock-owner',refresh_token:'mock-refresh',token_type:'bearer',expires_in:3600,user:{id:'owner',email:'owner@example.test',aud:'authenticated',role:'authenticated'}};
   else if(path==='/auth/v1/user')body={id:'owner',email:'owner@example.test'};
-  else if(path.endsWith('/get_my_access'))body=mockAccess({name:'Owner',role:'chu',is_active:true});
+  else if(path.endsWith('/get_my_access'))body=mockAccess({name:'Admin',role:'chu',is_active:true});
   else if(path.endsWith('/list_employees'))body={items:[owner,employee],total:2,page:1,page_size:20};
   else if(path.endsWith('/update_employee_account')){
    const p=route.request().postDataJSON();calls.push(p);
@@ -27,9 +27,9 @@ try{
   await route.fulfill({json:body});
  });
  const page=await context.newPage();page.setDefaultTimeout(10000);
- await page.goto('http://localhost:5173');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('owner@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock-password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ await page.goto(process.env.POS_TEST_URL||'http://localhost:5196');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('owner@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock-password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  async function openList(){await page.locator('.management-menu summary').click();await page.getByRole('button',{name:'Quản lý nhân viên',exact:true}).click();await page.getByRole('heading',{name:'Phục vụ thử',exact:true}).waitFor();}
- await openList();assert.equal(await page.getByRole('button',{name:'Sửa nhân viên Owner',exact:true}).count(),0);
+ await openList();await page.getByRole('heading',{name:'Admin',exact:true}).waitFor();assert.equal(await page.locator('.nav-account strong').innerText(),'Admin');await page.getByText('Đăng nhập: owner',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Sửa nhân viên Admin',exact:true}).count(),0);
  await page.getByRole('button',{name:'Sửa nhân viên Phục vụ thử',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Sửa nhân viên',exact:true});await dialog.waitFor();
  await dialog.getByLabel('Tên nhân viên',{exact:true}).fill('Nhân viên đổi tên');await dialog.getByLabel('Vai trò nhân viên',{exact:true}).selectOption('bep');await dialog.getByLabel('Trạng thái tài khoản',{exact:true}).selectOption('locked');
