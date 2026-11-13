@@ -10,13 +10,13 @@ try{
   if(path==='/auth/v1/token')body={access_token:'test-access-token',refresh_token:'test-refresh-token',token_type:'bearer',expires_in:3600,user:{id:'push-test-user',email:'push@test.example',aud:'authenticated',role:'authenticated'}};
   else if(path==='/auth/v1/user')body={id:'push-test-user',email:'push@test.example'};
   else if(path==='/auth/v1/logout')return route.fulfill({status:204});
-  else if(path==='/rest/v1/rpc/get_my_access')body=mockAccess({name:'Bếp thử',role});
+  else if(path==='/rest/v1/rpc/get_my_access')body=role==='chu'?{...mockAccess({name:'Chủ quán',role}),permissions:[...mockAccess({name:'Chủ quán',role}).permissions,'kitchen_images.read','kitchen_images.upload']}:mockAccess({name:'Bếp thử',role});
   else if(path==='/rest/v1/rpc/set_kitchen_push_foreground'){presence.push(req.postDataJSON());body=null;}
   else if(path==='/rest/v1/rpc/get_kitchen_push_settings')body={ready:true,public_key:'B'.repeat(87)};
   else if(path==='/rest/v1/rpc/register_kitchen_push'){writes.push({name:'register',body:req.postDataJSON()});if(holdRegister){holdRegister=false;await new Promise(resolve=>releaseRegister=resolve);}body={id:'device-id',enabled:true};}
   else if(path==='/rest/v1/rpc/disable_kitchen_push'){writes.push({name:'disable',body:req.postDataJSON()});body=null;}
   else if(path==='/rest/v1/rpc/request_kitchen_push_test'){writes.push({name:'test',body:req.postDataJSON()});body={queued:true};}
-  else if(!['/rest/v1/menu_items','/rest/v1/restaurant_tables','/rest/v1/table_sessions','/rest/v1/orders'].includes(path))throw Error('Unexpected network '+path);
+  else if(!['/rest/v1/menu_items','/rest/v1/restaurant_tables','/rest/v1/table_sessions','/rest/v1/orders','/rest/v1/kitchen_image_tickets'].includes(path))throw Error('Unexpected network '+path);
   await route.fulfill({status:200,json:body});
  });
  await context.addInitScript(()=>{
@@ -46,6 +46,16 @@ try{
  await page.evaluate(()=>window.setPushOnline(false));await page.waitForFunction(()=>document.querySelector('[role=switch]')?.disabled);assert.equal(await toggle.isDisabled(),true);await page.evaluate(()=>window.setPushOnline(true));await page.waitForFunction(()=>!document.querySelector('[role=switch]')?.disabled);
  await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();await page.getByRole('button',{name:'Đăng nhập',exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.pushMock.binding),null);assert.equal(writes.at(-1).name,'disable');
  role='phuc_vu';await login();assert.equal(await page.getByRole('switch',{name:'Thông báo bếp',exact:true}).count(),0,'waiter cannot subscribe');
+ await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();await page.getByRole('button',{name:'Đăng nhập',exact:true}).waitFor();role='chu';await login();await page.getByRole('button',{name:'Tải ảnh lên',exact:true}).waitFor();
+ assert.equal(await toggle.innerText(),'','switch has no visible text label');
+ for(const width of [320,360,390,430,768]){
+  await page.setViewportSize({width,height:844});
+  const boxes=await page.locator('.kitchen-tabs button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {top:r.top,right:r.right};}));
+  assert.equal(boxes.length,4);assert.ok(Math.max(...boxes.map(b=>b.top))-Math.min(...boxes.map(b=>b.top))<2,`all kitchen controls share a row at ${width}px`);
+  const logout=await page.getByRole('button',{name:'Đăng xuất',exact:true}).boundingBox(),row=await page.locator('.kitchen-heading .workspace-title-row').boundingBox();assert.ok(Math.abs(logout.x+logout.width-row.x-row.width)<2,`logout at right edge ${width}px`);
+  assert.ok(await page.locator('body').evaluate(e=>e.scrollWidth<=innerWidth),`no overflow at ${width}px`);
+ }
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/tmp/kitchen-controls-one-row.png'});
  assert.deepEqual(errors,[]);await page.screenshot({path:'/tmp/kitchen-push-flow.png'});console.log('PASS kitchen push UI: direct switch, denied permission, register/disable, saved state, foreground/background, 1s toast, offline, logout and waiter access');
  await context.close();
 }finally{await browser.close();}

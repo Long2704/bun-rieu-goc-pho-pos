@@ -30,7 +30,8 @@
 /* Kitchen controls share the title row; no empty branded header remains. */
 .pos-app.has-staff-shell[data-view="kitchen"]>.app-header{display:none!important}
 .pos-app.has-staff-shell[data-view="kitchen"]>.app-main{padding-top:calc(12px + env(safe-area-inset-top,0px))}
-.pos-app.has-staff-shell[data-view="kitchen"] .workspace-title-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center}
+.pos-app.has-staff-shell[data-view="kitchen"] .kitchen-heading>div{width:100%;min-width:0}
+.pos-app.has-staff-shell[data-view="kitchen"] .workspace-title-row{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:6px;align-items:center}
 .pos-app.has-staff-shell[data-view="kitchen"] .workspace-title-row h1{margin:0;font-size:20px;line-height:1.2;letter-spacing:-.3px}
 .pos-app.has-staff-shell[data-view="kitchen"] .kitchen-tools{display:grid;grid-template-columns:36px 36px;gap:6px;align-items:center}
 .pos-app.has-staff-shell[data-view="kitchen"] .kitchen-tools>button{display:grid;place-items:center;width:36px;height:36px;min-height:36px;padding:0;border-radius:50%;background:#fffdfb;color:#7b8899}
@@ -38,7 +39,7 @@
 .pos-app.has-staff-shell[data-view="kitchen"] .kitchen-tools>.kitchen-bell.has-error{color:#b73529;border-color:#edc5c0}
 .pos-app.has-staff-shell[data-view="kitchen"] .kitchen-tools>button>span{display:none}
 .pos-app.has-staff-shell[data-view="kitchen"] .kitchen-sound-error{grid-column:1/-1;overflow-wrap:anywhere}
-.pos-app.has-staff-shell[data-view="kitchen"] .workspace-title-row>.logout-button{min-height:36px;padding:8px 12px;border-radius:999px;font-size:12px;background:#fffdfb;border-color:#e6cdbc;color:#6b2f16}
+.pos-app.has-staff-shell[data-view="kitchen"] .workspace-title-row>.logout-button{justify-self:end;min-height:36px;padding:8px 12px;border-radius:999px;font-size:12px;background:#fffdfb;border-color:#e6cdbc;color:#6b2f16}
  .pos-app.has-staff-shell[data-view="kitchen"] .kitchen-heading{margin-bottom:10px}
 @media(max-width:360px){
  .pos-app.has-staff-shell[data-view="kitchen"] .workspace-title-row h1{font-size:18px}
@@ -49,3 +50,13 @@
 }
 
 .kitchen-page .kitchen-card .kitchen-order-staff{margin:4px 0 6px;text-align:right;color:#b42318;font-size:12px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
+
+/* Keep the kitchen filters, push switch and upload action on one mobile row. */
+@media(max-width:420px){
+ .kitchen-page .kitchen-tabs{gap:6px}
+ .kitchen-page .kitchen-tabs button{font-size:12px;padding:8px 9px;min-height:40px;white-space:nowrap}
+}
+@media(max-width:360px){
+ .kitchen-page .kitchen-tabs{gap:4px}
+ .kitchen-page .kitchen-tabs button{font-size:11px;padding:8px 7px}
+}
