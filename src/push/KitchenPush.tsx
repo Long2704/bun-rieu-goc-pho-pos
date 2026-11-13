@@ -25,7 +25,7 @@ export function KitchenPushControl({user,online,onBusy}:{user:string;online:bool
   }catch(e){setError(e instanceof Error?e.message:'Chưa thực hiện được. Vui lòng thử lại.');}
   finally{lock.current=false;setBusy(false);onBusy?.(false);}
  }
- return <><button type="button" role="switch" aria-label="Thông báo bếp" aria-checked={enabled} aria-busy={busy} className="kitchen-push-toggle" disabled={busy||!online} onClick={()=>void toggle()}><span>Thông báo</span><span className="kitchen-push-track" aria-hidden="true"><span/></span></button>{error&&<p className="kitchen-push-error" role="alert">{error}</p>}{message&&<Toast message={message}/>}</>;
+ return <><button type="button" role="switch" aria-label="Thông báo bếp" aria-checked={enabled} aria-busy={busy} className="kitchen-push-toggle" disabled={busy||!online} onClick={()=>void toggle()}><span className="kitchen-push-track" aria-hidden="true"><span/></span></button>{error&&<p className="kitchen-push-error" role="alert">{error}</p>}{message&&<Toast message={message}/>}</>;
 }
 export function KitchenPushLifecycle({user,active,onOpen}:{user:string|null;active:boolean;onOpen:()=>void}){
  const state=useRef({user,active,onOpen});state.current={user,active,onOpen};

@@ -1,4 +1,4 @@
-.kitchen-page .kitchen-tabs>.kitchen-push-toggle{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;background:#fffdfb;color:#5d321f}
+.kitchen-page .kitchen-tabs>.kitchen-push-toggle{display:inline-flex;align-items:center;justify-content:center;gap:0;padding:6px 5px;flex:0 0 50px;white-space:nowrap;background:#fffdfb;color:#5d321f}
 .kitchen-push-toggle .kitchen-push-track{position:relative;display:inline-block;width:38px;height:24px;flex-shrink:0;border-radius:999px;background:#b8bdc5;transition:background-color 140ms ease}
 .kitchen-push-toggle .kitchen-push-track>span{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0002;transition:transform 140ms ease}
 .kitchen-push-toggle[aria-checked=true] .kitchen-push-track{background:#ff7900}
