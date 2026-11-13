@@ -1,3 +1,4 @@
+import {mergeSavedSelection} from './save-selection';
 import {KitchenPushControl,KitchenPushLifecycle} from './push/KitchenPush';
 import {detachKitchenPush} from './push/kitchen-push';
 import KitchenOrderLines from './KitchenOrderLines';
@@ -160,10 +161,10 @@ function App(){
   void load();return()=>{active=false;};
  },[session?.user.id,reload,recovering]);
  const refresh=useCallback(async(force=false,forceCatalog=false,accessOnly=false,catalogOnly=false)=>{
-  if(kitchenCompletionLock.current&&!force)return;
+  if((kitchenCompletionLock.current||sendLock.current)&&!force)return;
   if(!supabase||!profile||profile.must_change_password||!session){if(force)lastRefreshOk.current=false;return;}
   const user=session.user.id;
-  if(refreshLock.current){if(!force)return;await refreshDone.current;if(identity.current!==user){lastRefreshOk.current=false;return;}}
+  while(refreshLock.current){if(!force)return;await refreshDone.current;if(identity.current!==user){lastRefreshOk.current=false;return;}}
   let finish=()=>{};refreshDone.current=new Promise<void>(resolve=>{finish=resolve;});
   const onlyCatalog=catalogOnly&&lastRefreshOk.current;
   refreshLock.current=true;lastRefreshOk.current=false;
@@ -229,7 +230,7 @@ function App(){
  };
  const invalidateRealtime=useRef<(kinds:ReadonlySet<SyncKind>,ids?:readonly string[])=>Promise<boolean|'busy'>>(async()=>false);
  invalidateRealtime.current=async(kinds,ids)=>{
-  if(kitchenCompletionLock.current||refreshLock.current)return 'busy';
+  if(kitchenCompletionLock.current||sendLock.current||refreshLock.current)return 'busy';
   if(kinds.has('images'))setImageSyncRevision(n=>n+1);
   const catalog=kinds.has('catalog');
   if(kinds.has('orders')){
@@ -282,9 +283,15 @@ function App(){
    setPending(payload);
   }
   if(!navigator.onLine){setError('Chưa lưu món vì mất kết nối. Đã giữ mã yêu cầu trên thiết bị; kết nối mạng rồi bấm Thử gửi lại.');return;}
-  sendLock.current=true;setSending(true);setError('');setMessage('');let rejectedByMenu=false;
+  if(payload.selection&&(payload.selectionMode??'order')==='order'){setPosScreen('order');setSelected(tables.find(t=>t.id===payload!.tableId)??null);setView('service');}
+  sendLock.current=true;setSending(true);setError('');setMessage('');let rejectedByMenu=false;const beforeSave=liveSnapshot.current;
   try{
-   const r=await supabase.rpc(payload.selection?'save_menu_selection':payload.notifyOrders?'send_saved_menu_selections':payload.checkout?'submit_non_kitchen_order':'submit_order',{p_table_id:payload.tableId,p_request_id:payload.requestId,p_items:payload.items,...(payload.notifyOrders?{p_session_id:payload.expectedSession,p_order_ids:payload.notifyOrders}:{})});
+   const args={p_table_id:payload.tableId,p_request_id:payload.requestId,p_items:payload.items,...(payload.notifyOrders?{p_session_id:payload.expectedSession,p_order_ids:payload.notifyOrders}:{})};
+   let atomic=!!payload.selection;
+   const call=supabase.rpc(atomic?'save_menu_selection_snapshot':payload.notifyOrders?'send_saved_menu_selections':payload.checkout?'submit_non_kitchen_order':'submit_order',args);
+   let r=await (atomic?call.abortSignal(AbortSignal.timeout(15000)):call);
+   // Missing deployment only. Never fall back after an ambiguous network/write error.
+   if(atomic&&r.error&&['PGRST202','42883'].includes(r.error.code)){atomic=false;r=await supabase.rpc('save_menu_selection',args).abortSignal(AbortSignal.timeout(15000));} 
    if(r.error){
     if(payload.checkout&&r.error.code==='P0001'&&r.error.message==='Đơn có món cần gửi bếp. Kiểm tra và bấm Gửi bếp.'){
      rejectedByMenu=true;localStorage.removeItem(storageKey(user));if(identity.current===user)setPending(null);await refresh(true,true);await refreshGroups();throw new Error(r.error.message);
@@ -308,15 +315,27 @@ function App(){
     throw new Error(r.error.message);
    }
    if(identity.current!==user)return;
-   // Keep the delta and request ID until a fresh server snapshot is visible.
-   await refresh(true);
+   // A committed selection returns its scoped snapshot in the same request.
+   // Never replace a newer snapshot or a read already in flight with an older reply.
+   let confirmed=false;
+   if(atomic&&beforeSave){
+    const saved=mergeSavedSelection(beforeSave,payload,r.data);
+    while(refreshLock.current){await refreshDone.current;if(identity.current!==user)return;}
+    if(identity.current!==user)return;
+    if(liveSnapshot.current===beforeSave&&lastRefreshOk.current&&!kitchenCompletionLock.current){
+     liveSnapshot.current=saved.next;setSessions(saved.next.sessions);setCooking(saved.next.kitchen);
+     setLastSync(new Date().toLocaleTimeString('vi-VN'));setSyncError('');confirmed=true;
+    }else if(!kitchenCompletionLock.current)confirmed=await refreshDelta([saved.sessionId]);
+   }
+   // Compatibility and races recover through a fresh read, retaining the UUID until confirmed.
+   if(!confirmed)await refresh(true);
    if(identity.current!==user)return;
-   if(!lastRefreshOk.current){setError('Đơn đã được lưu nhưng chưa đồng bộ. Giữ nguyên mã và bấm Thử gửi lại để kiểm tra; không tạo đơn mới.');return;}
+   if(!lastRefreshOk.current){setError(`Đơn đã được lưu nhưng chưa đồng bộ. Giữ nguyên mã và bấm ${payload.selection?'Thử lưu lại':'Thử gửi lại'} để kiểm tra; không tạo đơn mới.`);return;}
    try{localStorage.removeItem(storageKey(user));}catch{/* Retained request ID is safe to retry after reload. */}
    setPending(null);setPosScreen('order');setDrafts(d=>({...d,[payload!.tableId]:{}}));setNotes(n=>({...n,[payload!.tableId]:{}}));
    if(payload.selection){setPosScreen(payload.selectionMode??'order');setSelected(tables.find(t=>t.id===payload!.tableId)??null);setView('service');}else if(payload.checkout&&!payload.saveOnly){setSelected(tables.find(t=>t.id===payload!.tableId)??null);setView('service');setCheckoutIntent({user,tableId:payload.tableId,requestId:payload.requestId});}else{setSelected(null);setView('service');setTableSearch('');setTableFilter('all');}
    setMessage(`Đã lưu đơn ${tables.find(t=>t.id===payload.tableId)?.name??placeLabel(payload.tableId)}.`);
-  }catch(e){if(identity.current===user)setError(rejectedByMenu?(e instanceof Error?e.message:'Thực đơn đã thay đổi. Kiểm tra lại trước khi gửi.'):`Chưa xác nhận ${payload.saveOnly?'lưu món':'gửi đơn'}: ${e instanceof Error?e.message:'Lỗi kết nối'}. Giữ nguyên đơn và bấm Thử gửi lại; không tạo đơn mới.`);}
+  }catch(e){if(identity.current===user)setError(rejectedByMenu?(e instanceof Error?e.message:'Thực đơn đã thay đổi. Kiểm tra lại trước khi gửi.'):`Chưa xác nhận ${payload.selection?'lưu đơn':payload.saveOnly?'lưu món':'gửi đơn'}: ${e instanceof Error?e.message:'Lỗi kết nối'}. Giữ nguyên đơn và bấm ${payload.selection?'Thử lưu lại':'Thử gửi lại'}; không tạo đơn mới.`);}
   finally{sendLock.current=false;setSending(false);}
  }
  async function complete(id:string,beforeRemove?:()=>Promise<void>){
@@ -397,7 +416,7 @@ function App(){
  const hasGuests=!!activeSession,linked=activeSession?.member_table_ids,isPriority=hasGuests&&(t.id===priorityTable||!!linked?.includes(priorityTable!));
  return <button className={`table-card ${!hasGuests?'is-empty':status==='Bếp đang làm'?'is-cooking':'is-ready'}${isPriority?' is-priority':''}`} data-table-id={t.id} key={t.id} title={`${t.name} · ${status}${isPriority?' · Phiếu bếp sớm nhất':''}`} disabled={!lastSync} onClick={()=>tableMotion(t.id,()=>{setSelected(t);setPosScreen(sessions.some(session=>session.table_id===t.id&&session.orders.length)?'order':'menu');setMessage('');})}><div className="table-card-heading"><span className="table-card-icon" aria-hidden="true"><PosIcon name={isPriority?'guests':'diningTable'}/></span><strong>{t.name}</strong></div>{amount>0&&<span className="table-total">{money(amount)}</span>}<span className="table-state">{lastSync?<>{hasGuests&&<PosIcon name="guests"/>}{hasGuests?'Có khách':'Trống'}</>:'Đang tải…'}</span>{hasGuests&&<span className="visually-hidden">{status}</span>}{linked&&<small className="table-link-badge">Gộp với {linked.filter(id=>id!==t.id).map(placeName).join(', ')}</small>}{hasUnsentKitchenItems&&(hasSavedUnsent||!known)&&<small>Có món chưa xác nhận</small>}{hasGuests&&<TableOpenedTime value={activeSession?.opened_at}/>}</button>;
  })}</div>{!visibleTables.length&&<div className="empty-state"><h3>Không tìm thấy bàn</h3><p>Thử đổi từ khóa hoặc bộ lọc.</p></div>}</section></div>}
- {selected&&<ServiceWorkspace saveSelections={!!profile.saved_menu_selections} onSaveSelection={(note,mode)=>void sendOrder(note,false,false,true,mode)} linkedTableNames={linkedNames} allowNonKitchenCheckout={groupCatalog?.non_kitchen_checkout} onCheckoutDraft={note=>void sendOrder(note,true)} onSaveAndClose={note=>void sendOrder(note,true,true)} key={`${session!.user.id}:${selected.id}`} userId={session!.user.id} table={selected} sessionId={sessions.find(s=>s.table_id===selected.id)?.id??null} mode={posScreen} onMode={setPosScreen} groups={groupCatalog?.groups} products={groupedMenu} qty={qty} notes={notes[selected.id]??{}} orders={currentOrders} savedTotal={savedTotal(sessions,selected.id)} disabled={locked} sending={sending} retry={pending?.tableId===selected.id} requestId={pending?.tableId===selected.id?pending.requestId:undefined} pendingPaymentAmount={pendingPaymentAmount?.tableId===selected.id?pendingPaymentAmount.total:null} canCancel={canCancel} canPay={canPay} paymentReady={online&&paymentReady} paymentPending={paymentPending} tableActionsVisible={(canTransfer||canSplit||canCancelTable)&&!!(currentOrders.length||transferPending||billPending||cancelTablePending)} onClose={()=>tableMotion(selected.id,()=>setSelected(null))} onChange={changeQty} onNote={changeNote} onClear={()=>{setDrafts(current=>({...current,[selected.id]:{}}));setNotes(current=>({...current,[selected.id]:{}}));}} onSend={note=>void sendOrder(note)} onTransferBill={canTransfer&&canSplit&&selected.id>0?billNo=>billTransferController.current?.open(billNo):undefined} onPayBill={billNo=>{if(navigator.onLine)paymentController.current?.open(billNo);}} onPay={()=>{if(navigator.onLine)paymentController.current?.open();}} onBusy={setItemCancelBusy} onSavedChanged={async()=>{await refresh(true);if(!lastRefreshOk.current)throw new Error('Chưa đồng bộ được thay đổi món.');}} sendDisabled={!online||sending||paymentPending||transferPending||tablePending||menuPending||billPending||cancelTablePending||itemCancelBusy||(!pending&&((!count&&!currentOrders.some(o=>o.is_draft&&o.order_items.some(i=>!i.paid&&!i.cancelled_at&&i.category!=='do_uong')))||!lastSync||unavailableDraft))||!!pending&&pending.tableId!==selected.id} feedback={<><OfflineNotice online={online}/>{pendingPaymentAmount&&pendingPaymentAmount.tableId!==selected.id&&<aside className="notice" role="status">Thanh toán {placeName(pendingPaymentAmount.tableId)} đang chờ. Mở Kiểm tra thanh toán để đối chiếu.</aside>}{error&&<aside className="notice error-notice" role="alert">{error}</aside>}{syncError&&<aside className="notice error-notice" role="alert">{syncError}</aside>}{unavailableDraft&&!pending&&<aside role="alert" className="notice error-notice">Có món đã hết hoặc ngừng bán. Chọn lại trước khi gửi.</aside>}{pending&&<aside className="notice" role="status">Đơn chờ xác nhận — {placeName(pending.tableId)}. Giữ nguyên yêu cầu để tránh trùng đơn.</aside>}</>}/>}
+ {selected&&<ServiceWorkspace saveSelections={!!profile.saved_menu_selections} selectionPending={!!pending?.selection&&pending.tableId===selected.id} onSaveSelection={(note,mode)=>void sendOrder(note,false,false,true,mode)} linkedTableNames={linkedNames} allowNonKitchenCheckout={groupCatalog?.non_kitchen_checkout} onCheckoutDraft={note=>void sendOrder(note,true)} onSaveAndClose={note=>void sendOrder(note,true,true)} key={`${session!.user.id}:${selected.id}`} userId={session!.user.id} table={selected} sessionId={sessions.find(s=>s.table_id===selected.id)?.id??null} mode={posScreen} onMode={setPosScreen} groups={groupCatalog?.groups} products={groupedMenu} qty={qty} notes={notes[selected.id]??{}} orders={currentOrders} savedTotal={savedTotal(sessions,selected.id)} disabled={locked} sending={sending} retry={pending?.tableId===selected.id} requestId={pending?.tableId===selected.id?pending.requestId:undefined} pendingPaymentAmount={pendingPaymentAmount?.tableId===selected.id?pendingPaymentAmount.total:null} canCancel={canCancel} canPay={canPay} paymentReady={online&&paymentReady} paymentPending={paymentPending} tableActionsVisible={(canTransfer||canSplit||canCancelTable)&&!!(currentOrders.length||transferPending||billPending||cancelTablePending)} onClose={()=>tableMotion(selected.id,()=>setSelected(null))} onChange={changeQty} onNote={changeNote} onClear={()=>{setDrafts(current=>({...current,[selected.id]:{}}));setNotes(current=>({...current,[selected.id]:{}}));}} onSend={note=>void sendOrder(note)} onTransferBill={canTransfer&&canSplit&&selected.id>0?billNo=>billTransferController.current?.open(billNo):undefined} onPayBill={billNo=>{if(navigator.onLine)paymentController.current?.open(billNo);}} onPay={()=>{if(navigator.onLine)paymentController.current?.open();}} onBusy={setItemCancelBusy} onSavedChanged={async()=>{await refresh(true);if(!lastRefreshOk.current)throw new Error('Chưa đồng bộ được thay đổi món.');}} sendDisabled={!online||sending||paymentPending||transferPending||tablePending||menuPending||billPending||cancelTablePending||itemCancelBusy||(!pending&&((!count&&!currentOrders.some(o=>o.is_draft&&o.order_items.some(i=>!i.paid&&!i.cancelled_at&&i.category!=='do_uong')))||!lastSync||unavailableDraft))||!!pending&&pending.tableId!==selected.id} feedback={<><OfflineNotice online={online}/>{pendingPaymentAmount&&pendingPaymentAmount.tableId!==selected.id&&<aside className="notice" role="status">Thanh toán {placeName(pendingPaymentAmount.tableId)} đang chờ. Mở Kiểm tra thanh toán để đối chiếu.</aside>}{error&&<aside className="notice error-notice" role="alert">{error}</aside>}{syncError&&<aside className="notice error-notice" role="alert">{syncError}</aside>}{unavailableDraft&&!pending&&<aside role="alert" className="notice error-notice">Có món đã hết hoặc ngừng bán. Chọn lại trước khi gửi.</aside>}{pending&&!pending.selection&&<aside className="notice" role="status">Đơn chờ xác nhận — {placeName(pending.tableId)}. Giữ nguyên yêu cầu để tránh trùng đơn.</aside>}</>}/>}
  <div className="pos-legacy-operations"> <TableActions label={selected&&selected.id<0?'Thao tác đơn':'Thao tác bàn'} key={`table-actions:${session!.user.id}`} visible={(canTransfer||canSplit||canCancelTable)&&!!((selected&&currentOrders.length)||transferPending||billMovePending||linkPending||cancelTablePending)} active={view==='service'} pending={transferPending||billMovePending||linkPending||cancelTablePending} title={selected?.name??'Yêu cầu chờ'}>
  {profile.linked_tables&&canTransfer&&canSplit&&<TableLinkPanel key={`table-link:${session!.user.id}`} userId={session!.user.id} table={selected&&selected.id>0&&selected.service_type!=='takeaway'?selected:null} tables={tables} sessions={sessions} disabled={!online||cancelTablePending||itemCancelBusy||tablePending||menuPending||paymentPending||transferPending||billMovePending||billTablePending||!!pending||sending||!!syncError||!lastSync||Object.values(drafts).some(d=>Object.values(d).some(n=>n>0))} onPending={setLinkPending} onChanged={async()=>{await refresh(true);if(!lastRefreshOk.current)throw new Error('Chưa đồng bộ được nhóm bàn. Giữ nguyên mã và Thử lại cùng mã gộp bàn.');}}/>}
  {canTransfer&&<TransferPanel key={`transfer:${session!.user.id}`} userId={session!.user.id} table={selected&&selected.id>0&&!selectedSession?.member_table_ids?.length?selected:null} tables={dineTables} sessions={sessions} disabled={cancelTablePending||itemCancelBusy||billPending||tablePending||menuPending||paymentPending||!!pending||sending||!!syncError||!lastSync||Object.values(drafts).some(d=>Object.values(d).some(n=>n>0))} onPending={setTransferPending} onTransferred={async id=>{await refresh(true);if(!lastRefreshOk.current)throw new Error('Chưa đồng bộ được bàn sau khi chuyển. Giữ mã và thử lại cùng yêu cầu.');setSelected(tables.find(t=>t.id===id)??null);}}/>}
