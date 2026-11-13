@@ -1,24 +1,31 @@
 import {startKitchenForeground} from './foreground';
 import {useEffect,useRef,useState} from 'react';
-import {createPortal} from 'react-dom';
-import {bind,device,disablePush,enablePush,supported,testPush,setKitchenForeground} from './kitchen-push';
+import Toast from '../Toast';
+import {bind,device,disablePush,enablePush,supported,setKitchenForeground} from './kitchen-push';
 import './kitchen-push.css';
-export function KitchenPushControl({user,online}:{user:string;online:boolean}){
- const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[enabled,setEnabled]=useState(false),[notice,setNotice]=useState('');const dialog=useRef<HTMLDialogElement>(null);
- useEffect(()=>{if(open){dialog.current?.showModal();setNotice('');setEnabled(device()?.user===user&&supported()&&Notification.permission==='granted');}else dialog.current?.close();},[open,user]);
- async function action(kind:'enable'|'disable'|'test'){
-  if(busy)return;setBusy(true);setNotice('');
+export function KitchenPushControl({user,online,onBusy}:{user:string;online:boolean;onBusy?:(busy:boolean)=>void}){
+ const current=()=>device()?.user===user&&supported()&&Notification.permission==='granted';
+ const [busy,setBusy]=useState(false),[enabled,setEnabled]=useState(current),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const lock=useRef(false);
+ useEffect(()=>{
+  const update=()=>{if(!lock.current)setEnabled(device()?.user===user&&supported()&&Notification.permission==='granted');};
+  update();window.addEventListener('focus',update);window.addEventListener('storage',update);window.addEventListener('kitchen-push-change',update);document.addEventListener('visibilitychange',update);
+  return()=>{window.removeEventListener('focus',update);window.removeEventListener('storage',update);window.removeEventListener('kitchen-push-change',update);document.removeEventListener('visibilitychange',update);};
+ },[user]);
+ async function toggle(){
+  if(lock.current||!online)return;lock.current=true;setBusy(true);onBusy?.(true);setError('');setMessage('');
   try{
-   if(kind==='enable'){
-    if(!supported())throw Error('Trình duyệt chưa hỗ trợ push. Trên iPhone/iPad (iOS 16.4 trở lên), dùng Safari thêm POS vào Màn hình chính, rồi mở app từ biểu tượng đó.');
-    // Permission is requested directly from this tap, before any network or service-worker await.
-    const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('Chưa được cấp quyền. Vào cài đặt thông báo của trình duyệt/app để cho phép, rồi bật lại.');
-    await enablePush(user);setEnabled(true);setNotice('Đã bật trên thiết bị này. Bấm Gửi thông báo thử để kiểm tra.');
-   }else if(kind==='disable'){await disablePush(user);setEnabled(false);setNotice('Đã tắt trên thiết bị này.');}
-   else{await testPush(user);setNotice('Đã xếp hàng thông báo thử. Có thể mất đến 1 phút; mỗi phút gửi tối đa một lần.');}
-  }catch(e){setNotice(e instanceof Error?e.message:'Chưa thực hiện được. Vui lòng thử lại.');}finally{setBusy(false);}
+   if(enabled){await disablePush(user);setEnabled(false);setMessage('Đã tắt thông báo bếp trên thiết bị này.');}
+   else{
+    if(!supported())throw Error('Thiết bị chưa hỗ trợ push. Trên iPhone, mở POS từ Màn hình chính.');
+    // Keep permission inside the user gesture. Never open an app instructions modal.
+    const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('Chưa được cấp quyền. Cho phép thông báo cho POS trong cài đặt thiết bị rồi bật lại.');
+    await enablePush(user);setEnabled(true);setMessage('Đã bật thông báo bếp trên thiết bị này.');
+   }
+  }catch(e){setError(e instanceof Error?e.message:'Chưa thực hiện được. Vui lòng thử lại.');}
+  finally{lock.current=false;setBusy(false);onBusy?.(false);}
  }
- return <><button className="kitchen-push-trigger" onClick={()=>setOpen(true)}>Thông báo</button>{createPortal(<dialog ref={dialog} className="confirm-dialog kitchen-push-dialog" aria-label="Thông báo phiếu bếp" onCancel={e=>{if(busy)e.preventDefault();else setOpen(false);}}><h2>Thông báo phiếu bếp</h2><p>Nhận push khi có phiếu bếp mới, kể cả khi app ở nền. Chỉ bật trên thiết bị cần nhận thông báo bếp.</p><p><strong>iPhone / iPad:</strong> iOS 16.4 trở lên → Safari → Chia sẻ → Thêm vào Màn hình chính → mở POS từ biểu tượng vừa thêm.</p><p>Push cần Internet và có thể bị trễ do cài đặt điện thoại. Khi đang xem Bếp và đồng bộ bình thường, máy chủ không gửi push cho phiếu mới; app dùng phiếu và chuông tại đây. Nút gửi thử vẫn hiện thông báo để kiểm tra.</p><p role="status">{notice||`Thiết bị này: ${enabled?'đã bật':'chưa bật'}.`}</p><div className="push-actions"><button className="primary" disabled={busy||!online} onClick={()=>void action(enabled?'disable':'enable')}>{busy?'Đang xử lý…':enabled?'Tắt trên thiết bị này':'Bật trên thiết bị này'}</button>{enabled&&<button disabled={busy||!online} onClick={()=>void action('test')}>Gửi thông báo thử</button>}<button disabled={busy} onClick={()=>setOpen(false)}>Đóng</button></div></dialog>,document.body)}</>;
+ return <><button type="button" role="switch" aria-label="Thông báo bếp" aria-checked={enabled} aria-busy={busy} className="kitchen-push-toggle" disabled={busy||!online} onClick={()=>void toggle()}><span>Thông báo</span><span className="kitchen-push-track" aria-hidden="true"><span/></span></button>{error&&<p className="kitchen-push-error" role="alert">{error}</p>}{message&&<Toast message={message}/>}</>;
 }
 export function KitchenPushLifecycle({user,active,onOpen}:{user:string|null;active:boolean;onOpen:()=>void}){
  const state=useRef({user,active,onOpen});state.current={user,active,onOpen};
