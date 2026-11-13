@@ -6,12 +6,13 @@ Phạm vi: phiếu gọi món được gửi từ Phục vụ vào Bếp. Không
 
 1. Đóng các cửa sổ/tab POS đang mở rồi mở lại để service worker mới được kích hoạt. Không tự tải lại cửa sổ đang thao tác đơn.
 2. iPhone/iPad: iOS 16.4+, mở bằng Safari → Chia sẻ → Thêm vào Màn hình chính. Mở từ biểu tượng POS. Android: dùng Chrome hỗ trợ push, có thể cài POS ra màn hình chính.
-3. Đăng nhập tài khoản Chủ quán hoặc Bếp → Bếp → Thông báo.
-4. Bấm Bật trên thiết bị này → Cho phép. Chỉ bật trên thiết bị thật sự cần nhận phiếu.
-5. Bấm Gửi thông báo thử. Khi đang xem Bếp và đồng bộ bình thường, máy chủ bỏ qua push phiếu mới riêng cho thiết bị đó. Nút Gửi thông báo thử chủ động vẫn hiển thị push để kiểm tra. Thông báo thử không tạo món, hóa đơn hay số liệu bán hàng.
-6. Đưa POS ra nền rồi gửi thử lại sau ít nhất 1 phút. Kiểm tra thông báo trên điện thoại, bấm vào để mở Bếp. Âm thanh tuân theo cài đặt hệ điều hành, chế độ Tập trung/Không làm phiền.
-7. Trong lần gọi món thực tế tiếp theo, kiểm tra push ghi tên bàn và số phần. Không cần tạo đơn giả khi quán đang vận hành.
-8. Tắt trên thiết bị này nếu không muốn nhận nữa. Đăng xuất sẽ hủy đăng ký của thiết bị và xóa liên kết tài khoản cục bộ. Đăng nhập lại cần bật lại.
+3. Đăng nhập tài khoản Chủ quán hoặc Bếp → Bếp.
+4. Gạt công tắc Thông báo sang bật (màu cam) → Cho phép nếu hệ điều hành hỏi quyền. Màu xám là tắt. Chỉ bật trên thiết bị cần nhận phiếu.
+5. Khi đang xem Bếp và đồng bộ bình thường, máy chủ bỏ qua push phiếu mới riêng cho thiết bị đó. Đưa POS ra nền trước lần gửi bếp thực tế tiếp theo để kiểm tra tên bàn/số phần trên thông báo; không tạo đơn giả trong ca vận hành.
+6. Bấm thông báo để mở lại Bếp. Âm thanh tuân theo cài đặt điện thoại và chế độ Tập trung/Không làm phiền.
+7. Gạt công tắc về tắt nếu không muốn nhận nữa. Đăng xuất hủy đăng ký thiết bị; đăng nhập lại cần bật lại.
+
+Không còn pop-up hướng dẫn hoặc nút gửi thử trên giao diện Bếp. Bật/tắt thành công có toast tự tắt sau 1 giây. Lỗi quyền/kết nối hiển thị một dòng ngay dưới hàng nút và không giả vờ đổi trạng thái công tắc. Hộp cấp quyền của hệ điều hành vẫn cần khi bật lần đầu; app không thể thay thế hộp này.
 
 Nếu không thấy: kiểm tra Internet, quyền thông báo, chế độ Tập trung, mở từ màn hình chính trên iOS và bản cập nhật PWA. Trình duyệt/hệ điều hành có thể trì hoãn push; không dùng push làm nguồn theo dõi đơn duy nhất.
 
@@ -36,12 +37,12 @@ Không thêm subscription Realtime hoặc vòng tải đơn mới. Thiết bị 
 - npm run test:kitchen-push-ui: Playwright chặn toàn bộ API bằng mock; không ghi vào production hay gửi push thật.
 - npm run build; node tests/pwa-flow.mjs: cập nhật chờ đóng các cửa sổ, cache tĩnh, offline/reconnect.
 - AES128GCM và VAPID của web-push@3.6.7 đã kiểm tra bằng khóa giả lập, không gửi mạng. Máy chủ bootstrap khóa thực đã kiểm tra qua trạng thái ready, không đọc/hiện khóa riêng.
-- Cần người dùng kiểm tra giao push thật trên điện thoại bằng nút thử; môi trường kiểm thử không xác nhận thay được cài đặt iOS/Android của thiết bị.
+- Cần người dùng kiểm tra giao push thật trên điện thoại trong lần gửi phiếu thực tế tiếp theo; môi trường kiểm thử không xác nhận thay được cài đặt iOS/Android của thiết bị.
 
 ## Chặn push khi đang xem Bếp
 
 Client gửi trạng thái theo từng cửa sổ/tab và thiết bị, gắn với phiên Auth. Lease 90 giây được gia hạn mỗi 60 giây chỉ khi Bếp đang hiện, Internet online và đồng bộ orders sẵn sàng, không có lỗi đồng bộ. Ẩn app/chuyển màn hình/pagehide sẽ cố xóa lease ngay. Nếu hệ điều hành đóng đột ngột hoặc mạng lỗi, lease tự hết hạn sau tối đa 90 giây; trong khoảng đó có thể tạm bỏ qua push. Một tab ẩn không xóa trạng thái của tab Bếp còn hiện. Chưa bật push thì không phát sinh RPC trạng thái.
 
-Worker đánh dấu lượt gửi phiếu thường là skipped/kitchen_visible khi có lease hợp lệ. Các thiết bị khác không bị ảnh hưởng. Nút gửi thử vẫn gửi vì đây là thao tác yêu cầu kiểm tra rõ ràng. Push đã giao cho nhà cung cấp trước lúc mở Bếp có thể vẫn hiện; không thể thu hồi. Service worker vẫn hiển thị push đã nhận (im lặng nếu đang xem Bếp), thay vì bỏ âm thầm có thể khiến Safari thu hồi quyền.
+Worker đánh dấu lượt gửi phiếu thường là skipped/kitchen_visible khi có lease hợp lệ. Các thiết bị khác không bị ảnh hưởng. RPC thử phía máy chủ vẫn được giữ cho chẩn đoán kỹ thuật nhưng không có nút thử trên giao diện. Push đã giao cho nhà cung cấp trước lúc mở Bếp có thể vẫn hiện; không thể thu hồi. Service worker vẫn hiển thị push đã nhận (im lặng nếu đang xem Bếp), thay vì bỏ âm thầm có thể khiến Safari thu hồi quyền.
 
 Nguồn: [Apple Web Push requirements](https://developer.apple.com/documentation/usernotifications/sending-web-push-notifications-in-web-apps-and-browsers), [WebKit Meet Web Push](https://webkit.org/blog/12945/meet-web-push/).
