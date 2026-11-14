@@ -11,9 +11,10 @@ export function startRealtimeSync(client:SupabaseClient,images:boolean,options:{
 }){
  let active=true,running=false,timer:ReturnType<typeof setTimeout>|undefined;
  const ready=emptyRealtimeStatus(),dirty=new Set<SyncKind>(),sessions=new Set<string>();let fullOrders=false;
- const schedule=(delay=180)=>{if(active&&!timer&&!running)timer=setTimeout(()=>{timer=undefined;void flush();},delay);};
+ const visible=()=>typeof document==='undefined'||document.visibilityState==='visible';
+ const schedule=(delay=180)=>{if(active&&visible()&&!timer&&!running)timer=setTimeout(()=>{timer=undefined;void flush();},delay);};
  const flush=async()=>{
-  if(!active||running||!dirty.size)return;
+  if(!active||!visible()||running||!dirty.size)return;
   const batch=new Set(dirty),scope=fullOrders?undefined:[...sessions];dirty.clear();sessions.clear();fullOrders=false;running=true;let ok=false,retryDelay=5000;
   try{const result=await options.invalidate(batch,scope);ok=result===true;if(result==='busy')retryDelay=180;}catch{/* Retain dirty work, fallback polling also recovers. */}
   finally{running=false;if(active){if(!ok){batch.forEach(kind=>dirty.add(kind));if(batch.has('orders')){if(scope===undefined)fullOrders=true;else scope.forEach(id=>sessions.add(id));}}if(sessions.size>30){fullOrders=true;sessions.clear();}if(dirty.size)schedule(ok?180:retryDelay);}}
@@ -36,5 +37,7 @@ export function startRealtimeSync(client:SupabaseClient,images:boolean,options:{
    // Read after every join, including rejoin, to cover changes while disconnected.
    if(status==='SUBSCRIBED')enqueue(kind);
   }));
- return()=>{active=false;if(timer)clearTimeout(timer);dirty.clear();channels.forEach(channel=>{void client.removeChannel(channel);});};
+ const resume=()=>{if(visible()&&dirty.size)schedule(0);};
+ if(typeof document!=='undefined')document.addEventListener('visibilitychange',resume);
+ return()=>{if(typeof document!=='undefined')document.removeEventListener('visibilitychange',resume);active=false;if(timer)clearTimeout(timer);dirty.clear();channels.forEach(channel=>{void client.removeChannel(channel);});};
 }

@@ -30,8 +30,9 @@ try{
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.clock.install();await page.goto(process.env.POS_TEST_URL||'http://localhost:5196');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('test@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await page.locator('.table-card').click({trial:true});
  const wait=async(predicate)=>{for(let i=0;i<200;i++){if(predicate())return;await new Promise(r=>setTimeout(r,10));}assert.ok(predicate(),'Expected request not observed');};
  await wait(()=>counts.live>0&&counts.groups>0);await page.waitForTimeout(150);await wait(()=>joins.length>=3);await page.clock.runFor(250);await page.waitForTimeout(150);const base={...counts};
- // A healthy channel keeps permission checks at 5s; order reads are idle.
- for(let tick=1;tick<=10;tick++){const access=counts.access;await page.clock.runFor(5000);await wait(()=>counts.access>access);await page.waitForTimeout(50);}
+ // Healthy Realtime does not poll permissions or orders every 5 seconds.
+ for(let tick=1;tick<=10;tick++){await page.clock.runFor(5000);await page.waitForTimeout(50);}
+ assert.equal(counts.access,base.access,'zero idle 5s permission requests');
  assert.equal(counts.live,base.live);assert.equal(counts.kitchen,base.kitchen);assert.equal(counts.menu,base.menu);assert.equal(counts.groups,base.groups);
  const reduction={oldIdleReads:30,newIdleReads:counts.access-base.access};
  const emit=(kind,payload={version:1})=>ws.send(frame('realtime:pos:'+kind,'broadcast',{event:'invalidate',payload,type:'broadcast'}));
@@ -46,7 +47,7 @@ try{
  const heldStart=counts.live;holdLive=true;emit('orders');await page.waitForTimeout(100);await page.clock.runFor(250);await wait(()=>heldLive);emit('orders');await page.waitForTimeout(100);releaseHeld();holdLive=false;await page.waitForTimeout(100);await page.clock.runFor(250);await wait(()=>counts.live>=heldStart+2);
  // Frequent partial updates must not postpone the full safety snapshot.
  const periodic=counts.live;
- for(let tick=0;tick<13;tick++){emit('orders',{version:2,session_id:sid});await page.waitForTimeout(50);await page.clock.runFor(5000);await page.waitForTimeout(100);}await wait(()=>counts.live>periodic);
+ for(let tick=0;tick<13;tick++){emit('orders',{version:2,session_id:sid});await page.waitForTimeout(50);await page.clock.runFor(5000);await page.waitForTimeout(100);}await wait(()=>counts.live>periodic);await page.waitForLoadState('networkidle');
  // A lost event is recovered by the 60s safety read.
  amount=68000;const safety=counts.live;for(let tick=0;tick<13;tick++){await page.clock.runFor(5000);await page.waitForTimeout(100);}await wait(()=>counts.live>safety);await page.getByText('68.000đ',{exact:true}).waitFor();
  // A channel failure restores the 5-second fallback; successful rejoin refreshes.
@@ -63,6 +64,9 @@ try{
  failMenu=true;const failed=counts.menu;await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await wait(()=>counts.menu>failed);await page.getByText(/Chưa đồng bộ được đơn hàng/).first().waitFor();failMenu=false;const retry=counts.menu;await page.clock.runFor(5000);await wait(()=>counts.menu>retry);
  // Local menu saves bypass cache even when catalog was just fetched.
  if(await page.locator('.management-menu summary').isVisible())await page.locator('.management-menu summary').click();await page.getByRole('button',{name:'Quản lý thực đơn',exact:true}).click();await page.getByRole('button',{name:'Sửa Bún riêu',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Sửa món',exact:true});await dialog.getByLabel('Giá bán (đồng)',{exact:true}).fill('75000');const beforeSave={...counts};await dialog.getByRole('button',{name:'Lưu thực đơn',exact:true}).click();await dialog.waitFor({state:'detached'});assert.equal(counts.saves,1);assert.ok(counts.menu>beforeSave.menu&&counts.groups>beforeSave.groups);
+ await page.evaluate(()=>{let visibility='hidden';Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>visibility});window.showAgain=()=>{visibility='visible';document.dispatchEvent(new Event('visibilitychange'));};document.dispatchEvent(new Event('visibilitychange'));});
+ await page.waitForTimeout(100);const hidden={...counts};for(let n=0;n<12;n++){emit('orders',{version:2,session_id:sid});await page.clock.runFor(10000);await page.waitForTimeout(50);}assert.deepEqual(counts,hidden,'hidden tabs do not read HTTP snapshots or permissions');
+ await page.evaluate(()=>window.showAgain());await page.waitForTimeout(100);await page.clock.runFor(250);await wait(()=>counts.live>hidden.live);
  const beforeLogin=counts.groups;await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();await page.getByLabel('Tên đăng nhập',{exact:true}).fill('test@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await page.locator('.table-card').click({trial:true});await wait(()=>counts.groups>beforeLogin);
- assert.deepEqual(errors,[]);console.log('PASS Realtime browser:',JSON.stringify(reduction),'scoped updates use one RPC with zero full snapshot/kitchen/menu reads; catalog-only refresh; malformed/failed delta fallback; frequent updates retain 60s safety, 5s permission/fallback, broadcast burst/order/catalog updates, in-flight follow-up, 60s safety recovery, exact names/amounts, manual/reconnect/local-save bypass, failed-catalog retry, cache cleared on same-user re-login, all HTTP and WebSocket mocked.');
+ assert.deepEqual(errors,[]);console.log('PASS Realtime browser:',JSON.stringify(reduction),'scoped updates use one RPC with zero full snapshot/kitchen/menu reads; catalog-only refresh; malformed/failed delta fallback; frequent updates retain 60s safety, 60s permission safety/5s fallback, broadcast burst/order/catalog updates, in-flight follow-up, 60s safety recovery, exact names/amounts, manual/reconnect/local-save bypass, failed-catalog retry, cache cleared on same-user re-login, all HTTP and WebSocket mocked.');
 }finally{await browser.close();}
