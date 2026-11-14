@@ -19,3 +19,9 @@ allowed='busy';channels[0].receive({payload:{version:2,session_id:sid(1)}});awai
 channels[0].receive();const before=batches.length;stop();await pause(230);assert.equal(batches.length,before);assert.equal(removed.length,3);channels[0].status('SUBSCRIBED');channels[0].receive();await pause(230);assert.equal(batches.length,before);
 const noImages=[];const stop2=startRealtimeSync({...client,channel(...args){const c=client.channel(...args);noImages.push(c);return c;}},false,{status:()=>{},invalidate:async()=>true});assert.deepEqual(noImages.map(c=>c.topic),['pos:orders','pos:catalog']);stop2();
 console.log('PASS Realtime coordinator: private role-scoped topics, burst batching, dirty-during-fetch follow-up, disconnect/rejoin recovery, identity cleanup and stale callbacks ignored.');
+
+const documentEvents=new EventTarget();let visible=false;globalThis.document={get visibilityState(){return visible?'visible':'hidden';},addEventListener:(...args)=>documentEvents.addEventListener(...args),removeEventListener:(...args)=>documentEvents.removeEventListener(...args)};
+const hiddenChannels=[],hiddenBatches=[];const stopHidden=startRealtimeSync({...client,channel(...args){const c=client.channel(...args);hiddenChannels.push(c);return c;}},false,{status:()=>{},invalidate:async(kinds,ids)=>{hiddenBatches.push({kinds:[...kinds],ids});return true;}});
+hiddenChannels[0].status('SUBSCRIBED');for(let n=0;n<25;n++)hiddenChannels[0].receive({payload:{version:2,session_id:sid(1)}});await pause(250);assert.equal(hiddenBatches.length,0);
+visible=true;documentEvents.dispatchEvent(new Event('visibilitychange'));await pause(50);assert.equal(hiddenBatches.length,1,'queued events reconcile on visibility return');stopHidden();delete globalThis.document;
+console.log('PASS background Realtime: zero hidden HTTP batches, events preserved, one resume batch and listener cleanup');
