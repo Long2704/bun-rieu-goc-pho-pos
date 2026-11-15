@@ -161,7 +161,7 @@ export function createStaffAdminHandler(settings: Settings) {
       if(!settings.serviceKey)return reply(503,{error:'Chưa cấu hình backend tạo nhân viên.'});
       const usernameMode=typeof data.username==='string';
       if(typeof data.request_id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.request_id)
-       ||typeof data.name!=='string'||!['phuc_vu','bep'].includes(String(data.role)))return reply(400,{error:'Thông tin nhân viên không hợp lệ.'});
+       ||typeof data.name!=='string'||!['phuc_vu','bep','thu_ngan'].includes(String(data.role)))return reply(400,{error:'Thông tin nhân viên không hợp lệ.'});
       const name=data.name.trim(),username=usernameMode?(data.username as string).trim().toLowerCase():'';
       if(!name||name.length>100||usernameMode&&!/^[a-z0-9][a-z0-9_.-]{2,39}$/.test(username))return reply(400,{error:'Tên hoặc tên đăng nhập không hợp lệ.'});
       // Giữ đường cũ cho yêu cầu đang chờ từ trước khi đổi giao diện.

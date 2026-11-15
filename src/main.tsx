@@ -38,6 +38,7 @@ import PWAControls, {OfflineNotice,useOnline} from './pwa/PWAControls';
 import PaymentModal from './pos/PaymentModal';
 import type {PaymentHandle} from './pos/PaymentModal';
 import ServiceWorkspace from './pos/ServiceWorkspace';
+const CashierReport=React.lazy(()=>import('./CashierReport'));
 const RevenuePanel=React.lazy(()=>import('./RevenuePanel'));
 import TransferPanel from './TransferPanel';
 import TableManagement from './TableManagement';
@@ -54,7 +55,7 @@ import CancelTablePanel from './CancelTablePanel';
 import TableActions from './TableActions';
 import SwipeOrderCard from './SwipeOrderCard';
 const AuditPanel=React.lazy(()=>import('./AuditPanel'));
-const roles:Record<string,string>={chu:'Bún Riêu Góc Phố',phuc_vu:'Phục vụ',bep:'Bếp'};
+const roles:Record<string,string>={chu:'Bún Riêu Góc Phố',phuc_vu:'Phục vụ',bep:'Bếp',thu_ngan:'Thu ngân'};
 import {formatMoney as money} from './format';
 import './cream-pos-theme.css';
 import './viewport';
@@ -100,7 +101,7 @@ function App(){
  const [loadedViews,setLoadedViews]=useState<Partial<Record<View,true>>>({});
  function navigate(next:View){
   if(next==='invoices'&&profile?.role==='bep')return;
-  const permission:Record<View,string>={service:'orders.read',kitchen:'orders.read',tables:'tables.manage',menu:'menu.manage',revenue:'reports.read',audit:'audit.read',invoices:'receipts.read_own',employees:'employees.manage'};
+  const permission:Record<View,string>={service:'orders.read',kitchen:'orders.read',tables:'tables.manage',menu:'menu.manage',revenue:profile?.role==='thu_ngan'?'reports.operations':'reports.read',audit:'audit.read',invoices:'receipts.read_own',employees:'employees.manage'};
   if(!permitted(profile,permission[next]))return;
   setLoadedViews(current=>current[next]?current:{...current,[next]:true});setView(next);managementNav.current?.removeAttribute('open');
  }
@@ -183,7 +184,7 @@ function App(){
    setProfile(prev=>JSON.stringify(prev)===JSON.stringify(access)?prev:access);
    setView(current=>{
     if(current==='invoices'&&access.role==='bep')return 'kitchen';
-    const permissions:Record<View,string>={service:'orders.read',kitchen:'orders.read',tables:'tables.manage',menu:'menu.manage',revenue:'reports.read',audit:'audit.read',invoices:'receipts.read_own',employees:'employees.manage'};
+    const permissions:Record<View,string>={service:'orders.read',kitchen:'orders.read',tables:'tables.manage',menu:'menu.manage',revenue:access.role==='thu_ngan'?'reports.operations':'reports.read',audit:'audit.read',invoices:'receipts.read_own',employees:'employees.manage'};
     return permitted(access,permissions[current])?current:access.role==='bep'?'kitchen':'service';
    });
    if(accessOnly){lastRefreshOk.current=true;return;}
@@ -383,18 +384,18 @@ function App(){
  const priorityTable=fifo(cooking)[0]?.table_sessions.table_id;
  const occupied=channelTables.filter(t=>sessions.some(s=>s.table_id===t.id)).length;
  const visibleTables=channelTables.filter(t=>t.name.toLocaleLowerCase('vi-VN').includes(tableSearch.trim().toLocaleLowerCase('vi-VN'))&&(tableFilter==='all'||(tableFilter==='busy')===sessions.some(s=>s.table_id===t.id)));
- const titles:Record<View,string>={service:selected?(showTableMenu?'Gọi món':'Đơn đã gọi'):'Sơ đồ bàn',kitchen:'Khu vực bếp',tables:'Quản lý bàn',menu:'Quản lý thực đơn',revenue:'Dashboard',audit:'Nhật ký hoạt động',invoices:'Hóa đơn gần đây',employees:'Quản lý nhân viên'};
+ const titles:Record<View,string>={service:selected?(showTableMenu?'Gọi món':'Đơn đã gọi'):'Sơ đồ bàn',kitchen:'Khu vực bếp',tables:'Quản lý bàn',menu:'Quản lý thực đơn',revenue:profile?.role==='thu_ngan'?'Báo cáo vận hành':'Dashboard',audit:'Nhật ký hoạt động',invoices:profile?.role==='thu_ngan'?'Hóa đơn vừa thu':'Hóa đơn gần đây',employees:'Quản lý nhân viên'};
  const kitchenHeader=view==='kitchen'&&!!profile&&!recovering&&!profile.must_change_password&&!loading;
  const logoutControl=<button className="logout-button" disabled={busy||!!profile&&!profile.must_change_password&&locked} onClick={logout}>Đăng xuất</button>;
  const syncControl=<button aria-label="Đồng bộ" title="Đồng bộ dữ liệu" onClick={()=>{void refresh(true,true);void refreshGroups();}}><PosIcon name="refresh"/><span>Đồng bộ</span></button>;
  return <div data-view={view} className={`pos-app${profile&&!recovering&&!profile.must_change_password&&!loading?' has-staff-shell':''}${view==='service'&&selected?' has-pos-workspace pos-workspace-'+posScreen:''}`}><header className="app-header"><a className="brand" href="#" onClick={e=>{e.preventDefault();if(profile)navigate(profile.role==='bep'?'kitchen':'service');}}><img className="brand-mark" src="/brand/goc-pho-logo.webp" alt="Logo Bún Riêu Góc Phố" width={54} height={54}/><span><strong>Bún Riêu Góc Phố</strong><small>QUẢN LÝ BÁN HÀNG</small></span></a>
  {session&&!recovering&&!kitchenHeader&&<div className="account"><span className="account-name">{profile?.name??'Nhân viên'}{profile?.role!=='chu'&&<small>{profile?roles[profile.role]:''}</small>}</span>{logoutControl}</div>}</header>
  {profile&&!recovering&&!profile.must_change_password&&!loading&&<div className="app-navigation"><nav aria-label="Chức năng">{permitted(profile,'orders.read')&&<button aria-label="Phục vụ" aria-pressed={view==='service'} onClick={()=>navigate('service')}><PosIcon name="grid"/><span className="nav-label-desktop">Sơ đồ bàn</span><span className="nav-label-mobile">Phục vụ</span></button>}<button aria-pressed={view==='kitchen'} onClick={()=>navigate('kitchen')}><PosIcon name="kitchen"/>Bếp ({cooking.length})</button>
- {!canManage&&canReadInvoices&&<button className="mobile-invoices" aria-pressed={view==='invoices'} onClick={()=>navigate('invoices')}><PosIcon name="invoice"/>Hóa đơn của tôi</button>}{canManage&&<details ref={managementNav} data-active={view!=='service'&&view!=='kitchen'} className="management-menu"><summary><PosIcon name="menu"/>Quản lý<PosIcon name="chevron"/></summary><div className="management-dropdown"><small>QUẢN LÝ QUÁN</small>{permitted(profile,'employees.manage')&&<button onClick={()=>navigate('employees')}><PosIcon name="employees"/>Quản lý nhân viên</button>}{permitted(profile,'menu.manage')&&<><button onClick={()=>navigate('menu')}><PosIcon name="menu"/>Quản lý thực đơn</button><button onClick={()=>navigate('tables')}><PosIcon name="tables"/>Quản lý bàn</button></>}<button onClick={()=>navigate('revenue')}><PosIcon name="report"/>Dashboard</button><button onClick={()=>navigate('audit')}><PosIcon name="audit"/>Nhật ký hoạt động</button><button onClick={()=>navigate('invoices')}><PosIcon name="invoice"/>Hóa đơn gần đây</button></div></details>}
+ {!canManage&&canReadInvoices&&<button className="mobile-invoices" aria-pressed={view==='invoices'} onClick={()=>navigate('invoices')}><PosIcon name="invoice"/>Hóa đơn của tôi</button>}{canManage&&<details ref={managementNav} data-active={view!=='service'&&view!=='kitchen'} className="management-menu"><summary><PosIcon name="menu"/>Quản lý<PosIcon name="chevron"/></summary><div className="management-dropdown"><small>QUẢN LÝ QUÁN</small>{permitted(profile,'employees.manage')&&<button onClick={()=>navigate('employees')}><PosIcon name="employees"/>Quản lý nhân viên</button>}{permitted(profile,'menu.manage')&&<><button onClick={()=>navigate('menu')}><PosIcon name="menu"/>Quản lý thực đơn</button><button onClick={()=>navigate('tables')}><PosIcon name="tables"/>Quản lý bàn</button></>}{(permitted(profile,'reports.read')||permitted(profile,'reports.operations'))&&<button onClick={()=>navigate('revenue')}><PosIcon name="report"/>{profile?.role==='thu_ngan'?'Báo cáo vận hành':'Dashboard'}</button>}{permitted(profile,'audit.read')&&<button onClick={()=>navigate('audit')}><PosIcon name="audit"/>Nhật ký hoạt động</button>}{canReadInvoices&&<button onClick={()=>navigate('invoices')}><PosIcon name="invoice"/>{profile?.role==='thu_ngan'?'Hóa đơn vừa thu':'Hóa đơn gần đây'}</button>}</div></details>}
  <div className="desktop-nav-links">
- {canReadInvoices&&<button aria-pressed={view==='invoices'} aria-label={canManage?'Hóa đơn gần đây':'Hóa đơn của tôi'} onClick={()=>navigate('invoices')}><PosIcon name="invoice"/><span>Hóa đơn</span></button>}
+ {canReadInvoices&&<button aria-pressed={view==='invoices'} aria-label={profile?.role==='thu_ngan'?'Hóa đơn vừa thu':canManage?'Hóa đơn gần đây':'Hóa đơn của tôi'} onClick={()=>navigate('invoices')}><PosIcon name="invoice"/><span>Hóa đơn</span></button>}
  {permitted(profile,'menu.manage')&&<button aria-pressed={view==='menu'} aria-label="Quản lý thực đơn" onClick={()=>navigate('menu')}><PosIcon name="book"/><span>Thực đơn</span></button>}
- {permitted(profile,'reports.read')&&<button aria-pressed={view==='revenue'} aria-label="Dashboard" onClick={()=>navigate('revenue')}><PosIcon name="report"/><span>Dashboard</span></button>}
+ {(permitted(profile,'reports.read')||permitted(profile,'reports.operations'))&&<button aria-pressed={view==='revenue'} aria-label={profile?.role==='thu_ngan'?'Báo cáo vận hành':'Dashboard'} onClick={()=>navigate('revenue')}><PosIcon name="report"/><span>{profile?.role==='thu_ngan'?'Báo cáo vận hành':'Dashboard'}</span></button>}
  {permitted(profile,'employees.manage')&&<button aria-pressed={view==='employees'} aria-label="Quản lý nhân viên" onClick={()=>navigate('employees')}><PosIcon name="employees"/><span>Nhân viên</span></button>}
  {permitted(profile,'tables.manage')&&<button aria-pressed={view==='tables'} aria-label="Quản lý bàn" onClick={()=>navigate('tables')}><PosIcon name="diningTable"/><span>Quản lý bàn</span></button>}
  {permitted(profile,'audit.read')&&<button aria-pressed={view==='audit'} aria-label="Nhật ký hoạt động" onClick={()=>navigate('audit')}><PosIcon name="audit"/><span>Nhật ký</span></button>}
@@ -436,9 +437,9 @@ function App(){
  {permitted(profile,'employees.manage')&&view==='employees'&&<div className="management-page"><React.Suspense fallback={<p role="status">Đang tải quản lý nhân viên…</p>}><EmployeeManagement key={`employees:${session!.user.id}`} userId={session!.user.id} active/></React.Suspense></div>}
  {permitted(profile,'tables.manage')&&<div className="management-page" hidden={view!=='tables'}><TableManagement key={`tables:${session!.user.id}`} userId={session!.user.id} active={view==='tables'} disabled={menuPending||cancelTablePending||itemCancelBusy||billPending||paymentPending||transferPending||!!pending||sending||Object.values(drafts).some(d=>Object.values(d).some(n=>n>0))} onPending={setTablePending} onSaved={()=>refresh(true,true)}/></div>}
  {permitted(profile,'menu.manage')&&<div className="management-page" hidden={view!=='menu'}><MenuPanel catalog={groupCatalog} groupError={groupError} onGroupsSaved={refreshGroups} key={`menu:${session!.user.id}`} active={view==='menu'} userId={session!.user.id} disabled={tablePending||cancelTablePending||itemCancelBusy||billPending||paymentPending||transferPending||!!pending||sending||Object.values(drafts).some(d=>Object.values(d).some(n=>n>0))} onPending={setMenuPending} onSaved={()=>refresh(true,true)}/></div>}
- {permitted(profile,'reports.read')&&(loadedViews.revenue||view==='revenue')&&<div className="management-page" hidden={view!=='revenue'}><DeferredPanel onBack={()=>navigate('service')}><RevenuePanel key={`revenue:${session!.user.id}`} active={view==='revenue'} userId={session!.user.id} tables={tables} sessions={sessions} cooking={cooking} lastSync={lastSync} online={online} onRefresh={refresh}/></DeferredPanel></div>}
+ {(permitted(profile,'reports.read')||permitted(profile,'reports.operations'))&&(loadedViews.revenue||view==='revenue')&&<div className="management-page" hidden={view!=='revenue'}><DeferredPanel onBack={()=>navigate('service')}>{profile?.role==='thu_ngan'?<CashierReport key={session!.user.id} active={view==='revenue'} userId={session!.user.id} tables={tables} sessions={sessions} cooking={cooking} lastSync={lastSync} online={online} onRefresh={refresh}/>:<RevenuePanel key={`revenue:${session!.user.id}`} active={view==='revenue'} userId={session!.user.id} tables={tables} sessions={sessions} cooking={cooking} lastSync={lastSync} online={online} onRefresh={refresh}/>}</DeferredPanel></div>}
  {permitted(profile,'audit.read')&&(loadedViews.audit||view==='audit')&&<div className="management-page" hidden={view!=='audit'}><DeferredPanel onBack={()=>navigate('service')}><AuditPanel active={view==='audit'}/></DeferredPanel></div>}
- {canReadInvoices&&(loadedViews.invoices||view==='invoices')&&<div className="management-page" hidden={view!=='invoices'}><DeferredPanel onBack={()=>navigate('service')}><InvoiceHistory key={`invoices:${session!.user.id}`} active={view==='invoices'} disabled={paymentPending} ownOnly={!permitted(profile,'receipts.read_all')} onOpen={id=>{setError('');setReceiptRequest(r=>({id,key:(r?.key??0)+1}));}}/></DeferredPanel></div>}
+ {canReadInvoices&&(loadedViews.invoices||view==='invoices')&&<div className="management-page" hidden={view!=='invoices'}><DeferredPanel onBack={()=>navigate('service')}><InvoiceHistory key={`invoices:${session!.user.id}`} active={view==='invoices'} latestOnly={profile?.role==='thu_ngan'} disabled={paymentPending} ownOnly={!permitted(profile,'receipts.read_all')} onOpen={id=>{setError('');setReceiptRequest(r=>({id,key:(r?.key??0)+1}));}}/></DeferredPanel></div>}
  </>}
  </main></div>;
 }
