@@ -1,3 +1,4 @@
+import {checkBundledLive} from './support/bundled-live.mjs';
 import {checkCashierDashboard} from './support/cashier-dashboard.mjs';
 import {checkCashierAccess} from './support/cashier-access.mjs';
 import {checkSaveSelectionSnapshot} from './support/save-selection-snapshot.mjs';
@@ -168,5 +169,6 @@ try {
   await checkSaveSelectionSnapshot(db,uid(2),food);
   await checkCashierAccess(db,uid(1),uid(4),uid(2),uid(3),food);
   await checkCashierDashboard(db,uid(1),uid(4),uid(2));
+  await checkBundledLive(db,uid(1),uid(2),uid(3),uid(4));
   console.log('PASS bill transfer SQL: staff permissions, exact whole-bill snapshot, empty/occupied target and target-session guard, partial kitchen-ticket split without copied items/new-food audit, same status/time/path/position, untouched source bills, close last source bill, request replay, paid protection, kitchen completion, private ledger.');
 } finally {await db.close();}

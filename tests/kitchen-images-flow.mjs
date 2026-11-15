@@ -119,6 +119,7 @@ try{
 
 
   }
+  await page.locator('.kitchen-image-ticket').first().waitFor();
   failRead=true;await page.waitForTimeout(5500);await page.getByRole('alert').filter({hasText:'Chưa đồng bộ được phiếu ảnh'}).waitFor();assert.match(await page.locator('.kitchen-card').first().innerText(),/Bún riêu thường/);
   await context.setOffline(true);assert.ok(await page.locator('.kitchen-image-ticket button.primary').first().isDisabled());
   failRead=false;await context.setOffline(false);await page.getByRole('alert').filter({hasText:'Chưa đồng bộ được phiếu ảnh'}).waitFor({state:'hidden'});

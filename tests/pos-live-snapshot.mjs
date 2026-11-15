@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+const {outputFiles}=await build({entryPoints:['src/pos-live-snapshot.ts'],bundle:true,platform:'node',format:'esm',write:false});
+const {liveEnvelope,validateLiveSnapshot,missingLiveRpc}=await import('data:text/javascript;base64,'+Buffer.from(outputFiles[0].text).toString('base64'));
+const ok={version:1,access:{is_active:true},snapshot:{sessions:[],links:[],kitchen:[]},catalog:{menu:[],tables:[]}};
+assert.equal(validateLiveSnapshot(liveEnvelope(ok),true,false),ok);
+for(const bad of [null,{}, {...ok,version:2}])assert.throws(()=>liveEnvelope(bad));
+for(const patch of [{snapshot:null},{catalog:null},{snapshot:{sessions:[],links:null,kitchen:[]}},{snapshot:{sessions:[],links:[],kitchen:[{id:'x',status:'done'}]}},{catalog:{menu:[{id:'x',price:'58000'}],tables:[]}}])assert.throws(()=>validateLiveSnapshot({...ok,...patch},true,false));
+assert.ok(missingLiveRpc({code:'PGRST202'}));assert.ok(missingLiveRpc({code:'42883'}));assert.ok(!missingLiveRpc({code:'503'}));
+console.log('PASS snapshot validation: incomplete/malformed snapshots fail closed; only missing endpoint activates legacy compatibility.');

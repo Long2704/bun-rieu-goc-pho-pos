@@ -1,3 +1,8 @@
+import {liveEnvelope,validateLiveSnapshot,missingLiveRpc} from './pos-live-snapshot';
+import type {PosLiveSnapshot} from './pos-live-snapshot';
+import {createImageTicketStore} from './kitchen-images/ticket-store';
+import {imageTicketFields} from './kitchen-images/types';
+import type {ImageTicket} from './kitchen-images/types';
 import {mergeSavedSelection} from './save-selection';
 import {KitchenPushControl,KitchenPushLifecycle} from './push/KitchenPush';
 import {detachKitchenPush} from './push/kitchen-push';
@@ -64,7 +69,7 @@ import './menu-groups.css';
 type View='employees'|'tables'|'service'|'kitchen'|'menu'|'revenue'|'audit'|'invoices';
 type Item={id:string;name:string;price:number;category:string;is_out:boolean};
 type DiningTable={id:number;name:string;service_type?:string};
-type Profile={saved_menu_selections?:boolean;linked_tables?:boolean;name:string;role:string;is_active:boolean;permissions:string[];must_change_password?:boolean;session_invalid?:boolean;data_epoch?:number};
+type Profile={live_snapshot?:boolean;saved_menu_selections?:boolean;linked_tables?:boolean;name:string;role:string;is_active:boolean;permissions:string[];must_change_password?:boolean;session_invalid?:boolean;data_epoch?:number};
 const permitted=(profile:Profile|null,permission:string)=>!!profile?.is_active&&profile.permissions.includes(permission);
 function checkedAccess(data:unknown):Profile{
  const p=data as Partial<Profile>|null;
@@ -126,19 +131,26 @@ function App(){
  const sendLock=useRef(false),refreshLock=useRef(false),identity=useRef<string|null>(null);
  useEffect(()=>{const warn=(event:BeforeUnloadEvent)=>{if(Object.values(drafts).some(table=>Object.values(table).some(qty=>qty>0))||pending||sending){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[drafts,pending,sending]);
  const catalogSync=useRef({user:'',at:0}),liveSync=useRef(0),liveSnapshot=useRef<LiveSnapshot|null>(null);
- const [realtimeStatus,setRealtimeStatus]=useState(emptyRealtimeStatus),[imageSyncRevision,setImageSyncRevision]=useState(0);
+ const [realtimeStatus,setRealtimeStatus]=useState(emptyRealtimeStatus),[authGeneration,setAuthGeneration]=useState(0);
+ const bundledUnsupported=useRef(false);
+ const imageScope=profile?.is_active&&!profile.must_change_password&&!recovering&&permitted(profile,'kitchen_images.read')&&session?`${session.user.id}:${authGeneration}:${reload}:${profile.data_epoch??0}:${profile.permissions.join(',')}`:'';
+ const imageStore=useMemo(()=>imageScope?createImageTicketStore({load:async limit=>{
+  const r=await supabase!.from('kitchen_image_tickets').select(imageTicketFields).eq('status','cooking').order('created_at').order('id').range(0,limit);
+  if(r.error)throw r.error;return (r.data??[]) as ImageTicket[];
+ }}):null,[imageScope]);
+ useEffect(()=>imageStore?.retain(),[imageStore]);
  const realtimeReady=useRef(realtimeStatus);realtimeReady.current=realtimeStatus;
  const menuRef=useRef(menu),draftRef=useRef(drafts);menuRef.current=menu;draftRef.current=drafts;
  identity.current=session?.user.id??null;
  useEffect(()=>{
   if(!supabase){setError('Chưa cấu hình kết nối Supabase.');setLoading(false);return;}
   let active=true,changed=false;
-  const {data:{subscription}}=supabase.auth.onAuthStateChange((event,s)=>{changed=true;if(active){if(event==='PASSWORD_RECOVERY'&&s){rememberRecovery(s.user.id);setRecovering(true);}else if(event==='SIGNED_OUT'){rememberRecovery(null);}else if(s&&recoveryUser()&&recoveryUser()!==s.user.id&&!recoveryCallback){rememberRecovery(null);setRecovering(false);}setSession(s);setLoading(false);}});
+  const {data:{subscription}}=supabase.auth.onAuthStateChange((event,s)=>{changed=true;if(active){if(event==='PASSWORD_RECOVERY'&&s){rememberRecovery(s.user.id);setRecovering(true);}else if(event==='SIGNED_OUT'){rememberRecovery(null);setAuthGeneration(n=>n+1);}else if(s&&recoveryUser()&&recoveryUser()!==s.user.id&&!recoveryCallback){rememberRecovery(null);setRecovering(false);}setSession(s);setLoading(false);}});
   supabase.auth.getSession().then(({data,error})=>{if(active&&!changed){setSession(data.session);if(error)setError('Không thể khôi phục phiên đăng nhập.');setLoading(false);}}).catch(()=>{if(active){setError('Không thể kết nối. Vui lòng tải lại trang.');setLoading(false);}});
   return()=>{active=false;subscription.unsubscribe();};
  },[]);
  useEffect(()=>{
-  catalogSync.current={user:'',at:0};liveSync.current=0;liveSnapshot.current=null;
+  catalogSync.current={user:'',at:0};liveSync.current=0;liveSnapshot.current=null;bundledUnsupported.current=false;
   setLoadedViews({});setTableSearch('');setTableFilter('all');setReceiptRequest(null);setProfile(null);setMenu([]);setTables([]);setDrafts({});setNotes({});setSelected(null);setPosScreen('order');setSessions([]);setCooking([]);setPending(null);setError('');setMessage('');setLastSync('');setSyncError('');
   if(recovering){setLoading(false);return;}
   if(!session||!supabase)return;
@@ -169,8 +181,15 @@ function App(){
   let finish=()=>{};refreshDone.current=new Promise<void>(resolve=>{finish=resolve;});
   const onlyCatalog=catalogOnly&&lastRefreshOk.current;
   refreshLock.current=true;lastRefreshOk.current=false;
+  const loadCatalog=forceCatalog||catalogSync.current.user!==user||catalogDue(catalogSync.current.at);
   try{
-   const accessResult=await supabase.rpc('get_my_access');
+   let bundled:PosLiveSnapshot|null=null;
+   if(profile.live_snapshot&&!bundledUnsupported.current&&!accessOnly){
+    const result=await supabase.rpc('get_pos_live_snapshot',{p_catalog:loadCatalog,p_catalog_only:onlyCatalog});
+    if(missingLiveRpc(result.error))bundledUnsupported.current=true;
+    else {if(result.error)throw result.error;bundled=liveEnvelope(result.data);}
+   }
+   const accessResult=bundled?{data:bundled.access,error:null}:await supabase.rpc('get_my_access');
    if(identity.current!==user)return;
    if(accessResult.error)throw new Error();
    let access:Profile;
@@ -188,8 +207,13 @@ function App(){
     return permitted(access,permissions[current])?current:access.role==='bep'?'kitchen':'service';
    });
    if(accessOnly){lastRefreshOk.current=true;return;}
-   const loadCatalog=forceCatalog||catalogSync.current.user!==user||catalogDue(catalogSync.current.at);
-   const [s,k,m,t]=await Promise.all([
+   if(bundled)validateLiveSnapshot(bundled,loadCatalog,onlyCatalog);
+   const [s,k,m,t]=bundled?[
+    {data:bundled.snapshot,error:null},
+    {data:bundled.snapshot?.kitchen??null,error:null},
+    {data:bundled.catalog?.menu??null,error:null},
+    {data:bundled.catalog?.tables??null,error:null}
+   ]:await Promise.all([
     onlyCatalog?Promise.resolve({data:null,error:null}):access.linked_tables?supabase.rpc('get_linked_table_snapshot'):supabase.from('table_sessions').select(`id,table_id,table_path,opened_at,orders(${orderFields})`).is('closed_at',null),
     onlyCatalog?Promise.resolve({data:null,error:null}):supabase.from('orders').select(`${orderFields},table_sessions!inner(table_id,closed_at,table_path)`).eq('status','cooking').eq('kitchen_relevant',true).order('created_at').order('id'),
     loadCatalog?supabase.from('menu_items').select('id,name,price,category,is_out').eq('is_active',true).order('sort').order('id'):Promise.resolve({data:null,error:null}),
@@ -204,14 +228,12 @@ function App(){
     setTables(prev=>JSON.stringify(prev)===JSON.stringify(t.data??[])?prev:t.data??[]);setSelected(prev=>{if(!prev)return null;const next=(t.data??[]).find(t=>t.id===prev.id);return next&&JSON.stringify(next)!==JSON.stringify(prev)?next:prev;});setMenu(prev=>JSON.stringify(prev)===JSON.stringify(m.data??[])?prev:m.data??[]);catalogSync.current={user,at:Date.now()};}
     if(!onlyCatalog){liveSnapshot.current={sessions:nextSessions,kitchen:k.data as unknown as KitchenOrder[]};
     setSessions(prev=>JSON.stringify(prev)===JSON.stringify(nextSessions)?prev:nextSessions);setCooking(prev=>JSON.stringify(prev)===JSON.stringify(k.data)?prev:k.data as unknown as KitchenOrder[]);setLastSync(new Date().toLocaleTimeString('vi-VN'));setSyncError('');liveSync.current=Date.now();}lastRefreshOk.current=true;}
-  }catch{if(identity.current===user)setSyncError('Chưa đồng bộ được đơn hàng. Dữ liệu có thể đã cũ; kiểm tra mạng rồi bấm Đồng bộ.');}
+  }catch{if(loadCatalog&&identity.current===user)catalogSync.current={user,at:0};if(identity.current===user)setSyncError('Chưa đồng bộ được đơn hàng. Dữ liệu có thể đã cũ; kiểm tra mạng rồi bấm Đồng bộ.');}
   finally{refreshLock.current=false;finish();}
  },[profile,session?.user.id]);
  useEffect(()=>{
   void refresh();const timer=setInterval(()=>{if(liveReadDue(realtimeReady.current,lastRefreshOk.current,liveSync.current,document.visibilityState==='visible'))void refresh();},LIVE_SYNC_MS);
-  const online=()=>{if(document.visibilityState!=='visible')return;void refresh(true,true);void refreshGroups();};
-  const visible=()=>{if(document.visibilityState==='visible')online();};window.addEventListener('online',online);document.addEventListener('visibilitychange',visible);
-  return()=>{clearInterval(timer);window.removeEventListener('online',online);document.removeEventListener('visibilitychange',visible);};
+  return()=>{clearInterval(timer);};
  },[refresh,refreshGroups]);
  const refreshDelta=async(ids:readonly string[])=>{
   if(!supabase||!session||!liveSnapshot.current||!lastRefreshOk.current)return false;
@@ -238,7 +260,7 @@ function App(){
  const invalidateRealtime=useRef<(kinds:ReadonlySet<SyncKind>,ids?:readonly string[])=>Promise<boolean|'busy'>>(async()=>false);
  invalidateRealtime.current=async(kinds,ids)=>{
   if(kitchenCompletionLock.current||sendLock.current||refreshLock.current)return 'busy';
-  if(kinds.has('images'))setImageSyncRevision(n=>n+1);
+  if(kinds.has('images'))imageStore?.invalidate();
   const catalog=kinds.has('catalog');
   if(kinds.has('orders')){
    if(!ids?.length||!await refreshDelta(ids))await refresh(true,catalog);
@@ -387,7 +409,7 @@ function App(){
  const titles:Record<View,string>={service:selected?(showTableMenu?'Gọi món':'Đơn đã gọi'):'Sơ đồ bàn',kitchen:'Khu vực bếp',tables:'Quản lý bàn',menu:'Quản lý thực đơn',revenue:profile?.role==='thu_ngan'?'Báo cáo vận hành':'Dashboard',audit:'Nhật ký hoạt động',invoices:profile?.role==='thu_ngan'?'Hóa đơn vừa thu':'Hóa đơn gần đây',employees:'Quản lý nhân viên'};
  const kitchenHeader=view==='kitchen'&&!!profile&&!recovering&&!profile.must_change_password&&!loading;
  const logoutControl=<button className="logout-button" disabled={busy||!!profile&&!profile.must_change_password&&locked} onClick={logout}>Đăng xuất</button>;
- const syncControl=<button aria-label="Đồng bộ" title="Đồng bộ dữ liệu" onClick={()=>{void refresh(true,true);void refreshGroups();}}><PosIcon name="refresh"/><span>Đồng bộ</span></button>;
+ const syncControl=<button aria-label="Đồng bộ" title="Đồng bộ dữ liệu" onClick={()=>{imageStore?.invalidate();void refresh(true,true);void refreshGroups();}}><PosIcon name="refresh"/><span>Đồng bộ</span></button>;
  return <div data-view={view} className={`pos-app${profile&&!recovering&&!profile.must_change_password&&!loading?' has-staff-shell':''}${view==='service'&&selected?' has-pos-workspace pos-workspace-'+posScreen:''}`}><header className="app-header"><a className="brand" href="#" onClick={e=>{e.preventDefault();if(profile)navigate(profile.role==='bep'?'kitchen':'service');}}><img className="brand-mark" src="/brand/goc-pho-logo.webp" alt="Logo Bún Riêu Góc Phố" width={54} height={54}/><span><strong>Bún Riêu Góc Phố</strong><small>QUẢN LÝ BÁN HÀNG</small></span></a>
  {session&&!recovering&&!kitchenHeader&&<div className="account"><span className="account-name">{profile?.name??'Nhân viên'}{profile?.role!=='chu'&&<small>{profile?roles[profile.role]:''}</small>}</span>{logoutControl}</div>}</header>
  {profile&&!recovering&&!profile.must_change_password&&!loading&&<div className="app-navigation"><nav aria-label="Chức năng">{permitted(profile,'orders.read')&&<button aria-label="Phục vụ" aria-pressed={view==='service'} onClick={()=>navigate('service')}><PosIcon name="grid"/><span className="nav-label-desktop">Sơ đồ bàn</span><span className="nav-label-mobile">Phục vụ</span></button>}<button aria-pressed={view==='kitchen'} onClick={()=>navigate('kitchen')}><PosIcon name="kitchen"/>Bếp ({cooking.length})</button>
@@ -433,7 +455,7 @@ function App(){
  {canTransfer&&canSplit&&<BillTransferPanel ref={billTransferController} key={`bill-transfer:${session!.user.id}`} userId={session!.user.id} table={selectedCanonical} tables={canonicalTables} sessions={sessions} disabled={!online||sending||paymentPending||transferPending||tablePending||menuPending||billMovePending||linkPending||cancelTablePending||itemCancelBusy||!!pending||!!syncError||!lastSync||Object.values(drafts).some(d=>Object.values(d).some(n=>n>0))} onPending={setBillTablePending} onChanged={async id=>{await refresh(true);if(!lastRefreshOk.current)throw new Error('Đã nhận chuyển bill nhưng chưa đồng bộ. Thử lại cùng mã để kiểm tra.');setSelected(tables.find(t=>t.id===id)??null);setPosScreen('order');setView('service');}}/>}
  <PaymentModal onClosePaid={(sessionId,tableId)=>{if(selected?.id===tableId&&!syncError&&lastRefreshOk.current&&!pending&&!Object.values(drafts[tableId]??{}).some(n=>n>0)&&!sessions.some(s=>s.id===sessionId||s.table_id===tableId)){setSelected(null);setView('service');setTableSearch('');setTableFilter('all');}}} compact={!!selected} ref={paymentController} onPendingAmount={setPendingPaymentAmount} onReady={setPaymentReady} key={session!.user.id} userId={session!.user.id} table={selected} sessions={sessions} canPay={canPay} canDiscount={canDiscount} hasDraft={currentOrders.some(o=>o.is_draft&&o.order_items.some(i=>!i.paid&&!i.cancelled_at&&i.category!=='do_uong'))||!online||cancelTablePending||itemCancelBusy||billPending||tablePending||menuPending||transferPending||!!count||!!pending||!!syncError||!lastSync} onPending={setPaymentPending} onPaid={async()=>{await refresh(true);if(!lastRefreshOk.current)throw new Error('Đã nhận thanh toán, chờ đồng bộ. Thử lại cùng mã, không thu tiền lần nữa.');}} receiptRequest={receiptRequest} onReceiptError={setError}/>
  </div>
- {view==='kitchen'&&<div className="kitchen-page"><p id="kitchen-swipe-help" className="visually-hidden">Vuốt đơn sang trái hoặc phải để hoàn thành.</p><KitchenImageArea realtimeReady={realtimeStatus.images} syncRevision={imageSyncRevision} userId={session!.user.id} canRead={permitted(profile,'kitchen_images.read')} canUpload={permitted(profile,'kitchen_images.upload')} canComplete={canComplete} online={online} history={history} tabs={<><button aria-pressed={!history} onClick={()=>setHistory(false)}>Đang làm ({cooking.length})</button><button aria-pressed={history} onClick={()=>setHistory(true)}>Lịch sử</button>{canComplete&&<KitchenPushControl user={session!.user.id} online={online} onBusy={setBusy}/>}</>} normalCards={kitchen.map((o,index)=>({id:o.id,created_at:o.created_at,content:<SwipeOrderCard disabled={!online||!!history||!canComplete||!!completing||cancelTablePending||itemCancelBusy||!!syncError} onComplete={beforeRemove=>complete(o.id,beforeRemove)} className={`kitchen-card ${!history&&index===0?'first-order':''}`} key={o.id}><div className="order-heading"><h2 className="kitchen-table-path">{kitchenFulfillmentTitle(o,kitchenPlace(o))}</h2><span>{new Date(o.created_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} · {Math.max(0,Math.floor((Date.now()-Date.parse(o.created_at))/60000))} phút</span></div><KitchenOrderLines order={o} place={kitchenPlace(o)}/>{o.ordered_by_name?.trim()&&<p className="kitchen-order-staff">{o.ordered_by_name==='Chủ quán Bún Riêu Góc Phố'?'Admin':o.ordered_by_name}</p>}{!history&&canComplete&&<button data-complete-ticket className="primary" disabled={!online||!!completing||cancelTablePending||itemCancelBusy||!!syncError} onClick={()=>void complete(o.id)}>{completing===o.id?'Đang lưu…':'Xong'}</button>}</SwipeOrderCard>}))}/></div>}
+ {view==='kitchen'&&<div className="kitchen-page"><p id="kitchen-swipe-help" className="visually-hidden">Vuốt đơn sang trái hoặc phải để hoàn thành.</p><KitchenImageArea store={imageStore} scopeKey={imageScope} realtimeReady={realtimeStatus.images} userId={session!.user.id} canRead={permitted(profile,'kitchen_images.read')} canUpload={permitted(profile,'kitchen_images.upload')} canComplete={canComplete} online={online} history={history} tabs={<><button aria-pressed={!history} onClick={()=>setHistory(false)}>Đang làm ({cooking.length})</button><button aria-pressed={history} onClick={()=>setHistory(true)}>Lịch sử</button>{canComplete&&<KitchenPushControl user={session!.user.id} online={online} onBusy={setBusy}/>}</>} normalCards={kitchen.map((o,index)=>({id:o.id,created_at:o.created_at,content:<SwipeOrderCard disabled={!online||!!history||!canComplete||!!completing||cancelTablePending||itemCancelBusy||!!syncError} onComplete={beforeRemove=>complete(o.id,beforeRemove)} className={`kitchen-card ${!history&&index===0?'first-order':''}`} key={o.id}><div className="order-heading"><h2 className="kitchen-table-path">{kitchenFulfillmentTitle(o,kitchenPlace(o))}</h2><span>{new Date(o.created_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} · {Math.max(0,Math.floor((Date.now()-Date.parse(o.created_at))/60000))} phút</span></div><KitchenOrderLines order={o} place={kitchenPlace(o)}/>{o.ordered_by_name?.trim()&&<p className="kitchen-order-staff">{o.ordered_by_name==='Chủ quán Bún Riêu Góc Phố'?'Admin':o.ordered_by_name}</p>}{!history&&canComplete&&<button data-complete-ticket className="primary" disabled={!online||!!completing||cancelTablePending||itemCancelBusy||!!syncError} onClick={()=>void complete(o.id)}>{completing===o.id?'Đang lưu…':'Xong'}</button>}</SwipeOrderCard>}))}/></div>}
  {permitted(profile,'employees.manage')&&view==='employees'&&<div className="management-page"><React.Suspense fallback={<p role="status">Đang tải quản lý nhân viên…</p>}><EmployeeManagement key={`employees:${session!.user.id}`} userId={session!.user.id} active/></React.Suspense></div>}
  {permitted(profile,'tables.manage')&&<div className="management-page" hidden={view!=='tables'}><TableManagement key={`tables:${session!.user.id}`} userId={session!.user.id} active={view==='tables'} disabled={menuPending||cancelTablePending||itemCancelBusy||billPending||paymentPending||transferPending||!!pending||sending||Object.values(drafts).some(d=>Object.values(d).some(n=>n>0))} onPending={setTablePending} onSaved={()=>refresh(true,true)}/></div>}
  {permitted(profile,'menu.manage')&&<div className="management-page" hidden={view!=='menu'}><MenuPanel catalog={groupCatalog} groupError={groupError} onGroupsSaved={refreshGroups} key={`menu:${session!.user.id}`} active={view==='menu'} userId={session!.user.id} disabled={tablePending||cancelTablePending||itemCancelBusy||billPending||paymentPending||transferPending||!!pending||sending||Object.values(drafts).some(d=>Object.values(d).some(n=>n>0))} onPending={setMenuPending} onSaved={()=>refresh(true,true)}/></div>}
