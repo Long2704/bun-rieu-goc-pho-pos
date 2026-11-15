@@ -29,7 +29,7 @@ const collision=fixture('collision');assert.equal((await collision.send()).relea
 const valid=fixture();assert.equal((await valid.send()).ok,true);assert.equal((await valid.send()).ok,true);assert.equal(valid.count(),1);
 const lost=fixture('lost');assert.equal((await lost.send()).pending,true);assert.equal((await lost.send({...draft,action:'check_creation',password:undefined})).ok,true);assert.equal(lost.count(),1);
 const rejected=fixture('rejected');const fail=await rejected.send();assert.equal(fail.status,409);assert.equal(fail.released,true);
-for(const role of ['chu','thu_ngan','owner'])assert.equal((await fixture().send({...draft,role})).status,400);
+for(const role of ['chu','owner'])assert.equal((await fixture().send({...draft,role})).status,400);
 assert.equal((await fixture().send({...draft,password:'short'})).status,400);
 const check=fixture();assert.equal((await check.send({...draft,action:'check_creation',password:undefined})).pending,true);assert.equal(check.count(),0);
 assert.equal((await check.send({...draft,action:'cancel_creation',password:undefined})).released,true);
@@ -37,3 +37,5 @@ const usernameFixture=fixture();const usernameInput={...draft,username:'bep01',r
 for(const password of ['Ab12!x','Abcd1234!xyz'])assert.equal((await fixture().send({...draft,password})).ok,true);
 for(const password of ['Ab1!x','Abcd1234!xyzz'])assert.equal((await fixture().send({...draft,password})).status,400);
 console.log('ĐẠT Edge tạo nhân viên: Owner, chặn Kitchen/Waiter/khóa/nâng quyền, retry không tạo trùng, mất phản hồi phục hồi, không reset email cũ, không lộ mật khẩu/key. Fetch giả lập.');
+
+const cashierCreate=fixture();assert.equal((await cashierCreate.send({...draft,role:'thu_ngan'})).status,200);assert.equal(cashierCreate.count(),1);

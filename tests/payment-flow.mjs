@@ -72,7 +72,7 @@ await dialog.getByRole('button',{name:'Đóng',exact:true}).click();
 await management('Hóa đơn gần đây');await page.getByRole('button',{name:/^#1 /}).click();await page.getByRole('heading',{name:'Hóa đơn đã thanh toán',exact:true}).waitFor();
 assert.equal(receiptReads,1);assert.match(await dialog.innerText(),/Không hành/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 await dialog.getByRole('button',{name:'Đóng',exact:true}).click();
-role='phuc_vu';await page.reload();await page.getByRole('button',{name:/^Bàn 3 /}).click();assert.equal(await page.getByRole('button',{name:'Thanh toán',exact:true}).count(),1);
+role='phuc_vu';await page.reload();await page.getByRole('button',{name:/^Bàn 3 /}).click();await page.getByRole('button',{name:'Thanh toán',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Thanh toán',exact:true}).count(),1);
 assert.deepEqual(errors,[]);
 console.log('PASS: cash validation, no discount entry, change, persisted retry after lost payment response, no duplicate invoice, transfer without fetching receipts, stale-item rejection, kitchen retains paid orders, empty table, recent receipts, manual receipt history retained without print, mobile width, service can pay without finance administration. All network mocked; no live payments.');
 }finally{await browser.close();}

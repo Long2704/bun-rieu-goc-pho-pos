@@ -18,7 +18,7 @@ try{
   }else if(path==='/functions/v1/staff-admin'){
    const input=route.request().postDataJSON();calls.push(input);
    if(input.action==='create_employee'){
-    assert.ok(['phuc_vu','bep'].includes(input.role));assert.ok(input.password.length>=6&&input.password.length<=12);
+    assert.ok(['phuc_vu','bep','thu_ngan'].includes(input.role));assert.ok(input.password.length>=6&&input.password.length<=12);
     if(mode==='reject')return route.fulfill({status:409,json:{error:'Email đã tồn tại.',released:true}});
     if(mode==='success')return route.fulfill({json:{ok:true,user_id:'new-staff'}});
     completed=true;
@@ -42,7 +42,7 @@ try{
  assert.equal(calls.length,0);assert.equal(await page.evaluate(()=>localStorage.getItem('pos:employee-create:owner')),null);
  assert.equal(await create.getByLabel('Tên nhân viên',{exact:true}).isEnabled(),true);
  await page.locator('.employee-create').getByLabel('Tên nhân viên',{exact:true}).fill('Bếp mới');await page.locator('.employee-create').getByLabel('Tên đăng nhập',{exact:true}).fill('nv-k02');await page.locator('.employee-create').getByLabel('Vai trò nhân viên',{exact:true}).selectOption('bep');
- assert.equal(await page.locator('.employee-create').getByLabel('Vai trò nhân viên').locator('option').count(),2);
+ assert.equal(await page.locator('.employee-create').getByLabel('Vai trò nhân viên').locator('option').count(),3);
  await page.locator('.employee-create').getByLabel('Mật khẩu tạm',{exact:true}).fill('Temp123!');await page.getByRole('button',{name:'Tạo tài khoản',exact:true}).click();
  await page.getByText('Chưa xác nhận kết quả.',{exact:true}).waitFor();assert.equal(await page.locator('.employee-create').getByLabel('Mật khẩu tạm',{exact:true}).inputValue(),'');
  const storage=await page.evaluate(()=>JSON.stringify({...localStorage,...sessionStorage}));assert.ok(!storage.includes('Temp123!'));
@@ -83,5 +83,5 @@ try{
  assert.equal(await page.evaluate(()=>localStorage.getItem('pos:employee-create:owner')),null);
  assert.equal(await page.getByRole('button',{name:'Thêm nhân viên',exact:true}).count(),1);
  console.log('ĐẠT hồi quy: tên ngắn không gửi/lưu yêu cầu; hủy draft cũ không cần tên hợp lệ/mật khẩu; lỗi hủy giữ yêu cầu; hủy thành công mở lại form; tạo lại và giữ tài khoản đã hoàn tất.');
- console.log('ĐẠT UI: Owner tạo Kitchen, chỉ hai vai trò, mất phản hồi/tải lại khôi phục cùng mã không lưu mật khẩu; kiểm tra lại không gửi mật khẩu; lỗi email mở lại form, mobile không tràn. API giả lập.');
+ console.log('ĐẠT UI: Owner tạo Kitchen, ba vai trò nhân viên, mất phản hồi/tải lại khôi phục cùng mã không lưu mật khẩu; kiểm tra lại không gửi mật khẩu; lỗi email mở lại form, mobile không tràn. API giả lập.');
 }finally{await browser.close();}

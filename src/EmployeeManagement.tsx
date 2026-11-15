@@ -8,7 +8,7 @@ import EmployeeDelete from './EmployeeDelete';
 
 type Employee={id:string;name:string;staff_code?:string|null;username?:string;role:string;is_active:boolean;created_at:string;staff_version?:number;password_reset_pending?:boolean;account_deletion_pending?:boolean};
 type Filters={search:string;role:string;status:string};
-const roleLabels:Record<string,string>={chu:'Owner',phuc_vu:'Waiter',bep:'Kitchen',thu_ngan:'Thu ngân (cũ)'};
+const roleLabels:Record<string,string>={chu:'Owner',phuc_vu:'Waiter',bep:'Kitchen',thu_ngan:'Thu ngân'};
 const pageSize=20;
 const createdLabel=(value:string)=>new Intl.DateTimeFormat('vi-VN',{
   timeZone:'Asia/Ho_Chi_Minh',day:'2-digit',month:'2-digit',year:'numeric'
@@ -68,7 +68,7 @@ export default function EmployeeManagement({active,userId}:{active:boolean;userI
   <div className="employee-toolbar"><span role="status">{busy?'Đang tải…':error?'Chưa tải được':`${total} nhân viên`}</span><button aria-label="Tải lại nhân viên" disabled={busy} onClick={()=>setReload(n=>n+1)}><PosIcon name="refresh"/>Tải lại</button></div>
   <form className="employee-filters" onSubmit={e=>{e.preventDefault();search();}}>
    <label>Tên hoặc tên đăng nhập<input type="search" maxLength={100} value={draft.search} placeholder="Tìm nhân viên…" onChange={e=>setDraft({...draft,search:e.target.value})}/></label>
-   <div><label htmlFor="employee-role">Vai trò</label><select id="employee-role" value={draft.role} onChange={e=>setDraft({...draft,role:e.target.value})}><option value="">Tất cả vai trò</option><option value="chu">Owner</option><option value="phuc_vu">Waiter</option><option value="bep">Kitchen</option></select></div>
+   <div><label htmlFor="employee-role">Vai trò</label><select id="employee-role" value={draft.role} onChange={e=>setDraft({...draft,role:e.target.value})}><option value="">Tất cả vai trò</option><option value="chu">Owner</option><option value="phuc_vu">Waiter</option><option value="bep">Kitchen</option><option value="thu_ngan">Thu ngân</option></select></div>
    <div><label htmlFor="employee-status">Trạng thái</label><select id="employee-status" value={draft.status} onChange={e=>setDraft({...draft,status:e.target.value})}><option value="">Tất cả trạng thái</option><option value="active">Đang hoạt động</option><option value="locked">Đã khóa</option></select></div>
    <button className="primary" type="submit" disabled={busy}>Tìm</button>
   </form>
@@ -76,7 +76,7 @@ export default function EmployeeManagement({active,userId}:{active:boolean;userI
    <div className="employee-list">{rows.map(employee=><article key={employee.id} aria-label={`Nhân viên ${employee.name}`}>
     <div className="employee-identity"><h3>{employee.name}</h3><p>{employee.username?`Đăng nhập: ${employee.username}`:'Chưa có tên đăng nhập'}</p></div>
     <dl><div><dt>Vai trò</dt><dd><span className="employee-role">{roleLabels[employee.role]??'Chưa xác định'}</span></dd></div><div><dt>Trạng thái</dt><dd><span className={`employee-status ${employee.is_active?'is-active':'is-locked'}`}>{employee.account_deletion_pending?'Đang xóa':employee.password_reset_pending?'Đang đặt lại mật khẩu':employee.is_active?'Đang hoạt động':'Đã khóa'}</span></dd></div><div><dt>Ngày tạo</dt><dd><time dateTime={employee.created_at}>{createdLabel(employee.created_at)}</time></dd></div></dl>
-    <div className="employee-row-actions">{['phuc_vu','bep'].includes(employee.role)?<><button aria-label={`Sửa nhân viên ${employee.name}`} disabled={busy||employee.password_reset_pending||employee.account_deletion_pending} onClick={()=>setEditing(employee)}>Sửa</button><button aria-label={`Đặt lại mật khẩu ${employee.name}`} disabled={busy||employee.account_deletion_pending} onClick={()=>setResetting(employee)}>{employee.password_reset_pending?'Tiếp tục đặt lại':'Đặt lại mật khẩu'}</button><button className="danger" aria-label={`Xóa tài khoản ${employee.name}`} disabled={busy||employee.password_reset_pending} onClick={()=>setDeleting(employee)}>{employee.account_deletion_pending?'Tiếp tục xóa':'Xóa'}</button></>:<small>{employee.role==='chu'?'Owner được bảo vệ':'Vai trò cũ'}</small>}</div>
+    <div className="employee-row-actions">{['phuc_vu','bep','thu_ngan'].includes(employee.role)?<><button aria-label={`Sửa nhân viên ${employee.name}`} disabled={busy||employee.password_reset_pending||employee.account_deletion_pending} onClick={()=>setEditing(employee)}>Sửa</button><button aria-label={`Đặt lại mật khẩu ${employee.name}`} disabled={busy||employee.account_deletion_pending} onClick={()=>setResetting(employee)}>{employee.password_reset_pending?'Tiếp tục đặt lại':'Đặt lại mật khẩu'}</button><button className="danger" aria-label={`Xóa tài khoản ${employee.name}`} disabled={busy||employee.password_reset_pending} onClick={()=>setDeleting(employee)}>{employee.account_deletion_pending?'Tiếp tục xóa':'Xóa'}</button></>:<small>{employee.role==='chu'?'Owner được bảo vệ':'Vai trò cũ'}</small>}</div>
    </article>)}</div>
    {pages>1&&<nav className="employee-pagination" aria-label="Phân trang nhân viên"><button disabled={busy||page<=1} onClick={()=>setPage(n=>n-1)}>Trang trước</button><span>Trang {page} / {pages}</span><button disabled={busy||page>=pages} onClick={()=>setPage(n=>n+1)}>Trang sau</button></nav>}
   </>}
