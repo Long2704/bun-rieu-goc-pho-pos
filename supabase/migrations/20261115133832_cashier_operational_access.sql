@@ -2,6 +2,9 @@
 -- Does not change any employee role, prices or sales. No production schedule is enabled.
 begin;
 set local lock_timeout='5s';
+create schema pos_cashier;
+revoke all on schema pos_cashier from public,anon,authenticated;
+grant usage on schema pos_cashier to authenticated;
 CREATE OR REPLACE FUNCTION public.has_permission(p_permission text)
  RETURNS boolean
  LANGUAGE sql
@@ -100,34 +103,34 @@ create policy cashier_tables_read on public.restaurant_tables for select to auth
 
 -- One recent receipt is sufficient for confirming/reprinting the last payment.
 -- This helper reveals only the caller's latest bill UUID, never money or other staff's IDs.
-create function public.cashier_latest_receipt() returns uuid language sql stable security definer set search_path='' as $$
+create function pos_cashier.latest_receipt() returns uuid language sql stable security definer set search_path='' as $$
  select b.id from public.bills b where public.current_staff_role()='thu_ngan'
  and public.has_permission('receipts.read_own') and b.cashier_id=auth.uid()
  order by b.paid_at desc,b.id desc limit 1;
 $$;
-revoke all on function public.cashier_latest_receipt() from public,anon;
-grant execute on function public.cashier_latest_receipt() to authenticated;
+revoke all on function pos_cashier.latest_receipt() from public,anon;
+grant execute on function pos_cashier.latest_receipt() to authenticated;
 create policy cashier_receipt_scope on public.bills as restrictive for select to authenticated
- using((select public.current_staff_role()) is distinct from 'thu_ngan' or (cashier_id=(select auth.uid()) and id=(select public.cashier_latest_receipt())));
+ using((select public.current_staff_role()) is distinct from 'thu_ngan' or (cashier_id=(select auth.uid()) and id=(select pos_cashier.latest_receipt())));
 
 -- Block raw historical sales reads through orders/items as well as bills.
 -- Open tables and outstanding kitchen tickets remain visible for operations.
-create function public.cashier_live_session(p_session_id uuid) returns boolean language sql stable security definer set search_path='' as $$
+create function pos_cashier.live_session(p_session_id uuid) returns boolean language sql stable security definer set search_path='' as $$
  select public.has_permission('orders.read') and public.current_staff_role()='thu_ngan' and (
  exists(select 1 from public.table_sessions s where s.id=p_session_id and s.closed_at is null)
  or exists(select 1 from public.orders o where o.session_id=p_session_id and o.status='cooking' and o.kitchen_relevant));
 $$;
-revoke all on function public.cashier_live_session(uuid) from public,anon;
-grant execute on function public.cashier_live_session(uuid) to authenticated;
+revoke all on function pos_cashier.live_session(uuid) from public,anon;
+grant execute on function pos_cashier.live_session(uuid) to authenticated;
 create policy cashier_session_scope on public.table_sessions as restrictive for select to authenticated
- using((select public.current_staff_role()) is distinct from 'thu_ngan' or public.cashier_live_session(id));
+ using((select public.current_staff_role()) is distinct from 'thu_ngan' or pos_cashier.live_session(id));
 create policy cashier_order_scope on public.orders as restrictive for select to authenticated
- using((select public.current_staff_role()) is distinct from 'thu_ngan' or public.cashier_live_session(session_id));
+ using((select public.current_staff_role()) is distinct from 'thu_ngan' or pos_cashier.live_session(session_id));
 create policy cashier_item_scope on public.order_items as restrictive for select to authenticated
  using((select public.current_staff_role()) is distinct from 'thu_ngan' or exists(select 1 from public.orders o where o.id=order_id));
 
 -- Dedicated quantity-only API; never loads financial rows into the browser.
-create function public.cashier_operations_report(p_from date,p_to date) returns jsonb
+create function pos_cashier.operations_report(p_from date,p_to date) returns jsonb
 language plpgsql stable security definer set search_path='' as $$
 declare v_start timestamptz;v_end timestamptz;v_result jsonb;
 begin
@@ -155,6 +158,13 @@ begin
  ) into v_result;
  return v_result;
 end;$$;
+revoke all on function pos_cashier.operations_report(date,date) from public,anon;
+grant execute on function pos_cashier.operations_report(date,date) to authenticated;
+-- Public API is invoker-only; privileged implementation stays in an unexposed schema.
+create function public.cashier_operations_report(p_from date,p_to date) returns jsonb
+language sql stable security invoker set search_path='' as $api$
+ select pos_cashier.operations_report(p_from,p_to);
+$api$;
 revoke all on function public.cashier_operations_report(date,date) from public,anon;
 grant execute on function public.cashier_operations_report(date,date) to authenticated;
 notify pgrst,'reload schema';
