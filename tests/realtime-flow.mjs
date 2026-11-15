@@ -68,6 +68,11 @@ try{
  await page.getByRole('button',{name:/^Bếp/}).first().click();await page.clock.runFor(500);assert.equal(counts.images,cachedImage,'switching views reuses fresh image metadata');
  await page.getByRole('button',{name:'Phục vụ',exact:true}).first().click();
  const beforeManual={...counts};tableName='Bàn đổi tên';menu[0].price=70000;await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await wait(()=>counts.menu>beforeManual.menu&&counts.groups>beforeManual.groups);await page.getByRole('button',{name:/^Bàn đổi tên /}).waitFor();
+ if(process.env.MANUAL_DEDUP==='1'){
+  await page.waitForLoadState('networkidle');const manualBefore=counts.live;holdLive=true;heldLive=false;
+  await page.evaluate(()=>{const b=document.querySelector('button[aria-label="Đồng bộ"]');for(let n=0;n<8;n++)b.click();});
+  await wait(()=>heldLive);assert.equal(counts.live,manualBefore+1);releaseHeld();holdLive=false;await page.waitForLoadState('networkidle');assert.equal(counts.live,manualBefore+1,'eight simultaneous manual clicks use one batch');
+ }
  // Reconnect forces catalog reload before its minute is due.
  const beforeOnline=counts.menu;await page.evaluate(()=>window.dispatchEvent(new Event('online')));await page.clock.runFor(250);await wait(()=>counts.menu>beforeOnline);
  // Catalog failures cannot masquerade as fresh success; next live tick retries them.

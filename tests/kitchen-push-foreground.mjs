@@ -7,6 +7,7 @@ const stop=startKitchenForeground({tab:'tab',read:()=>({device:d,active}),send:a
 await flush();assert.equal(calls.length,0,'no requests without opt-in');
 d=device;windowEvents.dispatchEvent(new Event('kitchen-push-change'));await flush();assert.equal(calls.length,0,'no requests outside Kitchen');
 active=true;windowEvents.dispatchEvent(new Event('kitchen-view-change'));await flush();assert.equal(calls.at(-1).on,true);assert.ok(tick);
+for(let n=0;n<20;n++){windowEvents.dispatchEvent(new Event('kitchen-view-change'));windowEvents.dispatchEvent(new Event('pageshow'));documentEvents.dispatchEvent(new Event('visibilitychange'));}await flush();assert.equal(calls.length,1,'unchanged foreground events do not renew repeatedly');
 tick();await flush();assert.equal(calls.length,2,'one lease renewal per minute');
 active=false;documentEvents.dispatchEvent(new Event('visibilitychange'));await flush();assert.equal(calls.at(-1).on,false);assert.equal(tick,null,'no heartbeat while hidden');
 active=true;documentEvents.dispatchEvent(new Event('visibilitychange'));await flush();assert.equal(calls.at(-1).on,true);
@@ -14,3 +15,9 @@ d=null;windowEvents.dispatchEvent(new Event('kitchen-push-change'));await flush(
 d=device;windowEvents.dispatchEvent(new Event('kitchen-push-change'));await flush();windowEvents.dispatchEvent(new Event('pagehide'));await flush();assert.equal(calls.at(-1).on,false);assert.equal(tick,null);
 windowEvents.dispatchEvent(new Event('pageshow'));await flush();assert.equal(calls.at(-1).on,true);stop();await flush();assert.equal(calls.at(-1).on,false);const n=calls.length;windowEvents.dispatchEvent(new Event('pageshow'));await flush();assert.equal(calls.length,n);assert.ok(stopped>0);
 console.log('PASS foreground controller: opt-in only, visible/hidden, 60s renewal, disable, pagehide, restore and cleanup');
+
+const we=new EventTarget(),de=new EventTarget();let count=0,fail=true,renew;
+const stopRetry=startKitchenForeground({tab:'retry',read:()=>({device,active:true}),send:async()=>{count++;if(fail)throw Error('offline');},windowEvents:we,documentEvents:de,schedule:fn=>{renew=fn;return 2;},cancel:()=>{}});
+await flush();assert.equal(count,1);fail=false;we.dispatchEvent(new Event('pageshow'));await flush();assert.equal(count,2,'failed lease can retry without waiting for minute');
+we.dispatchEvent(new Event('pageshow'));await flush();assert.equal(count,2);we.dispatchEvent(new Event('online'));await flush();assert.equal(count,3,'network recovery always renews');renew();await flush();assert.equal(count,4);stopRetry();await flush();
+console.log('PASS foreground dedup: 60 unchanged events produce zero extra requests; minute renewal, failure retry and reconnect preserved.');
