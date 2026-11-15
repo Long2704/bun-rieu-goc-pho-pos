@@ -37,7 +37,8 @@ export function startRealtimeSync(client:SupabaseClient,images:boolean,options:{
    // Read after every join, including rejoin, to cover changes while disconnected.
    if(status==='SUBSCRIBED')enqueue(kind);
   }));
- const resume=()=>{if(visible()&&dirty.size)schedule(0);};
+ const resume=()=>{if(visible()){enqueue('orders');enqueue('catalog');}};
  if(typeof document!=='undefined')document.addEventListener('visibilitychange',resume);
- return()=>{if(typeof document!=='undefined')document.removeEventListener('visibilitychange',resume);active=false;if(timer)clearTimeout(timer);dirty.clear();channels.forEach(channel=>{void client.removeChannel(channel);});};
+ if(typeof window!=='undefined')window.addEventListener('online',resume);
+ return()=>{if(typeof window!=='undefined')window.removeEventListener('online',resume);if(typeof document!=='undefined')document.removeEventListener('visibilitychange',resume);active=false;if(timer)clearTimeout(timer);dirty.clear();channels.forEach(channel=>{void client.removeChannel(channel);});};
 }

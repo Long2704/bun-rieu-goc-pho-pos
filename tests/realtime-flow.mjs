@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
  const context=await browser.newContext({viewport:{width:1440,height:950}}),counts={access:0,live:0,kitchen:0,menu:0,tables:0,groups:0,saves:0,images:0,delta:0},menu=[{id:'food',name:'Bún riêu',price:58000,category:'bun',is_active:true,is_out:false,sort:0,version:1}];
+ const bundled=process.env.BUNDLED_SYNC==='1';let bundledReads=0,legacyLiveReads=0;
  let holdLive=false,heldLive=false,releaseHeld;
  const sid='00000000-0000-0000-0000-000000000111';let failDelta=false,malformedDelta=false;
  let amount=58000,tableName='Bàn 1',failMenu=false,failLive=false;
@@ -16,9 +17,15 @@ try{
  if(path==='/auth/v1/token')body={access_token:'mock',refresh_token:'refresh',expires_in:3600,token_type:'bearer',user:{id:'sync-owner',email:'test@example.test',aud:'authenticated',role:'authenticated'}};
  else if(path==='/auth/v1/logout')body={};
  else if(path==='/auth/v1/user')body={id:'sync-owner',email:'test@example.test'};
- else if(path.endsWith('/get_my_access')){counts.access++;body={...mockAccess({name:'Chủ',role:'chu'}),permissions:[...mockAccess({name:'Chủ',role:'chu'}).permissions,'kitchen_images.read'],linked_tables:true};}
+ else if(path.endsWith('/get_my_access')){counts.access++;body={...mockAccess({name:'Chủ',role:'chu'}),permissions:[...mockAccess({name:'Chủ',role:'chu'}).permissions,'kitchen_images.read'],linked_tables:true,live_snapshot:bundled};}
+ else if(path.endsWith('/get_pos_live_snapshot')){
+  bundledReads++;if(process.env.BUNDLED_MISSING==='1')return route.fulfill({status:404,json:{code:'PGRST202',message:'Mock old backend'}});const params=req.postDataJSON();
+  if(!params.p_catalog_only){counts.live++;counts.kitchen++;if(holdLive){heldLive=true;await new Promise(resolve=>releaseHeld=resolve);}if(failLive)return route.fulfill({status:503,json:{message:'Mock failure'}});}
+  if(params.p_catalog){counts.menu++;counts.tables++;if(failMenu)return route.fulfill({status:503,json:{message:'Mock menu failure'}});}
+  body={version:1,access:{...mockAccess({name:'Chủ',role:'chu'}),permissions:[...mockAccess({name:'Chủ',role:'chu'}).permissions,'kitchen_images.read'],linked_tables:true,live_snapshot:true},snapshot:params.p_catalog_only?null:{sessions:sessions(),links:[],kitchen:sessions()[0].orders.map(o=>({...o,table_sessions:{table_id:1,closed_at:null}}))},catalog:params.p_catalog?{menu,tables:[{id:1,name:tableName,service_type:'dine_in'}]}:null};
+ }
  else if(path.endsWith('/get_pos_sync_delta')){counts.delta++;const ids=req.postDataJSON().p_session_ids;assert.deepEqual(ids,[sid]);if(failDelta)return route.fulfill({status:503,json:{message:'Mock delta failure'}});body={session_ids:malformedDelta?[]:ids,sessions:sessions(),links:[],kitchen:sessions()[0].orders.map(o=>({...o,table_sessions:{table_id:1,closed_at:null}}))};}
- else if(path.endsWith('/get_linked_table_snapshot')){counts.live++;if(holdLive){heldLive=true;await new Promise(resolve=>releaseHeld=resolve);}if(failLive)return route.fulfill({status:503,json:{message:'Mock failure'}});body={sessions:sessions(),links:[]};}
+ else if(path.endsWith('/get_linked_table_snapshot')){legacyLiveReads++;counts.live++;if(holdLive){heldLive=true;await new Promise(resolve=>releaseHeld=resolve);}if(failLive)return route.fulfill({status:503,json:{message:'Mock failure'}});body={sessions:sessions(),links:[]};}
  else if(path==='/rest/v1/kitchen_image_tickets'){counts.images++;body=[];}
  else if(path==='/rest/v1/orders'){counts.kitchen++;body=sessions()[0].orders.map(o=>({...o,table_sessions:{table_id:1,closed_at:null}}));}
  else if(path==='/rest/v1/menu_items'){counts.menu++;if(failMenu)return route.fulfill({status:503,json:{message:'Mock menu failure'}});body=menu;}
@@ -54,12 +61,15 @@ try{
  ws.send(frame('realtime:pos:orders','phx_error',{}));await page.waitForTimeout(100);const fallback=counts.live;amount=69000;await page.clock.runFor(5000);await wait(()=>counts.live>fallback);await page.getByText('69.000đ',{exact:true}).waitFor();
  // Image invalidations use the restricted image topic and avoid idle polling.
  await page.getByRole('button',{name:/^Bếp/}).first().click();await wait(()=>counts.images>0);await page.waitForTimeout(100);const img=counts.images;
- for(let n=0;n<20;n++)emit('images');await page.waitForTimeout(100);await page.clock.runFor(250);await wait(()=>counts.images>img);assert.equal(counts.images,img+1);
+ for(let n=0;n<20;n++)emit('images');await page.waitForTimeout(100);await page.clock.runFor(500);await wait(()=>counts.images>img);assert.equal(counts.images,img+1);
  const idleImage=counts.images;await page.clock.runFor(10000);await page.waitForTimeout(100);assert.equal(counts.images,idleImage);
+ await page.getByRole('button',{name:'Phục vụ',exact:true}).first().click();
+ const cachedImage=counts.images;
+ await page.getByRole('button',{name:/^Bếp/}).first().click();await page.clock.runFor(500);assert.equal(counts.images,cachedImage,'switching views reuses fresh image metadata');
  await page.getByRole('button',{name:'Phục vụ',exact:true}).first().click();
  const beforeManual={...counts};tableName='Bàn đổi tên';menu[0].price=70000;await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await wait(()=>counts.menu>beforeManual.menu&&counts.groups>beforeManual.groups);await page.getByRole('button',{name:/^Bàn đổi tên /}).waitFor();
  // Reconnect forces catalog reload before its minute is due.
- const beforeOnline=counts.menu;await page.evaluate(()=>window.dispatchEvent(new Event('online')));await wait(()=>counts.menu>beforeOnline);
+ const beforeOnline=counts.menu;await page.evaluate(()=>window.dispatchEvent(new Event('online')));await page.clock.runFor(250);await wait(()=>counts.menu>beforeOnline);
  // Catalog failures cannot masquerade as fresh success; next live tick retries them.
  failMenu=true;const failed=counts.menu;await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();await wait(()=>counts.menu>failed);await page.getByText(/Chưa đồng bộ được đơn hàng/).first().waitFor();failMenu=false;const retry=counts.menu;await page.clock.runFor(5000);await wait(()=>counts.menu>retry);
  // Local menu saves bypass cache even when catalog was just fetched.
@@ -68,5 +78,7 @@ try{
  await page.waitForTimeout(100);const hidden={...counts};for(let n=0;n<12;n++){emit('orders',{version:2,session_id:sid});await page.clock.runFor(10000);await page.waitForTimeout(50);}assert.deepEqual(counts,hidden,'hidden tabs do not read HTTP snapshots or permissions');
  await page.evaluate(()=>window.showAgain());await page.waitForTimeout(100);await page.clock.runFor(250);await wait(()=>counts.live>hidden.live);
  const beforeLogin=counts.groups;await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();await page.getByLabel('Tên đăng nhập',{exact:true}).fill('test@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await page.locator('.table-card').click({trial:true});await wait(()=>counts.groups>beforeLogin);
+ if(bundled&&process.env.BUNDLED_MISSING!=='1'){assert.equal(legacyLiveReads,0);assert.ok(bundledReads>10);console.log('PASS bundled HTTP: no separate live snapshot/orders queries; full refresh uses one request including access and optional catalog.');}
+ if(process.env.BUNDLED_MISSING==='1'){assert.equal(bundledReads,2,'one missing-RPC probe per login');assert.ok(legacyLiveReads>0);}
  assert.deepEqual(errors,[]);console.log('PASS Realtime browser:',JSON.stringify(reduction),'scoped updates use one RPC with zero full snapshot/kitchen/menu reads; catalog-only refresh; malformed/failed delta fallback; frequent updates retain 60s safety, 60s permission safety/5s fallback, broadcast burst/order/catalog updates, in-flight follow-up, 60s safety recovery, exact names/amounts, manual/reconnect/local-save bypass, failed-catalog retry, cache cleared on same-user re-login, all HTTP and WebSocket mocked.');
 }finally{await browser.close();}

@@ -1,52 +1,32 @@
-import {Fragment,useCallback,useEffect,useRef,useState} from 'react';
+import {Fragment,useCallback,useEffect,useRef,useState,useSyncExternalStore} from 'react';
 import type {ReactNode} from 'react';
 import {supabase} from '../supabase';
-import {catalogDue,LIVE_SYNC_MS} from '../sync-policy';
+import type {ImageTicketStore} from './ticket-store';
 import KitchenImageUpload from './KitchenImageUpload';
 import KitchenImageTicket from './KitchenImageTicket';
 import {createPrivateImages} from './private-images';
-import {imageTicketFields} from './types';
-import type {ImageTicket} from './types';
 import './kitchen-images.css';
 type KitchenCard={id:string;created_at:string;content:ReactNode};
-type Props={realtimeReady?:boolean;syncRevision?:number;userId:string;canRead:boolean;canUpload:boolean;canComplete:boolean;online:boolean;history:boolean;normalCards:KitchenCard[];tabs:ReactNode};
+type Props={store:ImageTicketStore|null;scopeKey:string;realtimeReady?:boolean;userId:string;canRead:boolean;canUpload:boolean;canComplete:boolean;online:boolean;history:boolean;normalCards:KitchenCard[];tabs:ReactNode};
 export default function KitchenImageArea(props:Props){
  // Remount on user/permission changes to dispose all private data and in-flight UI state.
- return props.canRead?<AuthorizedImages key={`${props.userId}:${props.canUpload}:${props.canComplete}`} {...props}/>:<><nav className="kitchen-tabs" aria-label="Đơn bếp">{props.tabs}</nav><section className="kitchen-grid" aria-describedby="kitchen-swipe-help">{props.normalCards.map(card=><Fragment key={`order:${card.id}`}>{card.content}</Fragment>)}{!props.normalCards.length&&<Empty history={props.history}/>}</section></>;
+ return props.canRead&&props.store?<AuthorizedImages key={props.scopeKey} {...props} store={props.store}/>:<><nav className="kitchen-tabs" aria-label="Đơn bếp">{props.tabs}</nav><section className="kitchen-grid" aria-describedby="kitchen-swipe-help">{props.normalCards.map(card=><Fragment key={`order:${card.id}`}>{card.content}</Fragment>)}{!props.normalCards.length&&<Empty history={props.history}/>}</section></>;
 }
 function Empty({history}:{history:boolean}){return <div className="empty-state"><h3>{history?'Chưa có đơn đã xong của các bàn đang mở.':'Chưa có món đang làm.'}</h3></div>;}
-function AuthorizedImages({realtimeReady,syncRevision,userId,canUpload,canComplete,online,history,normalCards,tabs}:Props){
- const [tickets,setTickets]=useState<ImageTicket[]>([]),[limit,setLimit]=useState(40),[hasMore,setHasMore]=useState(false),[error,setError]=useState(''),[ready,setReady]=useState(false),[busy,setBusy]=useState(''),[revision,setRevision]=useState(0);
- const [cache]=useState(createPrivateImages);const alive=useRef(true),completeLock=useRef(false),confirmedDone=useRef(new Set<string>());
- useEffect(()=>{alive.current=true;cache.activate();return()=>{alive.current=false;cache.dispose();};},[cache]);
- const previousTickets=useRef<ImageTicket[]>([]);
- useEffect(()=>{const current=new Set(tickets.map(t=>t.id));for(const old of previousTickets.current)if(!current.has(old.id)){cache.remove(old.image_path);cache.remove(old.preview_path);}previousTickets.current=tickets;},[tickets,cache]);
+function AuthorizedImages({store,realtimeReady,userId,canUpload,canComplete,online,history,normalCards,tabs}:Props&{store:ImageTicketStore}){
+ const {tickets,hasMore,ready,error}=useSyncExternalStore(store.subscribe,store.getSnapshot,store.getSnapshot);
+ const [busy,setBusy]=useState(''),[completionError,setCompletionError]=useState('');
+ const [cache]=useState(createPrivateImages);const alive=useRef(true),completeLock=useRef(false);
  const channelReady=useRef(realtimeReady);channelReady.current=realtimeReady;
- const reload=useCallback(()=>setRevision(n=>n+1),[]);
- useEffect(()=>{setLimit(40);setTickets([]);setReady(false);},[history]);
- useEffect(()=>{
-  if(history){setTickets([]);setReady(true);setHasMore(false);setError('');return;}
-  if(!supabase||!online)return;let active=true,inFlight=false,lastSuccess=0;
-  async function refresh(){
-   if(completeLock.current)return;
-   if(inFlight||!active||!supabase)return;inFlight=true;
-   try{
-    const order='created_at';
-    const {data,error:failure}=await supabase.from('kitchen_image_tickets').select(imageTicketFields).eq('status','cooking').order(order,{ascending:true}).order('id',{ascending:true}).range(0,limit);
-    if(!active||completeLock.current)return;
-    if(failure)throw failure;
-    const next=((data??[]).slice(0,limit) as ImageTicket[]).filter(t=>!confirmedDone.current.has(t.id));
-    setTickets(old=>JSON.stringify(old)===JSON.stringify(next)?old:next);setHasMore((data?.length??0)>limit);setReady(true);setError('');lastSuccess=Date.now();
-   }catch{if(active)setError('Chưa đồng bộ được phiếu ảnh. Đơn bếp thường vẫn hoạt động.');}
-   finally{inFlight=false;}
-  }
-  void refresh();const timer=setInterval(()=>{if(document.visibilityState==='visible'&&(!channelReady.current||catalogDue(lastSuccess)))void refresh();},LIVE_SYNC_MS);
-  const visible=()=>{if(document.visibilityState==='visible')void refresh();};document.addEventListener('visibilitychange',visible);
-  return()=>{active=false;clearInterval(timer);document.removeEventListener('visibilitychange',visible);};
- },[history,limit,online,revision,syncRevision]);
+ const onlineRef=useRef(online);onlineRef.current=online;
+ useEffect(()=>{alive.current=true;cache.activate();return()=>{alive.current=false;cache.dispose();};},[cache]);
+ const previousTickets=useRef(tickets);
+ useEffect(()=>{const current=new Set(tickets.map(t=>t.id));for(const old of previousTickets.current)if(!current.has(old.id)){cache.remove(old.image_path);cache.remove(old.preview_path);}previousTickets.current=tickets;},[tickets,cache]);
+ const reload=useCallback(()=>{setCompletionError('');store.invalidate();},[store]);
+ useEffect(()=>{if(history)return;return store.watch({visible:()=>document.visibilityState==='visible',online:()=>onlineRef.current,healthy:()=>channelReady.current===true});},[store,history,online]);
  async function complete(id:string,beforeRemove?:()=>Promise<void>){
   if(completeLock.current||!online||!navigator.onLine||!supabase||!canComplete)return false;
-  completeLock.current=true;setBusy(id);setError('');
+  completeLock.current=true;const resume=store.pause();setBusy(id);setCompletionError('');
   try{
    const begun=await supabase.rpc('begin_kitchen_image_completion',{p_ticket_id:id});
    if(begun.error||!begun.data||begun.data.id!==id)throw new Error();
@@ -60,23 +40,23 @@ function AuthorizedImages({realtimeReady,syncRevision,userId,canUpload,canComple
     paths.forEach((path:string)=>cache.remove(path));
    }
    await beforeRemove?.();
-   if(alive.current){confirmedDone.current.add(id);setTickets(old=>old.filter(t=>t.id!==id));reload();}return true;
-  }catch{if(alive.current)setError('Chưa xác nhận hoàn thành. Phiếu được giữ lại; thử lại khi có mạng.');return false;}
-  finally{completeLock.current=false;if(alive.current)setBusy('');}
+   store.confirmedDone(id);return true;
+  }catch{if(alive.current)setCompletionError('Chưa xác nhận hoàn thành. Phiếu được giữ lại; thử lại khi có mạng.');return false;}
+  finally{completeLock.current=false;resume();if(alive.current)setBusy('');}
  }
  const cards=[
   ...normalCards.map(card=>({key:`order:${card.id}`,created_at:card.created_at,content:card.content})),
-  ...(history?[]:tickets).map(ticket=>({key:`image:${ticket.id}`,created_at:ticket.created_at,content:<KitchenImageTicket ticket={ticket} cache={cache} disabled={!online||!canComplete||!!busy||!!error||history} onComplete={beforeRemove=>complete(ticket.id,beforeRemove)}/>})),
+  ...(history?[]:tickets).map(ticket=>({key:`image:${ticket.id}`,created_at:ticket.created_at,content:<KitchenImageTicket ticket={ticket} cache={cache} disabled={!online||!canComplete||!!busy||!!error||!!completionError||history} onComplete={beforeRemove=>complete(ticket.id,beforeRemove)}/>})),
  ];
  if(!history)cards.sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.key.localeCompare(b.key));
  return <>
   <nav className="kitchen-tabs" aria-label="Đơn bếp">{tabs}{canUpload&&<KitchenImageUpload userId={userId} online={online} onUploaded={reload}/>}</nav>
-  {error&&<p className="image-ticket-error" role="alert">{error} <button onClick={reload} disabled={!online}>Thử đồng bộ ảnh</button></p>}
+  {!history&&(error||completionError)&&<p className="image-ticket-error" role="alert">{completionError||error} <button onClick={reload} disabled={!online}>Thử đồng bộ ảnh</button></p>}
   <section className="kitchen-grid" aria-describedby="kitchen-swipe-help">
    {cards.map(card=><Fragment key={card.key}>{card.content}</Fragment>)}
-   {!ready&&!error&&<p role="status">Đang tải phiếu ảnh…</p>}
-   {!cards.length&&ready&&!error&&<Empty history={history}/>}
+   {!history&&!ready&&!error&&<p role="status">Đang tải phiếu ảnh…</p>}
+   {!cards.length&&(history||ready)&&(!error||history)&&<Empty history={history}/>}
   </section>
-  {hasMore&&<button className="image-load-more" disabled={!online} onClick={()=>setLimit(n=>n+40)}>Xem thêm phiếu ảnh</button>}
+  {!history&&hasMore&&<button className="image-load-more" disabled={!online} onClick={()=>store.more()}>Xem thêm phiếu ảnh</button>}
  </>;
 }

@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {createImageTicketStore} from '../src/kitchen-images/ticket-store.ts';
+const pause=ms=>new Promise(r=>setTimeout(r,ms)),ticket=id=>({id,status:'cooking',image_path:id+'/image',preview_path:id+'/preview',created_at:new Date().toISOString()});
+let calls=0,visible=true,healthy=true,now=1000,rows=[ticket('one')],failure=false,hold,release;
+const store=createImageTicketStore({now:()=>now,batchMs:5,tickMs:10,retryMs:30,safetyMs:60000,load:async()=>{calls++;if(hold)await new Promise(r=>release=r);if(failure)throw Error();return rows;}});
+const owner=store.retain();let stop=store.watch({visible:()=>visible,online:()=>true,healthy:()=>healthy});await pause(20);assert.equal(calls,1);
+stop();stop=store.watch({visible:()=>visible,online:()=>true,healthy:()=>healthy});await pause(20);assert.equal(calls,1,'fresh list survives view change');
+for(let i=0;i<30;i++)store.invalidate();await pause(20);assert.equal(calls,2,'burst uses one read');
+hold=true;store.invalidate();await pause(12);store.invalidate();release();hold=false;await pause(20);assert.equal(calls,4,'in-flight invalidation forces one trailing read');
+visible=false;store.invalidate();await pause(20);assert.equal(calls,4);visible=true;await pause(20);assert.equal(calls,5);
+now+=60000;await pause(20);assert.equal(calls,6,'60s safety read');
+const resume=store.pause();store.invalidate();await pause(20);assert.equal(calls,6);store.confirmedDone('one');resume();await pause(20);assert.equal(store.getSnapshot().tickets.length,0,'server tombstone cannot resurrect');
+failure=true;store.invalidate();await pause(15);assert.ok(store.getSnapshot().error);failure=false;await pause(40);assert.equal(store.getSnapshot().error,'');
+healthy=false;const before=calls;await pause(30);assert.ok(calls>before,'channel failure uses fallback');healthy=true;
+hold=true;store.invalidate();await pause(15);stop();owner();await pause(0);release();await pause(10);assert.deepEqual(store.getSnapshot().tickets,[],'logout discards late result');
+console.log('PASS image metadata: view reuse, burst coalescing, trailing read, hidden suppression, 60s safety, completion tombstones, retry/fallback, auth disposal.');
