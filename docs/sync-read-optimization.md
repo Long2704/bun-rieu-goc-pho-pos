@@ -47,3 +47,17 @@ app at a quiet moment to receive the frontend update. No data reset is needed.
 
 Rollback: return frontend to the prior deployment. The additive RPC and capability
 are ignored by older clients, so no table/data rollback is needed.
+
+## Additional request deduplication
+
+Repeated manual Sync clicks while one manual batch is in flight now share that
+batch. A later click starts a fresh batch; different users never share it. This
+wrapper is deliberately separate from forced refreshes after mutations, so a write
+still waits for its own server-confirmed fresh data. Image invalidation and group
+catalog refresh run once per manual batch.
+
+Push foreground leases no longer renew on repeated unchanged visibility/pageshow/
+view events. Entering/leaving Kitchen, device/proof changes, reconnect and failed
+lease retry still send their required updates. The 60-second renewal interval and
+server lease duration are unchanged. A simulated 60 unchanged UI events creates
+zero extra presence requests; actual saving depends on how often these events occur.

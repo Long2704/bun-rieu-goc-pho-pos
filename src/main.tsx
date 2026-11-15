@@ -1,3 +1,4 @@
+import {createManualSync} from './manual-sync';
 import {liveEnvelope,validateLiveSnapshot,missingLiveRpc} from './pos-live-snapshot';
 import type {PosLiveSnapshot} from './pos-live-snapshot';
 import {createImageTicketStore} from './kitchen-images/ticket-store';
@@ -133,6 +134,7 @@ function App(){
  const catalogSync=useRef({user:'',at:0}),liveSync=useRef(0),liveSnapshot=useRef<LiveSnapshot|null>(null);
  const [realtimeStatus,setRealtimeStatus]=useState(emptyRealtimeStatus),[authGeneration,setAuthGeneration]=useState(0);
  const bundledUnsupported=useRef(false);
+ const [manualSync]=useState(createManualSync);
  const imageScope=profile?.is_active&&!profile.must_change_password&&!recovering&&permitted(profile,'kitchen_images.read')&&session?`${session.user.id}:${authGeneration}:${reload}:${profile.data_epoch??0}:${profile.permissions.join(',')}`:'';
  const imageStore=useMemo(()=>imageScope?createImageTicketStore({load:async limit=>{
   const r=await supabase!.from('kitchen_image_tickets').select(imageTicketFields).eq('status','cooking').order('created_at').order('id').range(0,limit);
@@ -409,7 +411,7 @@ function App(){
  const titles:Record<View,string>={service:selected?(showTableMenu?'Gọi món':'Đơn đã gọi'):'Sơ đồ bàn',kitchen:'Khu vực bếp',tables:'Quản lý bàn',menu:'Quản lý thực đơn',revenue:profile?.role==='thu_ngan'?'Báo cáo vận hành':'Dashboard',audit:'Nhật ký hoạt động',invoices:profile?.role==='thu_ngan'?'Hóa đơn vừa thu':'Hóa đơn gần đây',employees:'Quản lý nhân viên'};
  const kitchenHeader=view==='kitchen'&&!!profile&&!recovering&&!profile.must_change_password&&!loading;
  const logoutControl=<button className="logout-button" disabled={busy||!!profile&&!profile.must_change_password&&locked} onClick={logout}>Đăng xuất</button>;
- const syncControl=<button aria-label="Đồng bộ" title="Đồng bộ dữ liệu" onClick={()=>{imageStore?.invalidate();void refresh(true,true);void refreshGroups();}}><PosIcon name="refresh"/><span>Đồng bộ</span></button>;
+ const syncControl=<button aria-label="Đồng bộ" title="Đồng bộ dữ liệu" onClick={()=>{if(session)void manualSync(session.user.id,async()=>{imageStore?.invalidate();await Promise.all([refresh(true,true),refreshGroups()]);});}}><PosIcon name="refresh"/><span>Đồng bộ</span></button>;
  return <div data-view={view} className={`pos-app${profile&&!recovering&&!profile.must_change_password&&!loading?' has-staff-shell':''}${view==='service'&&selected?' has-pos-workspace pos-workspace-'+posScreen:''}`}><header className="app-header"><a className="brand" href="#" onClick={e=>{e.preventDefault();if(profile)navigate(profile.role==='bep'?'kitchen':'service');}}><img className="brand-mark" src="/brand/goc-pho-logo.webp" alt="Logo Bún Riêu Góc Phố" width={54} height={54}/><span><strong>Bún Riêu Góc Phố</strong><small>QUẢN LÝ BÁN HÀNG</small></span></a>
  {session&&!recovering&&!kitchenHeader&&<div className="account"><span className="account-name">{profile?.name??'Nhân viên'}{profile?.role!=='chu'&&<small>{profile?roles[profile.role]:''}</small>}</span>{logoutControl}</div>}</header>
  {profile&&!recovering&&!profile.must_change_password&&!loading&&<div className="app-navigation"><nav aria-label="Chức năng">{permitted(profile,'orders.read')&&<button aria-label="Phục vụ" aria-pressed={view==='service'} onClick={()=>navigate('service')}><PosIcon name="grid"/><span className="nav-label-desktop">Sơ đồ bàn</span><span className="nav-label-mobile">Phục vụ</span></button>}<button aria-pressed={view==='kitchen'} onClick={()=>navigate('kitchen')}><PosIcon name="kitchen"/>Bếp ({cooking.length})</button>
