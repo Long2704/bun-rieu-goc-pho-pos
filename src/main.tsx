@@ -61,7 +61,7 @@ import CancelTablePanel from './CancelTablePanel';
 import TableActions from './TableActions';
 import SwipeOrderCard from './SwipeOrderCard';
 const AuditPanel=React.lazy(()=>import('./AuditPanel'));
-const roles:Record<string,string>={chu:'Bún Riêu Góc Phố',phuc_vu:'Phục vụ',bep:'Bếp',thu_ngan:'Thu ngân'};
+const roles:Record<string,string>={chu:'Bún Riêu Góc Phố',phuc_vu:'Phục vụ',bep:'Bếp',thu_ngan:'Cashier - Thu ngân'};
 import {formatMoney as money} from './format';
 import './cream-pos-theme.css';
 import './viewport';

@@ -8,7 +8,7 @@ import EmployeeDelete from './EmployeeDelete';
 
 type Employee={id:string;name:string;staff_code?:string|null;username?:string;role:string;is_active:boolean;created_at:string;staff_version?:number;password_reset_pending?:boolean;account_deletion_pending?:boolean};
 type Filters={search:string;role:string;status:string};
-const roleLabels:Record<string,string>={chu:'Owner',phuc_vu:'Waiter',bep:'Kitchen',thu_ngan:'Thu ngân'};
+const roleLabels:Record<string,string>={chu:'Owner',phuc_vu:'Waiter',bep:'Kitchen',thu_ngan:'Cashier - Thu ngân'};
 const pageSize=20;
 const createdLabel=(value:string)=>new Intl.DateTimeFormat('vi-VN',{
   timeZone:'Asia/Ho_Chi_Minh',day:'2-digit',month:'2-digit',year:'numeric'
@@ -68,7 +68,7 @@ export default function EmployeeManagement({active,userId}:{active:boolean;userI
   <div className="employee-toolbar"><span role="status">{busy?'Đang tải…':error?'Chưa tải được':`${total} nhân viên`}</span><button aria-label="Tải lại nhân viên" disabled={busy} onClick={()=>setReload(n=>n+1)}><PosIcon name="refresh"/>Tải lại</button></div>
   <form className="employee-filters" onSubmit={e=>{e.preventDefault();search();}}>
    <label>Tên hoặc tên đăng nhập<input type="search" maxLength={100} value={draft.search} placeholder="Tìm nhân viên…" onChange={e=>setDraft({...draft,search:e.target.value})}/></label>
-   <div><label htmlFor="employee-role">Vai trò</label><select id="employee-role" value={draft.role} onChange={e=>setDraft({...draft,role:e.target.value})}><option value="">Tất cả vai trò</option><option value="chu">Owner</option><option value="phuc_vu">Waiter</option><option value="bep">Kitchen</option><option value="thu_ngan">Thu ngân</option></select></div>
+   <div><label htmlFor="employee-role">Vai trò</label><select id="employee-role" value={draft.role} onChange={e=>setDraft({...draft,role:e.target.value})}><option value="">Tất cả vai trò</option><option value="chu">Owner</option><option value="phuc_vu">Waiter</option><option value="bep">Kitchen</option><option value="thu_ngan">Cashier - Thu ngân</option></select></div>
    <div><label htmlFor="employee-status">Trạng thái</label><select id="employee-status" value={draft.status} onChange={e=>setDraft({...draft,status:e.target.value})}><option value="">Tất cả trạng thái</option><option value="active">Đang hoạt động</option><option value="locked">Đã khóa</option></select></div>
    <button className="primary" type="submit" disabled={busy}>Tìm</button>
   </form>
