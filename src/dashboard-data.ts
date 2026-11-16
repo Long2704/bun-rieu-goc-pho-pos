@@ -1,13 +1,13 @@
 import {supabase} from './supabase';
 import {bounds,validateSale} from './dashboard-model';
 import type {Sale} from './dashboard-model';
-export async function loadDashboardSales(from:string,to:string,signal:AbortSignal){
+export async function loadDashboardSales(from:string,to:string,signal:AbortSignal,includePrevious=true,cutoff?:string){
  if(!supabase)throw Error('Chưa có kết nối dữ liệu.');
- const {previous,end}=bounds(from,to),generatedAt=new Date().toISOString(),rows:Sale[]=[];
+ const {start,previous,end}=bounds(from,to),generatedAt=cutoff??new Date().toISOString(),rows:Sale[]=[];
  const fields='id,session_id,table_no,service_label,paid_at,gross,discount,total,method,bill_items(name,qty,price,is_takeaway)';
  let expected:number|null=null;
  for(let offset=0;;){
-  const result=await supabase.from('bills').select(fields,{count:'exact'}).gte('paid_at',new Date(previous).toISOString()).lt('paid_at',new Date(end).toISOString()).lte('paid_at',generatedAt).order('paid_at').order('id').range(offset,offset+499).abortSignal(signal);
+  const result=await supabase.from('bills').select(fields,{count:'exact'}).gte('paid_at',new Date(includePrevious?previous:start).toISOString()).lt('paid_at',new Date(end).toISOString()).lte('paid_at',generatedAt).order('paid_at').order('id').range(offset,offset+499).abortSignal(signal);
   if(result.error)throw Error('Không tải được dữ liệu Dashboard. Kiểm tra kết nối và quyền xem báo cáo rồi thử lại.');
   if(result.count===null||!Number.isSafeInteger(result.count)||result.count<0)throw Error('Chưa xác nhận được tổng số hóa đơn. Vui lòng tải lại Dashboard.');
   if(expected!==null&&expected!==result.count)throw Error('Dữ liệu thay đổi trong lúc tải. Bấm Xem Dashboard để tải lại.');

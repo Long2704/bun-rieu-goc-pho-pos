@@ -13,17 +13,18 @@ export default function CashierReport({active,userId,tables=[],online=true}:Prop
  const [from,setFrom]=useState(vnToday),[to,setTo]=useState(vnToday),[fromTime,setFromTime]=useState('00:00:00'),[toTime,setToTime]=useState('23:59:59');
  const [kind,setKind]=useState('all'),[table,setTable]=useState('all'),[data,setData]=useState<CashierDashboard|null>(null),[busy,setBusy]=useState(false),[exporting,setExporting]=useState(false),[error,setError]=useState('');
  const [bands,setBands]=useState<TimeBand[]>(()=>{try{const value=JSON.parse(localStorage.getItem(`pos:dashboard-bands:${userId}`)||'null');return Array.isArray(value)&&value.every(v=>v&&typeof v.start==='string'&&typeof v.end==='string')&&validBands(value)?value:defaultBands;}catch{return defaultBands;}});
- const controller=useRef<AbortController|null>(null),lock=useRef(false),autoLoad=useRef(false);
+ const controller=useRef<AbortController|null>(null),lock=useRef(false),autoTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const fromLocal=reportTimestamp(from,fromTime),toLocal=reportTimestamp(to,toTime),valid=validReportPeriod(fromLocal,toLocal),bandsValid=validBands(bands);
  useEffect(()=>{if(bandsValid)try{localStorage.setItem(`pos:dashboard-bands:${userId}`,JSON.stringify(bands));}catch{/* Preserve current session settings. */}},[bands,bandsValid,userId]);
  useEffect(()=>()=>controller.current?.abort(),[]);
- async function load(){if(!supabase||lock.current||!valid||!bandsValid||!fromLocal||!toLocal||!online)return;lock.current=true;setBusy(true);setError('');setData(null);const request=new AbortController();controller.current=request;
+ useEffect(()=>{if(autoTimer.current){clearTimeout(autoTimer.current);autoTimer.current=null;}},[fromLocal,toLocal]);
+ async function load(){if(!supabase||!valid||!bandsValid||!fromLocal||!toLocal||!online)return;if(autoTimer.current){clearTimeout(autoTimer.current);autoTimer.current=null;}controller.current?.abort();lock.current=true;setBusy(true);setError('');setData(null);const request=new AbortController();controller.current=request;
   try{const result=await supabase.rpc('cashier_dashboard_window',{p_from_local:fromLocal,p_to_local:toLocal,p_bands:bands,p_kind:kind,p_table:table==='all'?null:Number(table)}).abortSignal(request.signal);if(result.error)throw Error('Chưa tải được báo cáo vận hành. Kiểm tra kết nối và cập nhật SQL báo cáo local rồi thử lại.');const next=validateCashierDashboard(result.data,bands);if(next.from!==fromLocal||next.to!==toLocal||next.kind!==kind||next.table_id!==(table==='all'?null:Number(table)))throw Error('Báo cáo không khớp bộ lọc đã chọn. Vui lòng tải lại.');if(!request.signal.aborted)setData(next);}
   catch(e){if(!request.signal.aborted)setError(e instanceof Error?e.message:'Chưa tải được báo cáo vận hành.');}
-  finally{lock.current=false;if(!request.signal.aborted)setBusy(false);}}
+  finally{if(controller.current===request){lock.current=false;if(!request.signal.aborted)setBusy(false);}}}
  useEffect(()=>{let current=true;queueMicrotask(()=>{if(current&&active&&!data)void load();});return()=>{current=false;};},[active]);
  // Sales filters apply on the server; never download invoices for client aggregation.
- useEffect(()=>{if(!autoLoad.current){autoLoad.current=true;return;}let current=true;queueMicrotask(()=>{if(current&&active)void load();});return()=>{current=false;};},[kind,table]);
+ useEffect(()=>{if(!controller.current||!active)return;if(data?.kind===kind&&data.table_id===(table==='all'?null:Number(table)))return;const timer=setTimeout(()=>{autoTimer.current=null;void load();},350);autoTimer.current=timer;return()=>{clearTimeout(timer);if(autoTimer.current===timer)autoTimer.current=null;};},[kind,table,active]);
  const bandRules=bands.map(bandLabel).join('|');
  const stale=!!data&&(data.from!==fromLocal||data.to!==toLocal||data.kind!==kind||data.table_id!==(table==='all'?null:Number(table))||data.slots.slice(0,-1).map(s=>s.slot).join('|')!==bandRules);
  const report=data&&!stale?data:null;

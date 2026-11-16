@@ -9,6 +9,7 @@ try{
  const sale=(id,day,time,amount,extra={})=>({id,session_id:'takeaway-session',table_no:201,service_label:'Mang về 2',paid_at:`${day}T${time}+07:00`,gross:amount,discount:0,total:amount,method:'cash',bill_items:[{name:'Bún riêu',qty:1,price:amount}],...extra});
  let sales=[sale('a',today,'08:59:59.999',58000),sale('b',today,'09:00:00.500',65000,{method:'transfer'}),sale('c',today,'17:00:00',15000,{session_id:'takeaway-three',table_no:202,service_label:'Mang về 3'}),sale('d',today,'11:00:00',100000,{session_id:'dine-session',table_no:1,service_label:'Bàn 1',gross:110000,discount:10000,bill_items:[{name:'Canh bún',qty:2,price:55000}]}),sale('p',previous,'09:00:00',25000)];
  let mode='ok',reads=[],retentionEnabled=true,retentionToggles=[];
+ await context.routeWebSocket('**/realtime/v1/websocket**',socket=>socket.close());
  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
   if(await mockLegacyMenuGroups(route))return;
   const req=route.request(),url=new URL(req.url()),path=url.pathname;let body;

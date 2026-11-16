@@ -7,6 +7,7 @@ export default function useMenuGroups(userId:string|undefined,sync:string){
  const [state,setState]=useState<{user?:string;catalog:GroupCatalog|null;error:string}>({catalog:null,error:''});
  const current=useRef(userId);current.current=userId;
  const lastSuccess=useRef({user:'',at:0}),inFlight=useRef(new Map<string,{again:boolean;promise:Promise<void>}>());
+ const bundleMode=useRef(false);
  const sequence=useRef(0),missingSchema=useRef<string|undefined>(undefined);
  const refresh=useCallback((force=true):Promise<void>=>{
   if(!supabase||!userId)return Promise.resolve();
@@ -29,7 +30,13 @@ export default function useMenuGroups(userId:string|undefined,sync:string){
   };
   entry.promise=(async()=>{try{do{entry.again=false;await read();}while(entry.again&&current.current===userId&&inFlight.current.get(userId)===entry);}finally{if(inFlight.current.get(userId)===entry)inFlight.current.delete(userId);}})();return entry.promise;
  },[userId]);
- useEffect(()=>{if(typeof document!=='undefined'&&document.visibilityState!=='visible')return;if(!sync||!userId||missingSchema.current===userId||inFlight.current.has(userId))return;if(lastSuccess.current.user!==userId||catalogDue(lastSuccess.current.at))void refresh(false);},[sync,refresh,userId]);
- useEffect(()=>{if(!userId){lastSuccess.current={user:'',at:0};missingSchema.current=undefined;setState({catalog:null,error:''});}return()=>{sequence.current++;inFlight.current.clear();};},[userId]);
- return {catalog:state.user===userId?state.catalog:null,error:state.user===userId?state.error:'',refresh};
+ useEffect(()=>{if(typeof document!=='undefined'&&document.visibilityState!=='visible')return;if(!sync||!userId||missingSchema.current===userId||inFlight.current.has(userId)||bundleMode.current&&lastSuccess.current.user===userId&&lastSuccess.current.at>0)return;if(lastSuccess.current.user!==userId||catalogDue(lastSuccess.current.at))void refresh(false);},[sync,refresh,userId]);
+ useEffect(()=>{bundleMode.current=false;if(!userId){lastSuccess.current={user:'',at:0};missingSchema.current=undefined;setState({catalog:null,error:''});}return()=>{sequence.current++;inFlight.current.clear();};},[userId]);
+ const accept=useCallback((value:unknown)=>{
+  if(!userId||current.current!==userId||!isGroupCatalog(value))throw Error('Nhóm món chưa đồng bộ.');
+  bundleMode.current=true;sequence.current++;const waiting=inFlight.current.get(userId);if(waiting)waiting.again=false;lastSuccess.current={user:userId,at:Date.now()};missingSchema.current=undefined;
+  setState(old=>old.user===userId&&JSON.stringify(old.catalog)===JSON.stringify(value)&&!old.error?old:{user:userId,catalog:value,error:''});
+ },[userId]);
+ const resumeAuto=useCallback(()=>{bundleMode.current=false;},[]);
+ return {accept,resumeAuto,catalog:state.user===userId?state.catalog:null,error:state.user===userId?state.error:'',refresh};
 }
