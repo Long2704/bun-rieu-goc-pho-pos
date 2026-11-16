@@ -34,7 +34,7 @@ export default function PasswordRecovery({hasSession,onExit}:{hasSession:boolean
  }
  return <div className="login-shell"><form className="initial-password-form" onSubmit={event=>{event.preventDefault();void save();}}>
   <h2>{saved?'Đã đổi mật khẩu':'Đặt lại mật khẩu'}</h2>
-  {saved?<p>Mật khẩu mới đã được lưu. Về đăng nhập để sử dụng POS. Tên đăng nhập Owner vẫn là owner.</p>:!hasSession||invalidSession?<p role="alert">Liên kết khôi phục không hợp lệ hoặc đã hết hạn. Trong Supabase, gửi email khôi phục mới và mở liên kết mới nhất.</p>:<><p>Nhập mật khẩu mới cho tài khoản nhận email khôi phục.</p><fieldset disabled={busy}>
+  {saved?<p>Mật khẩu mới đã được lưu. Về đăng nhập để sử dụng POS. Tên đăng nhập Admin giữ nguyên.</p>:!hasSession||invalidSession?<p role="alert">Liên kết khôi phục không hợp lệ hoặc đã hết hạn. Trong Supabase, gửi email khôi phục mới và mở liên kết mới nhất.</p>:<><p>Nhập mật khẩu mới cho tài khoản nhận email khôi phục.</p><fieldset disabled={busy}>
    <label>Mật khẩu mới<input type="password" autoComplete="new-password" minLength={6} maxLength={12} required value={password} onChange={event=>setPassword(event.target.value)}/></label>
    <label>Nhập lại mật khẩu<input type="password" autoComplete="new-password" minLength={6} maxLength={12} required value={confirm} onChange={event=>setConfirm(event.target.value)}/></label>
    <small>Từ 6 đến 12 ký tự. Chọn mật khẩu riêng và không chia sẻ cho nhân viên.</small>

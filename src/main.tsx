@@ -55,6 +55,7 @@ import KitchenTools from './KitchenTools';
 import KitchenImageArea from './kitchen-images/KitchenImageArea';
 import {syncDataEpoch} from './data-epoch';
 const InvoiceHistory=React.lazy(()=>import('./InvoiceHistory'));
+const AdminPasswordChange=React.lazy(()=>import('./AdminPasswordChange'));
 const EmployeeManagement=React.lazy(()=>import('./EmployeeManagement'));
 const InitialPasswordSetup=React.lazy(()=>import('./InitialPasswordSetup'));
 import PosIcon from './PosIcon';
@@ -62,7 +63,7 @@ import CancelTablePanel from './CancelTablePanel';
 import TableActions from './TableActions';
 import SwipeOrderCard from './SwipeOrderCard';
 const AuditPanel=React.lazy(()=>import('./AuditPanel'));
-const roles:Record<string,string>={chu:'Bún Riêu Góc Phố',phuc_vu:'Phục vụ',bep:'Bếp',thu_ngan:'Cashier - Thu ngân'};
+const roles:Record<string,string>={admin:'Admin',chu:'Admin',phuc_vu:'Phục vụ',bep:'Bếp',thu_ngan:'Cashier - Thu ngân'};
 import {formatMoney as money} from './format';
 import './cream-pos-theme.css';
 import './viewport';
@@ -71,7 +72,7 @@ import './menu-groups.css';
 type View='employees'|'tables'|'service'|'kitchen'|'menu'|'revenue'|'audit'|'invoices';
 type Item={id:string;name:string;price:number;category:string;is_out:boolean};
 type DiningTable={id:number;name:string;service_type?:string};
-type Profile={dashboard_aggregates?:boolean;catalog_versions?:boolean;live_snapshot?:boolean;saved_menu_selections?:boolean;linked_tables?:boolean;name:string;role:string;is_active:boolean;permissions:string[];must_change_password?:boolean;session_invalid?:boolean;data_epoch?:number};
+type Profile={dashboard_aggregates?:boolean;catalog_versions?:boolean;live_snapshot?:boolean;saved_menu_selections?:boolean;linked_tables?:boolean;actual_role?:string;name:string;role:string;is_active:boolean;permissions:string[];must_change_password?:boolean;session_invalid?:boolean;data_epoch?:number};
 const permitted=(profile:Profile|null,permission:string)=>!!profile?.is_active&&profile.permissions.includes(permission);
 function checkedAccess(data:unknown):Profile{
  const p=data as Partial<Profile>|null;
@@ -81,7 +82,9 @@ function checkedAccess(data:unknown):Profile{
  if(p.must_change_password!==undefined&&typeof p.must_change_password!=='boolean')throw new Error('Không xác nhận được trạng thái tài khoản.');
  if(p.session_invalid===true)throw new Error('Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng xuất và đăng nhập lại.');
  if(p.is_active!==true)throw new Error('Tài khoản đã bị khóa. Liên hệ Bún Riêu Góc Phố để được hỗ trợ.');
- return p as Profile;
+ const actualRole=p.actual_role??p.role;
+ if(typeof actualRole!=='string'||!roles[actualRole])throw new Error('Vai trò tài khoản chưa hợp lệ.');
+ return {...p,role:actualRole==='chu'?'admin':actualRole} as Profile;
 }
 type Pending={selectionMode?:'menu'|'order';selection?:boolean;notifyOrders?:string[];expectedSession?:string;saveOnly?:boolean;checkout?:boolean;requestId:string;tableId:number;items:{menu_item_id:string;qty:number;note:string;expected_price?:number;expected_session_id?:string|null}[]};
 type KitchenOrder=Order&{table_sessions:{table_id:number;closed_at:string|null;table_path?:number[]}};
@@ -92,6 +95,7 @@ function App(){
  const [recovering,setRecovering]=useState(()=>recoveryCallback||!!recoveryUser());
  const [session,setSession]=useState<Session|null>(null),[loading,setLoading]=useState(true);
  const [profile,setProfile]=useState<Profile|null>(null),[menu,setMenu]=useState<Item[]>([]),[tables,setTables]=useState<DiningTable[]>([]);
+ const [changingPassword,setChangingPassword]=useState(false);
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[busy,setBusy]=useState(false);
  const kitchenCompletionLock=useRef(false);
  const [error,setError]=useState(''),[message,setMessage]=useState(''),[reload,setReload]=useState(0);
@@ -155,7 +159,7 @@ function App(){
  },[]);
  useEffect(()=>{
   catalogSync.current={user:'',at:0};liveSync.current=0;liveSnapshot.current=null;bundledUnsupported.current=false;revisionUnsupported.current=false;catalogVersion.current=null;catalogBundled.current=false;
-  setLoadedViews({});setTableSearch('');setTableFilter('all');setReceiptRequest(null);setProfile(null);setMenu([]);setTables([]);setDrafts({});setNotes({});setSelected(null);setPosScreen('order');setSessions([]);setCooking([]);setPending(null);setError('');setMessage('');setLastSync('');setSyncError('');
+  setChangingPassword(false);setLoadedViews({});setTableSearch('');setTableFilter('all');setReceiptRequest(null);setProfile(null);setMenu([]);setTables([]);setDrafts({});setNotes({});setSelected(null);setPosScreen('order');setSessions([]);setCooking([]);setPending(null);setError('');setMessage('');setLastSync('');setSyncError('');
   if(recovering){setLoading(false);return;}
   if(!session||!supabase)return;
   const user=session.user.id;let active=true;setLoading(true);
@@ -429,10 +433,11 @@ function App(){
  const logoutControl=<button className="logout-button" disabled={busy||!!profile&&!profile.must_change_password&&locked} onClick={logout}>Đăng xuất</button>;
  const syncControl=<button aria-label="Đồng bộ" title="Đồng bộ dữ liệu" onClick={()=>{if(session)void manualSync(session.user.id,async()=>{imageStore?.invalidate();await refresh(true,true,false,false,true);if(!catalogBundled.current)await refreshGroups();});}}><PosIcon name="refresh"/><span>Đồng bộ</span></button>;
  return <div data-view={view} className={`pos-app${profile&&!recovering&&!profile.must_change_password&&!loading?' has-staff-shell':''}${view==='service'&&selected?' has-pos-workspace pos-workspace-'+posScreen:''}`}><header className="app-header"><a className="brand" href="#" onClick={e=>{e.preventDefault();if(profile)navigate(profile.role==='bep'?'kitchen':'service');}}><img className="brand-mark" src="/brand/goc-pho-logo.webp" alt="Logo Bún Riêu Góc Phố" width={54} height={54}/><span><strong>Bún Riêu Góc Phố</strong><small>QUẢN LÝ BÁN HÀNG</small></span></a>
- {session&&!recovering&&!kitchenHeader&&<div className="account"><span className="account-name">{profile?.name??'Nhân viên'}{profile?.role!=='chu'&&<small>{profile?roles[profile.role]:''}</small>}</span>{logoutControl}</div>}</header>
+ {session&&!recovering&&!kitchenHeader&&<div className="account"><span className="account-name">{profile?.name??'Nhân viên'}{profile?.role!=='admin'&&<small>{profile?roles[profile.role]:''}</small>}</span>{logoutControl}</div>}</header>
  {profile&&!recovering&&!profile.must_change_password&&!loading&&<div className="app-navigation"><nav aria-label="Chức năng">{permitted(profile,'orders.read')&&<button aria-label="Phục vụ" aria-pressed={view==='service'} onClick={()=>navigate('service')}><PosIcon name="grid"/><span className="nav-label-desktop">Sơ đồ bàn</span><span className="nav-label-mobile">Phục vụ</span></button>}<button aria-pressed={view==='kitchen'} onClick={()=>navigate('kitchen')}><PosIcon name="kitchen"/>Bếp ({cooking.length})</button>
- {!canManage&&canReadInvoices&&<button className="mobile-invoices" aria-pressed={view==='invoices'} onClick={()=>navigate('invoices')}><PosIcon name="invoice"/>Hóa đơn của tôi</button>}{canManage&&<details ref={managementNav} data-active={view!=='service'&&view!=='kitchen'} className="management-menu"><summary><PosIcon name="menu"/>Quản lý<PosIcon name="chevron"/></summary><div className="management-dropdown"><small>QUẢN LÝ QUÁN</small>{permitted(profile,'employees.manage')&&<button onClick={()=>navigate('employees')}><PosIcon name="employees"/>Quản lý nhân viên</button>}{permitted(profile,'menu.manage')&&<><button onClick={()=>navigate('menu')}><PosIcon name="menu"/>Quản lý thực đơn</button><button onClick={()=>navigate('tables')}><PosIcon name="tables"/>Quản lý bàn</button></>}{(permitted(profile,'reports.read')||permitted(profile,'reports.operations'))&&<button onClick={()=>navigate('revenue')}><PosIcon name="report"/>{profile?.role==='thu_ngan'?'Báo cáo':'Dashboard'}</button>}{permitted(profile,'audit.read')&&<button onClick={()=>navigate('audit')}><PosIcon name="audit"/>Nhật ký hoạt động</button>}{canReadInvoices&&<button onClick={()=>navigate('invoices')}><PosIcon name="invoice"/>Hóa đơn gần đây</button>}</div></details>}
+ {!canManage&&canReadInvoices&&<button className="mobile-invoices" aria-pressed={view==='invoices'} onClick={()=>navigate('invoices')}><PosIcon name="invoice"/>Hóa đơn của tôi</button>}{canManage&&<details ref={managementNav} data-active={view!=='service'&&view!=='kitchen'} className="management-menu"><summary><PosIcon name="menu"/>Quản lý<PosIcon name="chevron"/></summary><div className="management-dropdown"><small>QUẢN LÝ QUÁN</small>{profile?.role==='admin'&&<button disabled={busy||locked} onClick={()=>{managementNav.current?.removeAttribute('open');setChangingPassword(true);}}>Đổi mật khẩu</button>}{permitted(profile,'employees.manage')&&<button onClick={()=>navigate('employees')}><PosIcon name="employees"/>Quản lý nhân viên</button>}{permitted(profile,'menu.manage')&&<><button onClick={()=>navigate('menu')}><PosIcon name="menu"/>Quản lý thực đơn</button><button onClick={()=>navigate('tables')}><PosIcon name="tables"/>Quản lý bàn</button></>}{(permitted(profile,'reports.read')||permitted(profile,'reports.operations'))&&<button onClick={()=>navigate('revenue')}><PosIcon name="report"/>{profile?.role==='thu_ngan'?'Báo cáo':'Dashboard'}</button>}{permitted(profile,'audit.read')&&<button onClick={()=>navigate('audit')}><PosIcon name="audit"/>Nhật ký hoạt động</button>}{canReadInvoices&&<button onClick={()=>navigate('invoices')}><PosIcon name="invoice"/>Hóa đơn gần đây</button>}</div></details>}
  <div className="desktop-nav-links">
+ {profile?.role==='admin'&&<button disabled={busy||locked} onClick={()=>setChangingPassword(true)}><PosIcon name="guests"/><span>Đổi mật khẩu</span></button>}
  {canReadInvoices&&<button aria-pressed={view==='invoices'} aria-label={canManage?'Hóa đơn gần đây':'Hóa đơn của tôi'} onClick={()=>navigate('invoices')}><PosIcon name="invoice"/><span>Hóa đơn</span></button>}
  {permitted(profile,'menu.manage')&&<button aria-pressed={view==='menu'} aria-label="Quản lý thực đơn" onClick={()=>navigate('menu')}><PosIcon name="book"/><span>Thực đơn</span></button>}
  {(permitted(profile,'reports.read')||permitted(profile,'reports.operations'))&&<button aria-pressed={view==='revenue'} aria-label={profile?.role==='thu_ngan'?'Báo cáo':'Dashboard'} onClick={()=>navigate('revenue')}><PosIcon name="report"/><span>{profile?.role==='thu_ngan'?'Báo cáo':'Dashboard'}</span></button>}
@@ -440,7 +445,7 @@ function App(){
  {permitted(profile,'tables.manage')&&<button aria-pressed={view==='tables'} aria-label="Quản lý bàn" onClick={()=>navigate('tables')}><PosIcon name="diningTable"/><span>Quản lý bàn</span></button>}
  {permitted(profile,'audit.read')&&<button aria-pressed={view==='audit'} aria-label="Nhật ký hoạt động" onClick={()=>navigate('audit')}><PosIcon name="audit"/><span>Nhật ký</span></button>}
  </div></nav><div className="nav-account"><span className="nav-avatar"><PosIcon name="guests"/></span><div><strong>{profile?.name}</strong><small><i className={!online||syncError?'is-offline':''}/>{!online||syncError?'Chưa kết nối':'Đang hoạt động'}</small></div></div>{view!=='kitchen'&&<div className="sync-tools"><span className={syncError?'connection-status offline':'connection-status'}>{syncError?'Chưa đồng bộ':lastSync?'Đã kết nối':'Đang kết nối'}</span>{syncControl}</div>}</div>}
- <main className="app-main"><PWAControls/><KitchenPushLifecycle user={profile&&!profile.must_change_password&&!recovering&&permitted(profile,'kitchen.complete')?session?.user.id??null:null} active={view==='kitchen'&&realtimeStatus.orders&&!syncError} onOpen={()=>navigate('kitchen')}/><OfflineNotice online={online}/>
+ <main className="app-main">{changingPassword&&session&&profile?.role==='admin'&&!recovering&&!profile.must_change_password&&<React.Suspense fallback={<p role="status">Đang tải…</p>}><AdminPasswordChange key={session.user.id} onBusy={setBusy} onClose={()=>setChangingPassword(false)} onSuccess={()=>{setChangingPassword(false);setMessage('Đã đổi mật khẩu Admin.');}}/></React.Suspense>}<PWAControls/><KitchenPushLifecycle user={profile&&!profile.must_change_password&&!recovering&&permitted(profile,'kitchen.complete')?session?.user.id??null:null} active={view==='kitchen'&&realtimeStatus.orders&&!syncError} onOpen={()=>navigate('kitchen')}/><OfflineNotice online={online}/>
  {error&&<aside className="notice error-notice" role="alert">{error}{!profile&&session&&<p><button onClick={()=>setReload(n=>n+1)}>Thử tải lại</button></p>}</aside>}
  {message&&<Toast message={message}/>} 
  {loading?<div className="loading-state" role="status">Đang tải…</div>:recovering?<PasswordRecovery hasSession={!!session} onExit={async()=>{if(supabase&&session){const result=await supabase.auth.signOut({scope:'local'});if(result.error)throw result.error;}rememberRecovery(null);setRecovering(false);window.history.replaceState(null,'',window.location.pathname);}}/>:!session?<div className="login-shell"><form className="login-form" onSubmit={login}><small>BÚN RIÊU GÓC PHỐ</small><h2>Đăng nhập nhân viên</h2><p>Chào ngày mới, sẵn sàng phục vụ.</p><label>Tên đăng nhập<input type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={254} required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Mật khẩu<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/></label><button className="primary" disabled={busy||!supabase} type="submit">{busy?'Đang đăng nhập…':'Đăng nhập'}</button></form></div>:profile?.must_change_password?<React.Suspense fallback={<p role="status">Đang tải thiết lập mật khẩu…</p>}><InitialPasswordSetup key={`initial-password:${session!.user.id}`} onBusy={setBusy} onCompleted={()=>setReload(n=>n+1)}/></React.Suspense>:profile&&<>
