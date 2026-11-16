@@ -40,7 +40,8 @@ it; order/payment writes do not. The private trigger cannot be called by API use
 the revision only when the catalog is due. Unchanged catalog replies carry the
 version instead of menu/table/group payloads; changed replies include all three.
 The app accepts that group snapshot instead of issuing a separate group request.
-Explicit refresh and catalog invalidations request fresh content. Full safety stays
+Explicit manual refresh forces fresh content. Passive resume/rejoin and catalog
+invalidations check the revision and load content only if it changed. Full safety stays
 60 seconds, failure fallback stays 5 seconds. Frequent scoped updates cannot defer
 that complete safety read. Missing v2 endpoints fall back to the existing APIs and
 resume legacy group reads; reload/login clears the compatibility/cache state.
