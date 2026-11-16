@@ -1,3 +1,4 @@
+import {isGroupCatalog} from './menu-groups';
 import {createManualSync} from './manual-sync';
 import {liveEnvelope,validateLiveSnapshot,missingLiveRpc} from './pos-live-snapshot';
 import type {PosLiveSnapshot} from './pos-live-snapshot';
@@ -70,11 +71,12 @@ import './menu-groups.css';
 type View='employees'|'tables'|'service'|'kitchen'|'menu'|'revenue'|'audit'|'invoices';
 type Item={id:string;name:string;price:number;category:string;is_out:boolean};
 type DiningTable={id:number;name:string;service_type?:string};
-type Profile={live_snapshot?:boolean;saved_menu_selections?:boolean;linked_tables?:boolean;name:string;role:string;is_active:boolean;permissions:string[];must_change_password?:boolean;session_invalid?:boolean;data_epoch?:number};
+type Profile={dashboard_aggregates?:boolean;catalog_versions?:boolean;live_snapshot?:boolean;saved_menu_selections?:boolean;linked_tables?:boolean;name:string;role:string;is_active:boolean;permissions:string[];must_change_password?:boolean;session_invalid?:boolean;data_epoch?:number};
 const permitted=(profile:Profile|null,permission:string)=>!!profile?.is_active&&profile.permissions.includes(permission);
 function checkedAccess(data:unknown):Profile{
  const p=data as Partial<Profile>|null;
  if(!p||typeof p.name!=='string'||typeof p.role!=='string'||!roles[p.role]||!Array.isArray(p.permissions)||p.permissions.some(v=>typeof v!=='string'))throw new Error('Tài khoản chưa được cấp vai trò hợp lệ.');
+ for(const flag of ['dashboard_aggregates','catalog_versions'] as const)if(p[flag]!==undefined&&typeof p[flag]!=='boolean')throw new Error('Không xác nhận được phiên bản ứng dụng.');
  if(p.linked_tables!==undefined&&typeof p.linked_tables!=='boolean')throw new Error('Không xác nhận được chức năng gộp bàn.');
  if(p.must_change_password!==undefined&&typeof p.must_change_password!=='boolean')throw new Error('Không xác nhận được trạng thái tài khoản.');
  if(p.session_invalid===true)throw new Error('Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng xuất và đăng nhập lại.');
@@ -126,14 +128,14 @@ function App(){
  const [pending,setPending]=useState<Pending|null>(null),[sending,setSending]=useState(false);
  const [sessions,setSessions]=useState<TableSession[]>([]),[cooking,setCooking]=useState<KitchenOrder[]>([]);
  const [syncError,setSyncError]=useState(''),[lastSync,setLastSync]=useState(''),[completing,setCompleting]=useState<string|null>(null);
- const {catalog:groupCatalog,error:groupError,refresh:refreshGroups}=useMenuGroups(profile?.is_active&&!profile.must_change_password?session?.user.id:undefined,lastSync);
+ const {catalog:groupCatalog,error:groupError,refresh:refreshGroups,accept:acceptGroups,resumeAuto:resumeGroupAuto}=useMenuGroups(profile?.is_active&&!profile.must_change_password?session?.user.id:undefined,lastSync);
  const groupedMenu=useMemo(()=>menu.map(item=>({...item,group_id:groupCatalog?.assignments[item.id]})),[menu,groupCatalog]);
  const refreshDone=useRef<Promise<void>>(Promise.resolve()),lastRefreshOk=useRef(false);
  const sendLock=useRef(false),refreshLock=useRef(false),identity=useRef<string|null>(null);
  useEffect(()=>{const warn=(event:BeforeUnloadEvent)=>{if(Object.values(drafts).some(table=>Object.values(table).some(qty=>qty>0))||pending||sending){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[drafts,pending,sending]);
  const catalogSync=useRef({user:'',at:0}),liveSync=useRef(0),liveSnapshot=useRef<LiveSnapshot|null>(null);
  const [realtimeStatus,setRealtimeStatus]=useState(emptyRealtimeStatus),[authGeneration,setAuthGeneration]=useState(0);
- const bundledUnsupported=useRef(false);
+ const bundledUnsupported=useRef(false),revisionUnsupported=useRef(false),catalogVersion=useRef<string|null>(null),catalogBundled=useRef(false);
  const [manualSync]=useState(createManualSync);
  const imageScope=profile?.is_active&&!profile.must_change_password&&!recovering&&permitted(profile,'kitchen_images.read')&&session?`${session.user.id}:${authGeneration}:${reload}:${profile.data_epoch??0}:${profile.permissions.join(',')}`:'';
  const imageStore=useMemo(()=>imageScope?createImageTicketStore({load:async limit=>{
@@ -142,7 +144,7 @@ function App(){
  }}):null,[imageScope]);
  useEffect(()=>imageStore?.retain(),[imageStore]);
  const realtimeReady=useRef(realtimeStatus);realtimeReady.current=realtimeStatus;
- const menuRef=useRef(menu),draftRef=useRef(drafts);menuRef.current=menu;draftRef.current=drafts;
+ const menuRef=useRef(menu),tablesRef=useRef(tables),groupsRef=useRef(groupCatalog),draftRef=useRef(drafts);menuRef.current=menu;tablesRef.current=tables;groupsRef.current=groupCatalog;draftRef.current=drafts;
  identity.current=session?.user.id??null;
  useEffect(()=>{
   if(!supabase){setError('Chưa cấu hình kết nối Supabase.');setLoading(false);return;}
@@ -152,7 +154,7 @@ function App(){
   return()=>{active=false;subscription.unsubscribe();};
  },[]);
  useEffect(()=>{
-  catalogSync.current={user:'',at:0};liveSync.current=0;liveSnapshot.current=null;bundledUnsupported.current=false;
+  catalogSync.current={user:'',at:0};liveSync.current=0;liveSnapshot.current=null;bundledUnsupported.current=false;revisionUnsupported.current=false;catalogVersion.current=null;catalogBundled.current=false;
   setLoadedViews({});setTableSearch('');setTableFilter('all');setReceiptRequest(null);setProfile(null);setMenu([]);setTables([]);setDrafts({});setNotes({});setSelected(null);setPosScreen('order');setSessions([]);setCooking([]);setPending(null);setError('');setMessage('');setLastSync('');setSyncError('');
   if(recovering){setLoading(false);return;}
   if(!session||!supabase)return;
@@ -185,8 +187,21 @@ function App(){
   refreshLock.current=true;lastRefreshOk.current=false;
   const loadCatalog=forceCatalog||catalogSync.current.user!==user||catalogDue(catalogSync.current.at);
   try{
-   let bundled:PosLiveSnapshot|null=null;
-   if(profile.live_snapshot&&!bundledUnsupported.current&&!accessOnly){
+   let bundled:PosLiveSnapshot|null=null,versioned=false,cachedCatalog=false,nextVersion:string|null=null,nextGroups:unknown;
+   if(loadCatalog)catalogBundled.current=false;
+   if(profile.catalog_versions&&!revisionUnsupported.current&&!accessOnly){
+    const result=await supabase.rpc('get_pos_live_snapshot_v2',{p_catalog:loadCatalog,p_catalog_only:onlyCatalog,p_catalog_version:forceCatalog?null:catalogVersion.current});
+    if(missingLiveRpc(result.error)){revisionUnsupported.current=true;resumeGroupAuto();}
+    else {if(result.error)throw result.error;bundled=liveEnvelope(result.data);versioned=true;
+     if(loadCatalog&&result.data?.access?.is_active&&!result.data?.access?.must_change_password){
+      if(typeof result.data.catalog_version!=='string'||!/^\d+$/.test(result.data.catalog_version))throw Error('Invalid catalog version');
+      nextVersion=result.data.catalog_version;cachedCatalog=result.data.catalog_unchanged===true;
+      if(cachedCatalog){if(nextVersion!==catalogVersion.current||!groupsRef.current)throw Error('Missing local catalog');nextGroups=groupsRef.current;bundled.catalog={menu:menuRef.current,tables:tablesRef.current};}
+      else {nextGroups=result.data.catalog?.groups;if(!isGroupCatalog(nextGroups))throw Error('Invalid groups');}
+     }
+    }
+   }
+   if(!bundled&&profile.live_snapshot&&!bundledUnsupported.current&&!accessOnly){
     const result=await supabase.rpc('get_pos_live_snapshot',{p_catalog:loadCatalog,p_catalog_only:onlyCatalog});
     if(missingLiveRpc(result.error))bundledUnsupported.current=true;
     else {if(result.error)throw result.error;bundled=liveEnvelope(result.data);}
@@ -226,13 +241,14 @@ function App(){
    const nextSessions=onlyCatalog?[]:projectLinkedSessions(access.linked_tables?snap.sessions:s.data as unknown as TableSession[],access.linked_tables?snap.links:[]);
    if(identity.current===user){
     if(loadCatalog){
+    if(versioned){acceptGroups(nextGroups);catalogVersion.current=nextVersion;catalogBundled.current=true;}
     if(JSON.stringify(menuRef.current)!==JSON.stringify(m.data)&&Object.values(draftRef.current).some(d=>Object.values(d).some(n=>n>0)))setMessage('Thực đơn đã thay đổi. Kiểm tra lại giá và món đang chọn trước khi gửi.');
     setTables(prev=>JSON.stringify(prev)===JSON.stringify(t.data??[])?prev:t.data??[]);setSelected(prev=>{if(!prev)return null;const next=(t.data??[]).find(t=>t.id===prev.id);return next&&JSON.stringify(next)!==JSON.stringify(prev)?next:prev;});setMenu(prev=>JSON.stringify(prev)===JSON.stringify(m.data??[])?prev:m.data??[]);catalogSync.current={user,at:Date.now()};}
     if(!onlyCatalog){liveSnapshot.current={sessions:nextSessions,kitchen:k.data as unknown as KitchenOrder[]};
     setSessions(prev=>JSON.stringify(prev)===JSON.stringify(nextSessions)?prev:nextSessions);setCooking(prev=>JSON.stringify(prev)===JSON.stringify(k.data)?prev:k.data as unknown as KitchenOrder[]);setLastSync(new Date().toLocaleTimeString('vi-VN'));setSyncError('');liveSync.current=Date.now();}lastRefreshOk.current=true;}
-  }catch{if(loadCatalog&&identity.current===user)catalogSync.current={user,at:0};if(identity.current===user)setSyncError('Chưa đồng bộ được đơn hàng. Dữ liệu có thể đã cũ; kiểm tra mạng rồi bấm Đồng bộ.');}
+  }catch{if(loadCatalog&&identity.current===user){catalogSync.current={user,at:0};catalogVersion.current=null;}if(identity.current===user)setSyncError('Chưa đồng bộ được đơn hàng. Dữ liệu có thể đã cũ; kiểm tra mạng rồi bấm Đồng bộ.');}
   finally{refreshLock.current=false;finish();}
- },[profile,session?.user.id]);
+ },[profile,session?.user.id,acceptGroups,resumeGroupAuto]);
  useEffect(()=>{
   void refresh();const timer=setInterval(()=>{if(liveReadDue(realtimeReady.current,lastRefreshOk.current,liveSync.current,document.visibilityState==='visible'))void refresh();},LIVE_SYNC_MS);
   return()=>{clearInterval(timer);};
@@ -265,10 +281,10 @@ function App(){
   if(kinds.has('images'))imageStore?.invalidate();
   const catalog=kinds.has('catalog');
   if(kinds.has('orders')){
-   if(!ids?.length||!await refreshDelta(ids))await refresh(true,catalog);
+   if(!ids?.length||catalogDue(liveSync.current)||!await refreshDelta(ids))await refresh(true,catalog);
    else if(catalog)await refresh(true,true,false,true);
   }else if(catalog)await refresh(true,true,false,true);
-  if(catalog)await refreshGroups();
+  if(catalog&&!catalogBundled.current)await refreshGroups();
   return kinds.has('orders')||catalog?lastRefreshOk.current:true;
  };
  const realtimeUser=profile?.is_active&&!profile.must_change_password&&!recovering?session?.user.id:undefined;
@@ -411,7 +427,7 @@ function App(){
  const titles:Record<View,string>={service:selected?(showTableMenu?'Gọi món':'Đơn đã gọi'):'Sơ đồ bàn',kitchen:'Khu vực bếp',tables:'Quản lý bàn',menu:'Quản lý thực đơn',revenue:profile?.role==='thu_ngan'?'Báo cáo':'Dashboard',audit:'Nhật ký hoạt động',invoices:'Hóa đơn gần đây',employees:'Quản lý nhân viên'};
  const kitchenHeader=view==='kitchen'&&!!profile&&!recovering&&!profile.must_change_password&&!loading;
  const logoutControl=<button className="logout-button" disabled={busy||!!profile&&!profile.must_change_password&&locked} onClick={logout}>Đăng xuất</button>;
- const syncControl=<button aria-label="Đồng bộ" title="Đồng bộ dữ liệu" onClick={()=>{if(session)void manualSync(session.user.id,async()=>{imageStore?.invalidate();await Promise.all([refresh(true,true),refreshGroups()]);});}}><PosIcon name="refresh"/><span>Đồng bộ</span></button>;
+ const syncControl=<button aria-label="Đồng bộ" title="Đồng bộ dữ liệu" onClick={()=>{if(session)void manualSync(session.user.id,async()=>{imageStore?.invalidate();await refresh(true,true);if(!catalogBundled.current)await refreshGroups();});}}><PosIcon name="refresh"/><span>Đồng bộ</span></button>;
  return <div data-view={view} className={`pos-app${profile&&!recovering&&!profile.must_change_password&&!loading?' has-staff-shell':''}${view==='service'&&selected?' has-pos-workspace pos-workspace-'+posScreen:''}`}><header className="app-header"><a className="brand" href="#" onClick={e=>{e.preventDefault();if(profile)navigate(profile.role==='bep'?'kitchen':'service');}}><img className="brand-mark" src="/brand/goc-pho-logo.webp" alt="Logo Bún Riêu Góc Phố" width={54} height={54}/><span><strong>Bún Riêu Góc Phố</strong><small>QUẢN LÝ BÁN HÀNG</small></span></a>
  {session&&!recovering&&!kitchenHeader&&<div className="account"><span className="account-name">{profile?.name??'Nhân viên'}{profile?.role!=='chu'&&<small>{profile?roles[profile.role]:''}</small>}</span>{logoutControl}</div>}</header>
  {profile&&!recovering&&!profile.must_change_password&&!loading&&<div className="app-navigation"><nav aria-label="Chức năng">{permitted(profile,'orders.read')&&<button aria-label="Phục vụ" aria-pressed={view==='service'} onClick={()=>navigate('service')}><PosIcon name="grid"/><span className="nav-label-desktop">Sơ đồ bàn</span><span className="nav-label-mobile">Phục vụ</span></button>}<button aria-pressed={view==='kitchen'} onClick={()=>navigate('kitchen')}><PosIcon name="kitchen"/>Bếp ({cooking.length})</button>
@@ -461,7 +477,7 @@ function App(){
  {permitted(profile,'employees.manage')&&view==='employees'&&<div className="management-page"><React.Suspense fallback={<p role="status">Đang tải quản lý nhân viên…</p>}><EmployeeManagement key={`employees:${session!.user.id}`} userId={session!.user.id} active/></React.Suspense></div>}
  {permitted(profile,'tables.manage')&&<div className="management-page" hidden={view!=='tables'}><TableManagement key={`tables:${session!.user.id}`} userId={session!.user.id} active={view==='tables'} disabled={menuPending||cancelTablePending||itemCancelBusy||billPending||paymentPending||transferPending||!!pending||sending||Object.values(drafts).some(d=>Object.values(d).some(n=>n>0))} onPending={setTablePending} onSaved={()=>refresh(true,true)}/></div>}
  {permitted(profile,'menu.manage')&&<div className="management-page" hidden={view!=='menu'}><MenuPanel catalog={groupCatalog} groupError={groupError} onGroupsSaved={refreshGroups} key={`menu:${session!.user.id}`} active={view==='menu'} userId={session!.user.id} disabled={tablePending||cancelTablePending||itemCancelBusy||billPending||paymentPending||transferPending||!!pending||sending||Object.values(drafts).some(d=>Object.values(d).some(n=>n>0))} onPending={setMenuPending} onSaved={()=>refresh(true,true)}/></div>}
- {(permitted(profile,'reports.read')||permitted(profile,'reports.operations'))&&(loadedViews.revenue||view==='revenue')&&<div className="management-page" hidden={view!=='revenue'}><DeferredPanel onBack={()=>navigate('service')}>{profile?.role==='thu_ngan'?<CashierReport key={session!.user.id} active={view==='revenue'} userId={session!.user.id} tables={tables} online={online}/>:<RevenuePanel key={`revenue:${session!.user.id}`} active={view==='revenue'} userId={session!.user.id} tables={tables} online={online}/>}</DeferredPanel></div>}
+ {(permitted(profile,'reports.read')||permitted(profile,'reports.operations'))&&(loadedViews.revenue||view==='revenue')&&<div className="management-page" hidden={view!=='revenue'}><DeferredPanel onBack={()=>navigate('service')}>{profile?.role==='thu_ngan'?<CashierReport key={session!.user.id} active={view==='revenue'} userId={session!.user.id} tables={tables} online={online}/>:<RevenuePanel serverReports={profile.dashboard_aggregates===true} key={`revenue:${session!.user.id}`} active={view==='revenue'} userId={session!.user.id} tables={tables} online={online}/>}</DeferredPanel></div>}
  {permitted(profile,'audit.read')&&(loadedViews.audit||view==='audit')&&<div className="management-page" hidden={view!=='audit'}><DeferredPanel onBack={()=>navigate('service')}><AuditPanel active={view==='audit'}/></DeferredPanel></div>}
  {canReadInvoices&&(loadedViews.invoices||view==='invoices')&&<div className="management-page" hidden={view!=='invoices'}><DeferredPanel onBack={()=>navigate('service')}><InvoiceHistory key={`invoices:${session!.user.id}`} active={view==='invoices'} disabled={paymentPending} ownOnly={!permitted(profile,'receipts.read_all')} onOpen={id=>{setError('');setReceiptRequest(r=>({id,key:(r?.key??0)+1}));}}/></DeferredPanel></div>}
  </>}
