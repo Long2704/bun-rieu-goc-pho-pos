@@ -177,7 +177,7 @@ function App(){
   }
   void load();return()=>{active=false;};
  },[session?.user.id,reload,recovering]);
- const refresh=useCallback(async(force=false,forceCatalog=false,accessOnly=false,catalogOnly=false)=>{
+ const refresh=useCallback(async(force=false,forceCatalog=false,accessOnly=false,catalogOnly=false,forceContent=false)=>{
   if((kitchenCompletionLock.current||sendLock.current)&&!force)return;
   if(!supabase||!profile||profile.must_change_password||!session){if(force)lastRefreshOk.current=false;return;}
   const user=session.user.id;
@@ -190,7 +190,7 @@ function App(){
    let bundled:PosLiveSnapshot|null=null,versioned=false,cachedCatalog=false,nextVersion:string|null=null,nextGroups:unknown;
    if(loadCatalog)catalogBundled.current=false;
    if(profile.catalog_versions&&!revisionUnsupported.current&&!accessOnly){
-    const result=await supabase.rpc('get_pos_live_snapshot_v2',{p_catalog:loadCatalog,p_catalog_only:onlyCatalog,p_catalog_version:forceCatalog?null:catalogVersion.current});
+    const result=await supabase.rpc('get_pos_live_snapshot_v2',{p_catalog:loadCatalog,p_catalog_only:onlyCatalog,p_catalog_version:forceContent?null:catalogVersion.current});
     if(missingLiveRpc(result.error)){revisionUnsupported.current=true;resumeGroupAuto();}
     else {if(result.error)throw result.error;bundled=liveEnvelope(result.data);versioned=true;
      if(loadCatalog&&result.data?.access?.is_active&&!result.data?.access?.must_change_password){
@@ -427,7 +427,7 @@ function App(){
  const titles:Record<View,string>={service:selected?(showTableMenu?'Gọi món':'Đơn đã gọi'):'Sơ đồ bàn',kitchen:'Khu vực bếp',tables:'Quản lý bàn',menu:'Quản lý thực đơn',revenue:profile?.role==='thu_ngan'?'Báo cáo':'Dashboard',audit:'Nhật ký hoạt động',invoices:'Hóa đơn gần đây',employees:'Quản lý nhân viên'};
  const kitchenHeader=view==='kitchen'&&!!profile&&!recovering&&!profile.must_change_password&&!loading;
  const logoutControl=<button className="logout-button" disabled={busy||!!profile&&!profile.must_change_password&&locked} onClick={logout}>Đăng xuất</button>;
- const syncControl=<button aria-label="Đồng bộ" title="Đồng bộ dữ liệu" onClick={()=>{if(session)void manualSync(session.user.id,async()=>{imageStore?.invalidate();await refresh(true,true);if(!catalogBundled.current)await refreshGroups();});}}><PosIcon name="refresh"/><span>Đồng bộ</span></button>;
+ const syncControl=<button aria-label="Đồng bộ" title="Đồng bộ dữ liệu" onClick={()=>{if(session)void manualSync(session.user.id,async()=>{imageStore?.invalidate();await refresh(true,true,false,false,true);if(!catalogBundled.current)await refreshGroups();});}}><PosIcon name="refresh"/><span>Đồng bộ</span></button>;
  return <div data-view={view} className={`pos-app${profile&&!recovering&&!profile.must_change_password&&!loading?' has-staff-shell':''}${view==='service'&&selected?' has-pos-workspace pos-workspace-'+posScreen:''}`}><header className="app-header"><a className="brand" href="#" onClick={e=>{e.preventDefault();if(profile)navigate(profile.role==='bep'?'kitchen':'service');}}><img className="brand-mark" src="/brand/goc-pho-logo.webp" alt="Logo Bún Riêu Góc Phố" width={54} height={54}/><span><strong>Bún Riêu Góc Phố</strong><small>QUẢN LÝ BÁN HÀNG</small></span></a>
  {session&&!recovering&&!kitchenHeader&&<div className="account"><span className="account-name">{profile?.name??'Nhân viên'}{profile?.role!=='chu'&&<small>{profile?roles[profile.role]:''}</small>}</span>{logoutControl}</div>}</header>
  {profile&&!recovering&&!profile.must_change_password&&!loading&&<div className="app-navigation"><nav aria-label="Chức năng">{permitted(profile,'orders.read')&&<button aria-label="Phục vụ" aria-pressed={view==='service'} onClick={()=>navigate('service')}><PosIcon name="grid"/><span className="nav-label-desktop">Sơ đồ bàn</span><span className="nav-label-mobile">Phục vụ</span></button>}<button aria-pressed={view==='kitchen'} onClick={()=>navigate('kitchen')}><PosIcon name="kitchen"/>Bếp ({cooking.length})</button>
