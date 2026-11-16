@@ -66,7 +66,7 @@ export default function EmployeeCreate({userId,onCreated}:{userId:string;onCreat
     <label>Tên nhân viên<input required maxLength={100} value={draft?.name??name} onChange={e=>setName(e.target.value)}/></label>
     <label>Tên đăng nhập<input required minLength={3} pattern={'[A-Za-z0-9][A-Za-z0-9_.\\-]{2,39}'} title={usernameHelp} aria-describedby={usernameHelpId} autoCapitalize="none" autoComplete="off" spellCheck={false} maxLength={40} value={draft?.username??(draft?'Yêu cầu cũ':username)} onChange={e=>setUsername(e.target.value)}/></label>
     <small id={usernameHelpId}>{usernameHelp}</small>
-    <label>Vai trò nhân viên<select aria-label="Vai trò nhân viên" value={draft?.role??role} onChange={e=>setRole(e.target.value)}><option value="phuc_vu">Waiter — Phục vụ</option><option value="bep">Kitchen — Bếp</option><option value="thu_ngan">Cashier - Thu ngân</option></select></label>
+    <label>Vai trò nhân viên<select aria-label="Vai trò nhân viên" value={draft?.role??role} onChange={e=>setRole(e.target.value)}><option value="phuc_vu">Waiter — Phục vụ</option><option value="bep">Kitchen — Bếp</option><option value="thu_ngan">Cashier — Thu ngân</option></select></label>
    </fieldset>
    <label>Mật khẩu tạm<input type="password" autoComplete="new-password" required minLength={6} maxLength={12} disabled={busy} value={password} onChange={e=>setPassword(e.target.value)}/></label>
    <small>6–12 ký tự. Nhân viên phải đổi khi đăng nhập lần đầu.</small>

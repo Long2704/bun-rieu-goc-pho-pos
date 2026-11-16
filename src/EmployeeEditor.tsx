@@ -40,7 +40,7 @@ export default function EmployeeEditor({employee,userId,onClose,onChanged}:{empl
     <fieldset disabled={busy||!!pending}>
      <label>Tên nhân viên<input required maxLength={100} value={pending?.p_name??name} onChange={e=>setName(e.target.value)}/></label>
      <label>Tên đăng nhập<input required minLength={3} pattern={'[A-Za-z0-9][A-Za-z0-9_.\\-]{2,39}'} title="3–40 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang; bắt đầu bằng chữ hoặc số." autoCapitalize="none" spellCheck={false} maxLength={40} value={pending?.p_username??(pending?'Yêu cầu cũ':code)} onChange={e=>setCode(e.target.value)}/></label>
-     <label>Vai trò nhân viên<select aria-label="Vai trò nhân viên" value={pending?.p_role??role} onChange={e=>setRole(e.target.value)}><option value="phuc_vu">Waiter — Phục vụ</option><option value="bep">Kitchen — Bếp</option><option value="thu_ngan">Cashier - Thu ngân</option></select></label>
+     <label>Vai trò nhân viên<select aria-label="Vai trò nhân viên" value={pending?.p_role??role} onChange={e=>setRole(e.target.value)}><option value="phuc_vu">Waiter — Phục vụ</option><option value="bep">Kitchen — Bếp</option><option value="thu_ngan">Cashier — Thu ngân</option></select></label>
      <label>Trạng thái tài khoản<select aria-label="Trạng thái tài khoản" value={(pending?.p_is_active??active)?'active':'locked'} onChange={e=>setActive(e.target.value==='active')}><option value="active">Đang hoạt động</option><option value="locked">Đã khóa</option></select></label>
     </fieldset>
     {!(pending?.p_is_active??active)&&<p>Khóa sẽ ngăn nhân viên tiếp tục gọi món, thanh toán và cập nhật bếp, kể cả phiên đăng nhập cũ.</p>}
