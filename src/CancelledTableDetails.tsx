@@ -1,3 +1,5 @@
+import {useEffect,useRef} from 'react';
+import {createPortal} from 'react-dom';
 import {formatMoney} from './format';
 import './audit-details.css';
 type CancelledLine={name:string;qty:number;price:number|null};
@@ -11,12 +13,15 @@ function readLines(value:unknown):CancelledLine[]|null{
  }
  return result;
 }
-export default function CancelledTableDetails({items,count}:{items:unknown;count:unknown}){
+export default function CancelledTableDetails({items,count,description,onClose}:{items:unknown;count:unknown;description:string;onClose:()=>void}){
+ const dialog=useRef<HTMLDialogElement>(null);
+ useEffect(()=>{const node=dialog.current;node?.showModal();return()=>node?.close();},[]);
+ function close(){dialog.current?.close();onClose();}
  const lines=readLines(items);
  const lineCount=typeof count==='number'&&Number.isSafeInteger(count)&&count>=0?count:lines?.length;
  const portions=lines?.reduce((sum,line)=>sum+line.qty,0);
  const subtotal=lines?.every(line=>line.price!==null)?lines.reduce((sum,line)=>sum+line.qty*line.price!,0):null;
- return <><p>{lineCount!==undefined?`Đã hủy ${lineCount} dòng món chưa thanh toán.`:'Đã hủy các món chưa thanh toán.'}</p>
-  {lines?<details className="audit-cancelled-details"><summary>Xem món đã hủy</summary><ul aria-label="Các món đã hủy">{lines.map((line,index)=><li key={index}><div><strong>{line.qty} × {line.name}</strong><small>{line.price===null?'Không có đơn giá được lưu':`Đơn giá: ${formatMoney(line.price)}`}</small></div><span>{line.price===null?'—':formatMoney(line.qty*line.price)}</span></li>)}</ul><p className="audit-cancelled-total"><span>{Number.isSafeInteger(portions)?`${portions} phần đã hủy`:'Tổng món đã hủy'}</span>{subtotal!==null&&Number.isSafeInteger(subtotal)&&<strong>{formatMoney(subtotal)}</strong>}</p></details>:<p className="audit-cancelled-missing">Hoạt động này không có chi tiết món được lưu.</p>}
- </>;
+ return createPortal(<dialog ref={dialog} className="confirm-dialog audit-cancelled-dialog" aria-labelledby="audit-cancelled-title" onCancel={event=>{event.preventDefault();close();}}><header><h2 id="audit-cancelled-title">Món đã hủy</h2><button autoFocus type="button" aria-label="Đóng chi tiết món đã hủy" onClick={close}>Đóng</button></header><p className="audit-cancelled-context">{description}</p><p>{lineCount!==undefined?`Đã hủy ${lineCount} dòng món chưa thanh toán.`:'Đã hủy các món chưa thanh toán.'}</p>
+  {lines?<div className="audit-cancelled-details"><ul aria-label="Các món đã hủy">{lines.map((line,index)=><li key={index}><div><strong>{line.qty} × {line.name}</strong><small>{line.price===null?'Không có đơn giá được lưu':`Đơn giá: ${formatMoney(line.price)}`}</small></div><span>{line.price===null?'—':formatMoney(line.qty*line.price)}</span></li>)}</ul><p className="audit-cancelled-total"><span>{Number.isSafeInteger(portions)?`${portions} phần đã hủy`:'Tổng món đã hủy'}</span>{subtotal!==null&&Number.isSafeInteger(subtotal)&&<strong>{formatMoney(subtotal)}</strong>}</p></div>:<p className="audit-cancelled-missing">Hoạt động này không có chi tiết món được lưu.</p>}
+ </dialog>,document.body);
 }

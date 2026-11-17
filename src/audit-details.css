@@ -1,5 +1,4 @@
 .audit-cancelled-details{margin:10px 0 16px;max-width:680px;border:1px solid #edd8c5;border-radius:12px;background:#fffaf4;overflow:hidden}
-.audit-cancelled-details>summary{cursor:pointer;padding:12px 14px;font-weight:650;color:#783c1b;min-height:44px;overflow-wrap:anywhere}
 .audit-cancelled-details>ul{list-style:none;margin:0;padding:0 14px}
 .audit-cancelled-details>ul>li{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:10px 0;border-top:1px solid #efdfd0}
 .audit-cancelled-details>ul>li>div{min-width:0;overflow-wrap:anywhere}
@@ -7,3 +6,13 @@
 .audit-cancelled-details>ul>li>span{flex:none;font-weight:600}
 .audit-cancelled-details .audit-cancelled-total{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;margin:0;border-top:1px solid #efdfd0}
 .audit-cancelled-missing{color:#846a58}
+
+.audit-cancelled-event{display:block;width:100%;text-align:left;white-space:normal;padding:14px;border:1px solid #edd8c5;border-radius:12px;background:#fffaf4;overflow-wrap:anywhere}
+.audit-cancelled-event>strong,.audit-cancelled-event>span{display:block}
+.audit-cancelled-event>span{margin-top:7px;font-size:13px;font-weight:400;line-height:1.6}
+.audit-cancelled-dialog{width:min(640px,calc(100vw - 24px));max-height:calc(100dvh - 32px);overflow:auto;margin:auto;padding:20px}
+.audit-cancelled-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.audit-cancelled-dialog>header h2{margin:0;font-size:20px}
+.audit-cancelled-dialog>header button{flex:none;min-height:44px}
+.audit-cancelled-context{margin-top:14px;overflow-wrap:anywhere;color:#846a58}
+.audit-cancelled-dialog .audit-cancelled-details{margin-bottom:0}
