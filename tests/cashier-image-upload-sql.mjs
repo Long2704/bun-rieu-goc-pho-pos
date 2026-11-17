@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {readFileSync} from 'node:fs';
 import {checkCashierImageUpload} from './support/cashier-image-upload.mjs';
@@ -26,4 +27,14 @@ try{
  const permission=migration('20261116141839_admin_role_and_self_password.sql').match(/CREATE OR REPLACE FUNCTION public\.has_permission[\s\S]*?\$function\$;/)[0];
  await db.exec(permission);
  await checkCashierImageUpload(db,admin);
+ await db.exec('reset role');const ticket=(await db.query('select * from kitchen_image_tickets limit 1')).rows[0];
+ await db.query('update profiles set is_active=true where id=$1',[ticket.created_by]);
+ await db.exec(migration('20261117075552_cashier_kitchen_completion.sql'));
+ await db.query("insert into storage.objects(bucket_id,name) values('kitchen-ticket-images',$1),('kitchen-ticket-images',$2)",[ticket.image_path,ticket.preview_path]);
+ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[ticket.created_by]);await db.exec('set role authenticated');
+ const started=(await db.query('select begin_kitchen_image_completion($1) r',[ticket.id])).rows[0].r;assert.equal(started.paths.length,2);
+ await assert.rejects(db.query('select complete_kitchen_image_ticket($1)',[ticket.id]),/Chưa xóa xong/);
+ assert.equal((await db.query("delete from storage.objects where bucket_id='kitchen-ticket-images' returning id")).rows.length,2);
+ await db.query('select complete_kitchen_image_ticket($1)',[ticket.id]);assert.equal((await db.query('select * from kitchen_image_tickets')).rows.length,0);
+ console.log('PASS Cashier photo completion: begin, storage RLS deletion and final purge; rejects premature completion.');
 }finally{await db.close();}

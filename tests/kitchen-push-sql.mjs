@@ -69,5 +69,14 @@ try{
  await db.exec("update pos_push.deliveries set next_at=now()-interval '1 second' where state='pending';");assert.equal((await query('select public.kitchen_push_claim() jobs'))[0].jobs.length,0,'prepared old deliveries cannot follow a new session');
  const afterLogin=(await query('insert into orders(is_draft) values(false) returning id'))[0].id;await query("insert into order_items(order_id,qty,category) values($1,1,'bun')",[afterLogin]);await db.exec('delete from auth.sessions');assert.equal((await query('select public.kitchen_push_claim() jobs'))[0].jobs.length,0,'logout blocks delivery');
  await db.exec("update profiles set role='phuc_vu'");await assert.rejects(query('select public.get_kitchen_push_settings()'),/không có quyền/);
+ // New Cashier completion role must work with the existing opt-in device gate.
+ const canonical=readFileSync(new URL('../supabase/migrations/20261116141839_admin_role_and_self_password.sql',import.meta.url),'utf8').match(/CREATE OR REPLACE FUNCTION public\.has_permission[\s\S]*?\$function\$;/)[0];
+ await db.exec('create function public.staff_session_current() returns boolean language sql stable as $$select true$$');await db.exec('drop function public.has_permission(text)');await db.exec(canonical);
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261117075552_cashier_kitchen_completion.sql',import.meta.url),'utf8'));
+ await query('insert into auth.sessions(id,user_id) values($1,$2)',[nextSid,uid]);
+ for(const role of ['admin','thu_ngan','bep']){await query('update profiles set role=$1',[role]);assert.equal((await query('select pos_push.allowed_device(d) ok from pos_push.devices d where id=$1',[device]))[0].ok,true);}
+ await query("update profiles set role='phuc_vu'");assert.equal((await query('select pos_push.allowed_device(d) ok from pos_push.devices d where id=$1',[device]))[0].ok,false);
+ await query("update profiles set role='thu_ngan',is_active=false");assert.equal((await query('select pos_push.allowed_device(d) ok from pos_push.devices d where id=$1',[device]))[0].ok,false);
+ console.log('PASS kitchen device role compatibility: canonical Admin/Cashier/Kitchen; waiter and inactive denied; subscriptions remain opt-in.');
  console.log('PASS kitchen push SQL: eligibility, queue, dedup, leases, retries, logout, ACL, expiry');
 }finally{await db.close();}
