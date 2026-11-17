@@ -27,7 +27,7 @@ try{
  const page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.POS_TEST_URL||'http://localhost:5203');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('cashier@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await page.getByRole('button',{name:/^Bếp \(/}).click();
  await page.getByRole('button',{name:'Tải ảnh lên',exact:true}).waitFor();await page.locator('.kitchen-image-upload input').setInputFiles({name:'phieu.webp',mimeType:'image/webp',buffer:image});
- await page.locator('.kitchen-image-ticket img').waitFor();assert.equal(uploads,1);assert.equal(await page.getByRole('button',{name:'Xong',exact:true}).count(),0);
+ await page.locator('.kitchen-image-ticket img').waitFor();assert.equal(uploads,1);assert.ok(await page.getByRole('button',{name:'Xong',exact:true}).isDisabled());
  await page.getByRole('button',{name:'Phóng to phiếu ảnh',exact:true}).click();await page.getByRole('dialog',{name:'Xem phiếu ảnh'}).waitFor();await page.getByRole('button',{name:'Đóng ảnh',exact:true}).click();assert.deepEqual(errors,[]);
- console.log('PASS cashier browser: upload button, automatic upload once, private image preview/zoom; no completion or deletion controls. All HTTP/WebSockets mocked.');
+ console.log('PASS cashier browser: upload button, automatic upload once, private image preview/zoom; completion disabled and no deletion requests. All HTTP/WebSockets mocked.');
 }finally{await browser.close();}
