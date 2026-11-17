@@ -23,7 +23,7 @@ export default function CancelTablePanel({restrictServedCancellation=false,userI
   try{
    const r=await supabase.rpc('cancel_table_session',{p_session_id:attempt.sessionId,p_request_id:attempt.requestId,p_expected_item_ids:attempt.items.map(i=>i.id)});
    if(r.error){
-    if(r.error.code==='P0001'&&['Bàn có món đã ra. Phục vụ không thể hủy cả bàn.','Bạn không có quyền hủy bàn.','Phiên bàn không còn mở.','Bàn vừa được chuyển. Đồng bộ và kiểm tra lại.','Danh sách món đã thay đổi. Đồng bộ và xác nhận hủy bàn lại.'].includes(r.error.message)){
+    if(r.error.code==='P0001'&&['Bàn có món đã ra. Phục vụ không thể hủy cả bàn.','Bàn có món đã ra. Chỉ Admin mới có thể hủy cả bàn.','Bạn không có quyền hủy bàn.','Phiên bàn không còn mở.','Bàn vừa được chuyển. Đồng bộ và kiểm tra lại.','Danh sách món đã thay đổi. Đồng bộ và xác nhận hủy bàn lại.'].includes(r.error.message)){
      localStorage.removeItem(key);if(alive.current){setPending(null);setDraft(null);setOpen(false);}await onChanged();throw new Error(r.error.message);
     }
     throw new Error(['PGRST202','42883'].includes(r.error.code)?'Cần chạy migration 011_cancellations_kitchen_history.sql rồi Thử lại cùng mã hủy bàn.':`Chưa xác nhận hủy bàn: ${r.error.message}. Thử lại cùng mã hủy bàn.`);
@@ -34,8 +34,8 @@ export default function CancelTablePanel({restrictServedCancellation=false,userI
   finally{lock.current=false;if(alive.current)setBusy(false);}
  }
  const snapshot=pending??draft;
- return <section className="cancel-table-panel" aria-label="Hủy bàn">{table&&lines.length>0&&!pending&&<button className="danger-outline" title={served?'Bàn có món đã ra. Phục vụ không thể hủy cả bàn.':undefined} disabled={disabled||busy||storageError||served} onClick={start}><PosIcon name="cancel"/><span>{table.id<0?'Hủy đơn':'Hủy cả'} {table.name}</span></button>}
- {served&&!pending&&<p role="status">Bàn có món đã ra. Phục vụ không thể hủy cả bàn.</p>}
+ return <section className="cancel-table-panel" aria-label="Hủy bàn">{table&&lines.length>0&&!pending&&<button className="danger-outline" title={served?'Bàn có món đã ra. Chỉ Admin mới có thể hủy cả bàn.':undefined} disabled={disabled||busy||storageError||served} onClick={start}><PosIcon name="cancel"/><span>{table.id<0?'Hủy đơn':'Hủy cả'} {table.name}</span></button>}
+ {served&&!pending&&<p role="status">Bàn có món đã ra. Chỉ Admin mới có thể hủy cả bàn.</p>}
  {storageError&&<p role="alert">Không đọc được yêu cầu hủy bàn chờ. Không xóa dữ liệu trình duyệt; liên hệ hỗ trợ.</p>}
  {pending&&<aside role="status"><strong>Hủy bàn chờ xác nhận · {pending.tableName??placeLabel(pending.tableId)}</strong><p>Giữ nguyên mã và danh sách {pending.items.length} dòng món.</p><button disabled={busy} onClick={()=>{setOpen(true);}}>Kiểm tra yêu cầu hủy bàn</button></aside>}
  {!open&&error&&<p role="alert">{error}</p>}

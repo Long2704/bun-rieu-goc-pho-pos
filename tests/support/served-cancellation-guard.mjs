@@ -24,5 +24,16 @@ export async function checkServedCancellationGuard(db,admin,food,drink){
  const e=await place(2005);await as(waiter);const request=crypto.randomUUID(),ids=e.items.map(i=>i.id);await one('select cancel_table_session($1,$2,$3::uuid[])',[e.session,request,ids]);await one('select cancel_table_session($1,$2,$3::uuid[])',[e.session,request,ids]);
  const f=await place(2006);await as(kitchen);await one('select complete_kitchen_order($1)',[f.id]);await db.exec('reset role');await db.query('update order_items set bill_no=2 where id=$1',[f.items.find(i=>i.category==='do_uong').id]);await as(admin);await one("select pay_bill($1,gen_random_uuid(),'transfer',$2::uuid[],1)",[f.session,[f.items.find(i=>i.category!=='do_uong').id]]);await as(waiter);await assert.rejects(cancelTable(f),/Bàn có món đã ra/);
  await db.exec('reset role');
+ await db.exec(readFileSync(new URL('../../supabase/migrations/20261117024019_staff_served_cancellation_guard.sql',import.meta.url),'utf8'));
+ const g=await place(2007);await as(kitchen);await one('select complete_kitchen_order($1)',[g.id]);
+ for(const id of [waiter,cashier,kitchen]){
+  await as(id);await assert.rejects(cancel(g.items.find(i=>i.category!=='do_uong').id),/Chỉ Admin|không có quyền/);
+  await assert.rejects(cancelTable(g),/Chỉ Admin/);
+ }
+ assert.ok((await db.query('select cancelled_at from order_items where order_id=$1',[g.id])).rows.every(i=>i.cancelled_at===null));
+ await as(cashier);await cancel(g.items.find(i=>i.category==='do_uong').id);
+ const h=await place(2008);await as(cashier);await cancel(h.items.find(i=>i.category!=='do_uong').id);await as(kitchen);await cancelTable(h);
+ await as(admin);await cancelTable(g);await db.exec('reset role');
+ console.log('PASS all staff served guard: cashier and kitchen included; only Admin can cancel served food or whole served table; unserved operations and drinks unchanged.');
  console.log('PASS served cancellation: waiter served-food and whole-table rejection, mixed/pending/drink handling, paid served food still blocks whole-table cancellation, admin/cashier exceptions, request replay, no partial cancellation. Same table/session/order locks as kitchen completion.');
 }
