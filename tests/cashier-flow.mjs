@@ -8,6 +8,7 @@ try{for(const role of ['thu_ngan','chu']){
  const invoices=[2,1].map(n=>({id:'receipt-'+n,invoice_no:n,table_no:n,bill_no:1,total:58000,gross:58000,discount:0,method:'cash',cash_received:60000,change_due:2000,paid_at:new Date(Date.now()-n*60000).toISOString(),bill_items:[{id:'line-'+n,name:'Bún trên hóa đơn',price:58000,qty:1,note:''}]}));
  const groups=[{id:'bun',name:'Món chính',category:'bun',sort:10},{id:'an_them',name:'Món thêm',category:'an_them',sort:20},{id:'do_uong',name:'Đồ uống',category:'do_uong',sort:30}];
  const context=await browser.newContext({viewport:{width:390,height:844}});
+ await context.addInitScript(role=>localStorage.setItem(`pos:dashboard-bands:${role}`,JSON.stringify([['06:00','09:00'],['09:00','11:00'],['11:00','13:00'],['13:00','15:00'],['15:00','17:00'],['17:00','22:00']].map(([start,end])=>({start,end})))),role);
  await context.routeWebSocket('**/realtime/v1/websocket**',socket=>{socket.onMessage(raw=>{const m=JSON.parse(String(raw));if(['phx_join','heartbeat'].includes(m[3]))socket.send(JSON.stringify([m[0],m[1],m[2],'phx_reply',{status:'ok',response:{}}]));});});
  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{const req=route.request(),path=new URL(req.url()).pathname;calls.push(path);let body;
  if(path==='/auth/v1/token')body={access_token:'mock',refresh_token:'refresh',expires_in:3600,token_type:'bearer',user:{id:role,email:'local@example.test',aud:'authenticated',role:'authenticated'}};
@@ -21,7 +22,7 @@ try{for(const role of ['thu_ngan','chu']){
  else if(path==='/rest/v1/restaurant_tables')body=[{id:1,name:'Bàn 1',service_type:'dine_in'}];
  else if(path==='/rest/v1/menu_items'||path.endsWith('/list_menu_management'))body=menu;
  else if(path.endsWith('/save_menu_item_in_group')){saves++;const p=req.postDataJSON();Object.assign(menu[0],{name:p.p_name,price:p.p_price,version:2});body=menu[0].id;}
- else if(path.endsWith('/cashier_dashboard_window')){reports++;if(fail)return route.fulfill({status:503,json:{message:'Test unavailable'}});const p=req.postDataJSON();
+ else if(path.endsWith('/cashier_dashboard_window')){assert.equal(req.postDataJSON().p_bands.length,7,'cashier legacy bands upgrade');reports++;if(fail)return route.fulfill({status:503,json:{message:'Test unavailable'}});const p=req.postDataJSON();
  const choices=[{table_id:1,name:'Bàn 1'},{table_id:2,name:'Mang về 2'}];
  const tableData=p.p_kind==='takeaway'||p.p_table===2?[{table_id:2,name:'Mang về 2',invoices:3,visits:3,qty:33}]:p.p_kind==='dine'||p.p_table===1?[{table_id:1,name:'Bàn 1',invoices:5,visits:4,qty:60}]:[{table_id:1,name:'Bàn 1',invoices:5,visits:4,qty:60},{table_id:2,name:'Mang về 2',invoices:3,visits:3,qty:33}];
  const qty=tableData.reduce((n,t)=>n+t.qty,0),invoices=tableData.reduce((n,t)=>n+t.invoices,0),visits=tableData.reduce((n,t)=>n+t.visits,0);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {writeFileSync} from 'node:fs';
-import {aggregateSales,bounds,defaultBands,isTakeaway,matchesSale,validBands,validateSale} from '../src/dashboard-model.ts';
+import {aggregateSales,bounds,defaultBands,restoreReportBands,isTakeaway,matchesSale,validBands,validateSale} from '../src/dashboard-model.ts';
 import {revenueWorkbook} from '../src/revenue-workbook.ts';
 const sale=(id,time,total=58000,extra={})=>({id,session_id:'s1',table_no:1,service_label:'Mang về 2',paid_at:'2026-11-09T'+time+'+07:00',gross:total,discount:0,total,method:'cash',bill_items:[{name:'Bún riêu',qty:1,price:total}],...extra});
 const rows=[sale('a','08:59:59.999'),sale('b','09:00:00.000',65000,{method:'transfer'}),sale('c','22:00:00.000',12000,{session_id:'s2'}),sale('d','23:59:59.999',10000,{table_no:2,service_label:'Bàn 2',session_id:'s3'}),sale('outside','00:00:00',9000,{paid_at:'2026-11-10T00:00:00+07:00'})];
@@ -20,3 +20,15 @@ writeFileSync('/tmp/dashboard-custom-bands.xlsx',revenueWorkbook(customReport,ro
 const range=bounds(from,to);assert.equal(range.end-range.start,86400000);assert.equal(range.start-range.previous,86400000);
 assert.throws(()=>validateSale({...rows[0],bill_items:[]}),/chưa đầy đủ/);
 console.log('PASS Dashboard: VN time/fractional end second, half-open slots, outside bucket, split bill visit dedup, takeaway/table filters, invalid overlaps, custom 8 slots and reconciled workbook.');
+
+assert.equal(defaultBands.length,7);
+const legacy=[...defaultBands.slice(0,5),{start:'17:00',end:'22:00'}];
+assert.deepEqual(restoreReportBands(legacy),defaultBands);
+assert.deepEqual(restoreReportBands([{start:'07:00',end:'22:00'}]),[{start:'07:00',end:'22:00'}]);
+assert.deepEqual(restoreReportBands(null),defaultBands);
+const evening=aggregateSales([sale('e1','17:00:00'),sale('e2','18:59:59.999'),sale('e3','19:00:00'),sale('e4','21:59:59.999'),sale('e5','22:00:00')],from,to,defaultBands,'','');
+assert.equal(evening.slots.find(s=>s.slot==='17:00–19:00').invoices,2);
+assert.equal(evening.slots.find(s=>s.slot==='19:00–22:00').invoices,2);
+assert.equal(evening.slots.at(-1).invoices,1);
+assert.equal(evening.slots.reduce((sum,s)=>sum+s.total,0),evening.total);
+console.log('PASS seven bands: legacy defaults migrate, custom schedules preserved; 17:00/19:00/22:00 and fractional-second boundaries reconcile.');

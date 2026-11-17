@@ -5,6 +5,7 @@ import {aggregateSales,matchesSale,bounds,defaultBands,vnToday,shiftDay} from '.
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
  const context=await browser.newContext({viewport:{width:1440,height:1000},acceptDownloads:true}),today=vnToday(),before=shiftDay(today,-1);let requests=0,rawReads=0,fail=false,bad=false,summaryBytes=0,rawBytes=0,holdExport=false,releaseExport;
+ await context.addInitScript(()=>localStorage.setItem('pos:dashboard-bands:aggregate-owner',JSON.stringify([['06:00','09:00'],['09:00','11:00'],['11:00','13:00'],['13:00','15:00'],['15:00','17:00'],['17:00','22:00']].map(([start,end])=>({start,end})))));
  const sales=Array.from({length:601},(_,i)=>({id:'bill-'+i,session_id:'session-'+Math.floor(i/3),table_no:i%2?1:2,service_label:i%2?'Bàn 1':'Mang về 2',paid_at:`${today}T${String(6+i%16).padStart(2,'0')}:00:00+07:00`,gross:119000,discount:0,total:119000,method:i%3?'cash':'transfer',bill_items:[{name:'Bún riêu',qty:2,price:58000,is_takeaway:i%2===0},{name:'Trà đá',qty:1,price:3000,is_takeaway:i%2===0}]}));
  sales.push({...sales[0],id:'previous',paid_at:before+'T08:00:00+07:00'});
  const groups=[{id:'bun',name:'Món chính',category:'bun',sort:10},{id:'an_them',name:'Món thêm',category:'an_them',sort:20},{id:'do_uong',name:'Đồ uống',category:'do_uong',sort:30}];
@@ -20,7 +21,7 @@ try{
   else if(path==='/rest/v1/menu_items')return route.fulfill({json:[{id:'food',name:'Bún riêu',price:58000,category:'bun',sort:0,is_active:true,is_out:false},{id:'drink',name:'Trà đá',price:3000,category:'do_uong',sort:1,is_active:true,is_out:false}],headers:{'content-range':'0-1/2','access-control-expose-headers':'content-range'}});
   else if(path.endsWith('/menu_group_catalog'))body={groups,assignments:{},non_kitchen_checkout:true};
   else if(path.endsWith('/admin_dashboard_window')){
-   requests++;if(fail)return route.fulfill({status:503,json:{message:'Test unavailable'}});
+   requests++;assert.equal(req.postDataJSON().p_bands.length,7,'legacy default settings upgrade before querying');if(fail)return route.fulfill({status:503,json:{message:'Test unavailable'}});
    const p=req.postDataJSON(),r=bounds(p.p_from_local,p.p_to_local),local=ms=>new Date(ms+7*3600000).toISOString().slice(0,19),filtered=sales.filter(s=>matchesSale(s,p.p_kind,p.p_table===null?'all':String(p.p_table))),generated=today+'T23:59:59+07:00';
    body={version:1,kind:p.p_kind,table_id:p.p_table,current:aggregateSales(filtered,p.p_from_local,p.p_to_local,p.p_bands,'',generated),previous:aggregateSales(filtered,local(r.previous),local(r.start-1000),p.p_bands,'',generated),table_options:[{table_id:1,name:'Bàn 1',kinds:['dine']},{table_id:2,name:'Mang về 2',kinds:['takeaway']}]};
    if(requests===1){summaryBytes=Buffer.byteLength(JSON.stringify(body));rawBytes=Buffer.byteLength(JSON.stringify(sales));assert.ok(summaryBytes<rawBytes/4);}
