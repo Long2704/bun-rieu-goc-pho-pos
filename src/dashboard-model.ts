@@ -1,6 +1,6 @@
 import type {RevenueDay,RevenueReport,RevenueSlot} from './revenue-export';
 export type TimeBand={start:string;end:string};
-export const defaultBands:TimeBand[]=[['06:00','09:00'],['09:00','11:00'],['11:00','13:00'],['13:00','15:00'],['15:00','17:00'],['17:00','22:00']].map(([start,end])=>({start,end}));
+export const defaultBands:TimeBand[]=[['06:00','09:00'],['09:00','11:00'],['11:00','13:00'],['13:00','15:00'],['15:00','17:00'],['17:00','19:00'],['19:00','22:00']].map(([start,end])=>({start,end}));
 export type Sale={id:string;session_id:string;table_no:number;service_label?:string|null;paid_at:string;gross:number;discount:number;total:number;method:string;bill_items:{name:string;qty:number;price:number;is_takeaway?:boolean|null}[]};
 export type TableSale={table_id:number;name:string;invoices:number;visits:number;qty:number;total:number};
 export type DashboardReport=RevenueReport&{visits:number;table_sales:TableSale[];filter_label:string;slot_rules:string};
@@ -36,4 +36,11 @@ export function aggregateSales(sales:Sale[],from:string,to:string,bands:TimeBand
   for(const item of sale.bill_items){table.qty+=item.qty;const p=products.get(item.name)??{name:item.name,qty:0,gross:0};p.qty+=item.qty;p.gross+=item.price*item.qty;products.set(item.name,p);}
  }
  return {...totals,from,to,generated_at:generatedAt,products_complete:true,time_filter:true,slots_complete:true,slots,days:[...days.values()],products:[...products.values()].sort((a,b)=>b.gross-a.gross||a.name.localeCompare(b.name)),visits:visits.size,table_sales:[...tables.values()].map(({sessions:_,...t})=>t).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name)),filter_label:filterLabel,slot_rules:bands.map(bandLabel).join(', ')};
+}
+
+// Upgrade the previous six default bands saved on a device; keep custom schedules.
+export function restoreReportBands(value:unknown):TimeBand[]{
+ if(!Array.isArray(value)||!value.every(b=>b&&typeof b.start==='string'&&typeof b.end==='string')||!validBands(value))return defaultBands;
+ const legacy=[...defaultBands.slice(0,5),{start:'17:00',end:'22:00'}];
+ return value.length===legacy.length&&value.every((b,i)=>b.start===legacy[i].start&&b.end===legacy[i].end)?defaultBands:value;
 }

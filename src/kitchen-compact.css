@@ -60,3 +60,12 @@
  .kitchen-page .kitchen-tabs{gap:4px}
  .kitchen-page .kitchen-tabs button{font-size:11px;padding:8px 7px}
 }
+
+/* Align the author with the final visible dish, or the final line of its note. */
+.kitchen-page .kitchen-line-with-staff{display:grid;grid-template-columns:minmax(0,1fr) fit-content(40%);column-gap:12px;align-items:last baseline}
+.kitchen-page .kitchen-line-with-staff>.kitchen-line-title{grid-column:1;grid-row:1;min-width:0;overflow-wrap:anywhere}
+.kitchen-page .kitchen-line-with-staff>.item-note{grid-column:1;grid-row:2;min-width:0;overflow-wrap:anywhere}
+.kitchen-page .kitchen-line-with-staff>.note-edited-label{grid-column:1;grid-row:3}
+.kitchen-page .kitchen-line-with-staff>.kitchen-order-staff{grid-column:2;grid-row:1;margin:0;align-self:last baseline;max-width:100%}
+.kitchen-page .kitchen-line-with-staff.has-note>.kitchen-order-staff{grid-row:2}
+.kitchen-page .kitchen-cancelled-line .kitchen-line-title>strong{text-decoration:line-through}

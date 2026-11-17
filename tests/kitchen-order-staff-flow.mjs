@@ -4,11 +4,13 @@ import assert from 'node:assert/strict';
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
 const context=await browser.newContext({viewport:{width:390,height:844}});
-const menu=[{id:'food',name:'Bún riêu truyền thống',price:58000,category:'bun',is_out:false},{id:'drink',name:'Trà đá',price:3000,category:'do_uong',is_out:false}];
+const menu=[{id:'food',name:'Bún riêu truyền thống',price:58000,category:'bun',is_out:false},{id:'drink',name:'Trà đá',price:3000,category:'do_uong',is_out:false},{id:'extra',name:'Bún thêm',price:10000,category:'an_them',is_out:false}];
 const order=(table,id)=>({id:'order'+id,session_id:'s'+table,request_id:'req'+id,ordered_by_name:id===1?'Chủ quán Bún Riêu Góc Phố':'Lan',status:'cooking',kitchen_relevant:true,created_at:new Date().toISOString(),order_items:menu.map((m,n)=>({...m,id:`line${id}-${n}`,qty:1,note:n?'':'Không hành',paid:false,bill_no:1}))});
 let sessions=[{id:'s1',table_id:1,orders:[order(1,1)]},{id:'s2',table_id:2,orders:[order(2,2)]},{id:'s3',table_id:3,orders:[order(3,3)]}];
 let bills=[],attempts=[],lostResponse=true,receiptUnavailable=false,role='bep',stale=false;
-sessions=sessions.slice(0,2);sessions[1].orders[0].status='done';sessions[1].orders[0].done_at=new Date().toISOString();
+sessions[2].orders[0].ordered_by_name='Nhân viên có tên rất dài để kiểm tra hiển thị';sessions[2].orders[0].order_items[0].is_takeaway=true;
+sessions[1].orders[0].order_items[2].note='Ghi chú món cuối có nhiều chữ để kiểm tra tên người order ngang dòng ghi chú cuối cùng trên điện thoại';sessions[1].orders[0].order_items[2].note_edited_at=new Date().toISOString();
+sessions=sessions.slice(0,3);sessions[1].orders[0].status='done';sessions[1].orders[0].done_at=new Date().toISOString();
 await context.routeWebSocket('**/realtime/v1/websocket**',socket=>socket.onMessage(()=>{}));
 await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{if(await mockLegacyMenuGroups(route))return;
  const req=route.request(),u=new URL(req.url());let body;
@@ -65,9 +67,11 @@ const cooking=page.locator('.kitchen-card').filter({has:page.getByRole('heading'
 await cooking.locator('.kitchen-order-staff').waitFor();assert.equal(await cooking.locator('.kitchen-order-staff').innerText(),'Admin');
 assert.equal(await cooking.getByText(/Người order/).count(),0);assert.equal(await cooking.getByText(/payment-test-user/).count(),0);
 const style=await cooking.locator('.kitchen-order-staff').evaluate(e=>{const s=getComputedStyle(e);return {color:s.color,weight:s.fontWeight,align:s.textAlign};});assert.deepEqual(style,{color:'rgb(180, 35, 24)',weight:'700',align:'right'});
+const verify=async card=>{const author=card.locator('.kitchen-order-staff');assert.equal(await author.count(),1);const result=await author.evaluate(el=>{const grid=el.parentElement,target=grid.querySelector('.item-note')||grid.querySelector('.kitchen-line-title strong');const lastRect=node=>{const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT);let last,n;while(n=walker.nextNode())if(n.textContent.trim())last=n;const end=last.textContent.trimEnd().length;const range=document.createRange();range.setStart(last,end-1);range.setEnd(last,end);return range.getBoundingClientRect();};return {difference:Math.abs(lastRect(el).bottom-lastRect(target).bottom),row:getComputedStyle(el).gridRowStart,hasNote:!!grid.querySelector('.item-note')};});assert.ok(result.difference<=4,JSON.stringify(result));assert.equal(result.row,result.hasNote?'2':'1');};
+for(const width of [375,390,768,1440]){await page.setViewportSize({width,height:900});await verify(cooking);await verify(page.locator('.kitchen-card').filter({has:page.getByRole('heading',{name:'Bàn 3',exact:true})}));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}
 await page.screenshot({path:'/tmp/kitchen-staff-cooking.png'});
 await page.getByRole('button',{name:'Lịch sử',exact:true}).click();
-const history=page.locator('.kitchen-card').filter({has:page.getByRole('heading',{name:'Bàn 2',exact:true})});await history.locator('.kitchen-order-staff').waitFor();assert.equal(await history.locator('.kitchen-order-staff').innerText(),'Lan');
+const history=page.locator('.kitchen-card').filter({has:page.getByRole('heading',{name:'Bàn 2',exact:true})});await history.locator('.kitchen-order-staff').waitFor();assert.equal(await history.locator('.kitchen-order-staff').innerText(),'Lan');for(const width of [375,390,768,1440]){await page.setViewportSize({width,height:900});await verify(history);}
 assert.ok(await page.locator('body').evaluate(e=>e.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);await page.screenshot({path:'/tmp/kitchen-staff-history.png'});
 console.log('PASS kitchen author UI: name only, red/bold/right aligned, current/history, mobile layout, no UID or prefix');await context.close();
 }finally{await browser.close();}
