@@ -45,7 +45,7 @@ try{
  alter table order_items enable row level security;
  create policy items_staff_read on order_items for select to authenticated using ((select public.has_permission('orders.read')));
  `);
- await db.exec(migration('20261119140011_drinks_notifications.sql'));
+ await db.exec(migration('20261119140222_drinks_notifications.sql'));
  await db.exec(`
  insert into order_items(id,order_id,category,name,qty,note,is_takeaway,paid,cancelled_at,kitchen_position) values
  ('${drink}','${order}','do_uong','Trà đá',2,'Ít đá',true,false,null,2),
