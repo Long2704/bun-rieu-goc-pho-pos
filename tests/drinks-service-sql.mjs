@@ -46,6 +46,13 @@ try{
  create policy items_staff_read on order_items for select to authenticated using ((select public.has_permission('orders.read')));
  `);
  await db.exec(migration('20261119140222_drinks_notifications.sql'));
+ await db.exec(migration('20261119140804_drinks_staff_roles.sql'));
+ await db.exec(`
+ alter table table_sessions enable row level security;
+ create policy sessions_staff_read on table_sessions for select to authenticated using ((select public.has_permission('orders.read')));
+ create policy cashier_session_scope on table_sessions as restrictive for select to authenticated
+  using ((select public.current_staff_role()) is distinct from 'thu_ngan' or closed_at is null);
+ `);
  await db.exec(`
  insert into order_items(id,order_id,category,name,qty,note,is_takeaway,paid,cancelled_at,kitchen_position) values
  ('${drink}','${order}','do_uong','Trà đá',2,'Ít đá',true,false,null,2),
@@ -79,17 +86,28 @@ try{
  const added=(await list(false)).find(ticket=>ticket.id===order);
  assert.equal(added.items[0].qty,1);
  await complete(order,[{id:drink,qty:3}]);
+ await signIn(cashier);
+ assert.equal((await one('select count(*)::integer as n from table_sessions where closed_at is not null')).n,0);
+ assert.equal((await list(false))[0].id,closedOrder);
  await complete(closedOrder,[{id:paid,qty:1}]);
  assert.deepEqual(await list(false),[]);
  assert.equal((await list(true)).find(ticket=>ticket.id===order).items[0].qty,3);
 
- for(const user of [cashier,kitchen,'']){
+ for(const user of [cashier,kitchen,admin,waiter]){
+  await signIn(user);
+  const history=await list(true);
+  assert.equal(history.length,2);
+  assert.ok(history.some(ticket=>ticket.id===closedOrder));
+  assert.ok(history.every(ticket=>ticket.items.every(item=>!('price' in item))));
+  await complete(order,[{id:drink,qty:3}]);
+ }
+ await db.exec('reset role');
+ await db.query('update profiles set is_active=false where id=$1',[kitchen]);
+ for(const user of [kitchen,'']){
   await signIn(user);
   await assert.rejects(list(false),/không có quyền/);
   await assert.rejects(complete(order,[{id:drink,qty:3}]),/không có quyền/);
  }
- await signIn(admin);
- assert.equal((await list(true)).length,2);
  await db.exec('reset role;set role anon');
  await assert.rejects(list(false),/permission denied/);
  console.log('PASS drink queue SQL: mixed orders, paid drinks, exclusions, exact completion, replay, added quantities, history, and role permissions');

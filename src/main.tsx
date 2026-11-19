@@ -115,7 +115,7 @@ function App(){
  const updateDrinkCount=useCallback((count:number)=>{
   if(session?.user.id)setDrinkCount({userId:session.user.id,count});
  },[session?.user.id]);
- const canServeDrinks=permitted(profile,'orders.read')&&(profile?.role==='phuc_vu'||profile?.role==='admin');
+ const canServeDrinks=permitted(profile,'orders.read');
  const [tableSearch,setTableSearch]=useState(''),[tableFilter,setTableFilter]=useState<'all'|'empty'|'busy'>('all');
  const [receiptRequest,setReceiptRequest]=useState<{id:string;key:number}|null>(null);
  const managementNav=useRef<HTMLDetailsElement>(null);
@@ -233,7 +233,6 @@ function App(){
    if(syncDataEpoch(user,access.data_epoch)){setError('');setPending(null);setDrafts({});setNotes({});setSelected(null);setReceiptRequest(null);setReload(n=>n+1);return;}
    setProfile(prev=>JSON.stringify(prev)===JSON.stringify(access)?prev:access);
    setView(current=>{
-    if(current==='drinks'&&access.role!=='phuc_vu'&&access.role!=='admin')return access.role==='bep'?'kitchen':'service';
     if(current==='invoices'&&access.role==='bep')return 'kitchen';
     const permissions:Record<View,string>={service:'orders.read',kitchen:'orders.read',drinks:'orders.read',tables:'tables.manage',menu:'menu.manage',revenue:access.role==='thu_ngan'?'reports.operations':'reports.read',audit:'audit.read',invoices:'receipts.read_own',employees:'employees.manage'};
     return permitted(access,permissions[current])?current:access.role==='bep'?'kitchen':'service';
