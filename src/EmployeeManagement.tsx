@@ -1,3 +1,4 @@
+import LoadingIndicator from './LoadingIndicator';
 import {useEffect,useRef,useState} from 'react';
 import {supabase} from './supabase';
 import PosIcon from './PosIcon';
@@ -65,14 +66,14 @@ export default function EmployeeManagement({active,userId}:{active:boolean;userI
   <EmployeePasswordReset employee={resetting} userId={userId} onClose={()=>setResetting(null)} onChanged={()=>setReload(n=>n+1)}/>
   <EmployeeEditor employee={editing} userId={userId} onClose={()=>setEditing(null)} onChanged={()=>setReload(n=>n+1)}/>
   <EmployeeCreate userId={userId} onCreated={()=>{setPage(1);setReload(n=>n+1);}}/>
-  <div className="employee-toolbar"><span role="status">{busy?'Đang tải…':error?'Chưa tải được':`${total} nhân viên`}</span><button aria-label="Tải lại nhân viên" disabled={busy} onClick={()=>setReload(n=>n+1)}><PosIcon name="refresh"/>Tải lại</button></div>
+  <div className="employee-toolbar"><span role="status">{error?'Chưa tải được':!busy||total>0?`${total} nhân viên`:null}</span><button aria-label="Tải lại nhân viên" disabled={busy} onClick={()=>setReload(n=>n+1)}><PosIcon name="refresh"/>Tải lại</button></div>
   <form className="employee-filters" onSubmit={e=>{e.preventDefault();search();}}>
    <label>Tên hoặc tên đăng nhập<input type="search" maxLength={100} value={draft.search} placeholder="Tìm nhân viên…" onChange={e=>setDraft({...draft,search:e.target.value})}/></label>
    <div><label htmlFor="employee-role">Vai trò</label><select id="employee-role" value={draft.role} onChange={e=>setDraft({...draft,role:e.target.value})}><option value="">Tất cả vai trò</option><option value="admin">Admin</option><option value="phuc_vu">Waiter</option><option value="bep">Kitchen</option><option value="thu_ngan">Cashier</option></select></div>
    <div><label htmlFor="employee-status">Trạng thái</label><select id="employee-status" value={draft.status} onChange={e=>setDraft({...draft,status:e.target.value})}><option value="">Tất cả trạng thái</option><option value="active">Đang hoạt động</option><option value="locked">Đã khóa</option></select></div>
    <button className="primary" type="submit" disabled={busy}>Tìm</button>
   </form>
-  {busy?<p role="status">Đang tải nhân viên…</p>:error?<p role="alert">{error}</p>:!rows.length?<div className="empty-state"><h3>Không có nhân viên phù hợp</h3></div>:<>
+  {busy?<LoadingIndicator label="Đang tải nhân viên"/>:error?<p role="alert">{error}</p>:!rows.length?<div className="empty-state"><h3>Không có nhân viên phù hợp</h3></div>:<>
    <div className="employee-list">{rows.map(employee=><article key={employee.id} aria-label={`Nhân viên ${employee.name}`}>
     <div className="employee-identity"><h3>{employee.name}</h3><p>{employee.username?`Đăng nhập: ${employee.username}`:'Chưa có tên đăng nhập'}</p></div>
     <dl><div><dt>Vai trò</dt><dd><span className="employee-role">{roleLabels[employee.role]??'Chưa xác định'}</span></dd></div><div><dt>Trạng thái</dt><dd><span className={`employee-status ${employee.is_active?'is-active':'is-locked'}`}>{employee.account_deletion_pending?'Đang xóa':employee.password_reset_pending?'Đang đặt lại mật khẩu':employee.is_active?'Đang hoạt động':'Đã khóa'}</span></dd></div><div><dt>Ngày tạo</dt><dd><time dateTime={employee.created_at}>{createdLabel(employee.created_at)}</time></dd></div></dl>

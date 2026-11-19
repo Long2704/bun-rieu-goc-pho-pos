@@ -37,7 +37,7 @@ export default function AdminPasswordChange({onClose,onBusy,onSuccess}:{onClose:
    <small>Từ 8 ký tự, tối đa 72 byte. Nên kết hợp chữ, số và ký tự đặc biệt.</small>
    <label>Nhập lại mật khẩu mới<input type="password" autoComplete="new-password" required maxLength={72} disabled={busy} value={confirm} onChange={e=>setConfirm(e.target.value)}/></label>
    {confirm&&confirm!==password&&<p role="status">Hai mật khẩu chưa khớp.</p>}{error&&<p role="alert">{error}</p>}
-   <div className="confirm-dialog-actions"><button type="button" disabled={busy} onClick={onClose}>Đóng</button><button className="primary" type="submit" disabled={busy||!valid}>{busy?'Đang lưu…':'Lưu mật khẩu'}</button></div>
+   <div className="confirm-dialog-actions"><button type="button" disabled={busy} onClick={onClose}>Đóng</button><button className="primary" type="submit" disabled={busy||!valid}>{'Lưu mật khẩu'}</button></div>
   </form>
  </dialog>,document.body);
 }

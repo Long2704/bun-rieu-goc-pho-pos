@@ -41,7 +41,7 @@ export default function PasswordRecovery({hasSession,onExit}:{hasSession:boolean
    {!!confirm&&password!==confirm&&<p role="alert">Hai mật khẩu chưa khớp.</p>}
   </fieldset></>}
   {error&&<p role="alert">{error}</p>}
-  {!saved&&hasSession&&!invalidSession&&<button className="primary" type="submit" disabled={busy||!valid}>{busy?'Đang lưu…':'Lưu mật khẩu mới'}</button>}
+  {!saved&&hasSession&&!invalidSession&&<button className="primary" type="submit" disabled={busy||!valid}>{'Lưu mật khẩu mới'}</button>}
   <button type="button" disabled={busy} className={saved?'primary':''} onClick={()=>void exit()}>Về đăng nhập</button>
  </form></div>;
 }

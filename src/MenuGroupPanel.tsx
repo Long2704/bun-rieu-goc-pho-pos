@@ -49,7 +49,7 @@ export default forwardRef<MenuGroupHandle,Props>(function MenuGroupPanel({userId
     </fieldset>
     {failure&&<p role="alert">{failure}</p>}
     {pending&&<p role="status">Nhóm “{pending.name}” đang chờ xác nhận.</p>}
-    <div className="menu-group-actions"><button className="primary" disabled={busy||storageError||(!pending&&(!valid||disabled||!catalog))} type="submit">{busy?'Đang lưu…':pending?(pending.groupId?'Thử lại thiết lập cùng mã':'Thử lại tạo nhóm cùng mã'):'Xác nhận'}</button><button type="button" disabled={busy} onClick={()=>{setOpen(false);if(!pending)setFailure('');}}>Hủy thêm nhóm</button></div>
+    <div className="menu-group-actions"><button className="primary" disabled={busy||storageError||(!pending&&(!valid||disabled||!catalog))} type="submit">{pending?(pending.groupId?'Thử lại thiết lập cùng mã':'Thử lại tạo nhóm cùng mã'):'Xác nhận'}</button><button type="button" disabled={busy} onClick={()=>{setOpen(false);if(!pending)setFailure('');}}>Hủy thêm nhóm</button></div>
    </form>
   </dialog>
  </>;

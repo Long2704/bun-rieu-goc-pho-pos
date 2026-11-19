@@ -1,3 +1,4 @@
+import LoadingIndicator from './LoadingIndicator';
 import {placeLabel} from './order-model';
 import {useEffect,useRef,useState} from 'react';
 import {supabase} from './supabase';
@@ -15,7 +16,7 @@ export default function InvoiceHistory({active,disabled,ownOnly=false,latestOnly
  }catch(e){if(alive.current&&request===sequence.current){if(!more){setRows([]);setHasMore(false);}setError(e instanceof Error?e.message:'Không tải được hóa đơn.');}}finally{lock.current=false;if(alive.current&&request===sequence.current)setBusy(false);}}
  useEffect(()=>{if(active)void load();},[active]);
  return <section className="invoice-history" aria-label="Danh sách hóa đơn"><div className="panel-heading"><div><h2>{latestOnly?'Hóa đơn vừa thu':ownOnly?'Hóa đơn gần nhất của tôi':'Hóa đơn gần nhất'}</h2><p>{latestOnly?'Chỉ hiển thị hóa đơn gần nhất do bạn thanh toán.':ownOnly?'Chỉ hiển thị hóa đơn do bạn thanh toán.':'Mở hóa đơn để xem chi tiết.'}{!latestOnly&&' Tải 10 hóa đơn mỗi lần; bấm Xem thêm để xem các hóa đơn trước.'}</p></div><button disabled={busy} onClick={()=>void load()}>Tải lại hóa đơn</button></div>
- {error&&<p role="alert">{error}</p>}{busy&&<p role="status">Đang tải hóa đơn…</p>}
+ {error&&<p role="alert">{error}</p>}{busy&&<LoadingIndicator label="Đang tải hóa đơn"/>}
  {!rows.length&&!busy&&!error?<div className="empty-state"><h3>Chưa có hóa đơn</h3><p>Hóa đơn đã thanh toán sẽ xuất hiện tại đây.</p></div>:<div className="invoice-list">{rows.map(b=><button key={b.id} disabled={disabled} onClick={()=>onOpen(b.id)}><span><strong>{b.cashier_name?.trim()||'Nhân viên'} · {b.service_label||placeLabel(b.table_no)} · Bill {b.bill_no??1}</strong><small>{new Date(b.paid_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})} · {b.method==='cash'?'Tiền mặt':'Chuyển khoản'}</small></span><strong>{Number(b.total).toLocaleString('vi-VN')}đ</strong></button>)}</div>}
  {hasMore&&<button disabled={busy} onClick={()=>void load(true)}>Xem thêm hóa đơn</button>}
  </section>;

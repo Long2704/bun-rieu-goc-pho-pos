@@ -52,7 +52,7 @@ export default function EmployeePasswordReset({employee,userId,onClose,onChanged
    {record&&<><h2>Đặt lại mật khẩu</h2><p><strong>{record.name}</strong></p><p>Thao tác sẽ vô hiệu hóa phiên cũ. Nhân viên phải đăng nhập bằng mật khẩu tạm mới và đổi mật khẩu trước khi sử dụng POS.</p>
    <form onSubmit={e=>{e.preventDefault();void apply();}}><label>Mật khẩu tạm mới<input type="password" autoComplete="new-password" required minLength={6} maxLength={12} disabled={busy} value={password} onChange={e=>setPassword(e.target.value)}/></label>
    {message&&(message.startsWith('Đã ')?<Toast message={message}/>:<p role="status">{message}</p>)}
-   <div className="confirm-dialog-actions"><button type="button" disabled={busy} onClick={close}>Đóng</button>{record.submitted&&<button type="button" disabled={busy} onClick={()=>void check(record)}>Kiểm tra lại</button>}<button className="danger" type="submit" disabled={busy||password.length<6}>{busy?'Đang xử lý…':record.submitted?'Tiếp tục đặt lại':'Xác nhận đặt lại'}</button></div></form></>}
+   <div className="confirm-dialog-actions"><button type="button" disabled={busy} onClick={close}>Đóng</button>{record.submitted&&<button type="button" disabled={busy} onClick={()=>void check(record)}>Kiểm tra lại</button>}<button className="danger" type="submit" disabled={busy||password.length<6}>{record.submitted?'Tiếp tục đặt lại':'Xác nhận đặt lại'}</button></div></form></>}
   </dialog>,document.body)}
  </>;
 }

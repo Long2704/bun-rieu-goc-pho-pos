@@ -1,3 +1,4 @@
+import LoadingIndicator from './LoadingIndicator';
 import {useEffect,useRef,useState} from 'react';
 import {TicketOrderLines} from './KitchenOrderLines';
 import SwipeOrderCard from './SwipeOrderCard';
@@ -103,7 +104,7 @@ export default function DrinksPanel({active,online,realtimeReady,revision,onQueu
   {!history&&!!tickets?.length&&<p className="drinks-swipe-help" id="drink-swipe-help">Vuốt phiếu sang trái hoặc phải để hoàn thành.</p>}
   <section className="kitchen-grid" aria-label={history?'Phiếu nước đã hoàn thành':'Phiếu nước đang làm'}
    aria-describedby={!history&&tickets?.length?'drink-swipe-help':undefined}>
-   {!tickets&&online&&!readError&&<p role="status">Đang tải phiếu nước…</p>}
+   {!tickets&&online&&!readError&&<LoadingIndicator label="Đang tải phiếu nước"/>}
    {tickets?.length===0&&!readError&&<p className="drinks-empty">{history?'Chưa có phiếu nước đã hoàn thành.':'Chưa có món nước đang làm.'}</p>}
    {tickets?.map((ticket,index)=>{
     const title=ticket.items.every(item=>item.is_takeaway)?takeawayTitle(ticket.place):ticket.place;

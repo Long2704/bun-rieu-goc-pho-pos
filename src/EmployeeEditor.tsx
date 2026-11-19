@@ -46,7 +46,7 @@ export default function EmployeeEditor({employee,userId,onClose,onChanged}:{empl
     {!(pending?.p_is_active??active)&&<p>Khóa sẽ ngăn nhân viên tiếp tục gọi món, thanh toán và cập nhật bếp, kể cả phiên đăng nhập cũ.</p>}
     {pending&&<p role="status">Giữ nguyên thông tin để xác nhận cùng yêu cầu; không tạo cập nhật trùng.</p>}
     {error&&<p role="alert">{error}</p>}
-    <div className="confirm-dialog-actions"><button type="button" disabled={busy} onClick={close}>Đóng</button><button className="primary" type="submit" disabled={busy}>{busy?'Đang lưu…':pending?'Thử lại cùng yêu cầu':!active?'Xác nhận khóa và lưu':'Lưu thay đổi'}</button></div>
+    <div className="confirm-dialog-actions"><button type="button" disabled={busy} onClick={close}>Đóng</button><button className="primary" type="submit" disabled={busy}>{pending?'Thử lại cùng yêu cầu':!active?'Xác nhận khóa và lưu':'Lưu thay đổi'}</button></div>
    </form>
   </dialog>,document.body)}
  </>;
