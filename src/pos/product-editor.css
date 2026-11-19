@@ -1,5 +1,5 @@
-.pos-product-list{display:grid;gap:8px}
-.pos-order-workspace .pos-product-row.pos-product-select-card{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:14px;align-items:center;width:100%;min-height:116px;border:1px solid #f0d8c1;border-radius:18px;padding:14px;background:#fffdf8!important;text-align:left;color:inherit;touch-action:manipulation;box-shadow:0 2px 6px #66331008}
+.pos-product-list{display:grid;gap:7px}
+.pos-order-workspace .pos-product-row.pos-product-select-card{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:14px;align-items:center;width:100%;min-height:94px;border:1px solid #f0d8c1;border-radius:18px;padding:9px 12px;background:#fffdf8!important;text-align:left;color:inherit;touch-action:manipulation;box-shadow:0 2px 6px #66331008}
 .pos-product-hit:focus-visible{outline:2px solid #ed790a;outline-offset:-3px}
 .pos-product-hit:disabled{opacity:.55;cursor:not-allowed}
 .pos-product-hit .pos-product-copy{display:flex;flex-direction:column;align-items:flex-start;gap:20px}

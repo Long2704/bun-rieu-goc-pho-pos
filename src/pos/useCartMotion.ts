@@ -37,7 +37,7 @@ export default function useCartMotion(target: RefObject<HTMLButtonElement | null
     ], {duration:460,easing:'cubic-bezier(.3,.05,.45,1)',fill:'forwards'});
     void animation.finished.then(() => {
      node?.remove();
-     const badge = button.querySelector('span');
+     const badge = button.querySelector('.pos-order-count');
      if (disposed || !badge?.isConnected) { dispose(); return; }
      animation = badge.animate([{transform:'scale(1)'},{transform:'scale(1.2)',offset:.45},{transform:'scale(1)'}],{duration:180,easing:'ease-out'});
      void animation.finished.then(dispose, dispose);

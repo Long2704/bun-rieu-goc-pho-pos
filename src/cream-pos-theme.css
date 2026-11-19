@@ -19,7 +19,7 @@ button.primary:hover:not(:disabled),.primary:hover:not(:disabled){background:lin
 .pos-product-search input,.pos-line-note input{background:#fffdfa;border-color:#e7cdb6;color:var(--restaurant-ink)}
 .pos-product-search>.pos-ui-icon{color:#9a7254}
 .pos-menu-pane,.pos-order-pane{background:#fff7ed}
-.pos-order-workspace .pos-product-row{background:#fffcf7;border-color:var(--restaurant-line);border-radius:12px;margin:7px 0;padding:12px 9px;box-shadow:0 2px 4px #78370008}
+.pos-order-workspace .pos-product-row{background:#fffcf7;border-color:var(--restaurant-line);border-radius:12px;margin:0;padding:9px;box-shadow:0 2px 4px #78370008}
 .pos-product-art,.pos-product-row.is-selected .pos-product-art,.pos-order-art{background:#ffecd5;color:#d45d0d}
 .pos-product-copy h2,.pos-order-item-heading h2,.pos-order-item-heading h3{color:var(--restaurant-ink)}
 .pos-product-copy>span,.pos-order-item-bottom>strong{color:#a84009}

@@ -170,7 +170,9 @@ button.primary:hover:not(:disabled),.primary:hover:not(:disabled) {
   flex:none
 }
 .pos-screen-header {
-  display:flex;
+  --header-side:42px;
+  display:grid;
+  grid-template-columns:var(--header-side) minmax(0,1fr) var(--header-side);
   align-items:center;
   gap:2px;
   flex-shrink:0;
@@ -178,6 +180,9 @@ button.primary:hover:not(:disabled),.primary:hover:not(:disabled) {
   padding:4px 10px;
   background:#fff
 }
+.pos-screen-header:has(.pos-header-actions > :nth-child(2)) { --header-side:86px; }
+.pos-screen-header:has(.pos-header-actions > :nth-child(3)) { --header-side:130px; }
+.pos-screen-header .pos-back { justify-self:start; }
 .pos-screen-header h1 {
   flex:1;
   min-width:0;
@@ -194,8 +199,8 @@ button.primary:hover:not(:disabled),.primary:hover:not(:disabled) {
   display:flex;
   align-items:center;
   justify-content:flex-end;
+  justify-self:end;
   min-width:42px;
-  flex-shrink:0;
   gap:2px
 }
 .pos-icon-button {
@@ -497,12 +502,21 @@ button.primary:hover:not(:disabled),.primary:hover:not(:disabled) {
   background:#f3f3f3;
   border-color:#f3f3f3
 }
-.pos-menu-bottom .primary span {
-  display:inline-grid;
+.pos-menu-bottom .pos-menu-view-order {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-width:0
+}
+.pos-menu-bottom .pos-order-count {
+  display:grid;
   place-items:center;
-  min-width:19px;
+  flex:none;
+  min-width:20px;
   height:20px;
-  margin-left:7px;
+  line-height:1;
+  font-variant-numeric:tabular-nums;
   padding:0 4px;
   border-radius:5px;
   background:#0054ac;
