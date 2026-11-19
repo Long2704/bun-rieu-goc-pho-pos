@@ -22,13 +22,13 @@ try{for(const role of ['thu_ngan','chu']){
  else if(path==='/rest/v1/restaurant_tables')body=[{id:1,name:'Bàn 1',service_type:'dine_in'}];
  else if(path==='/rest/v1/menu_items'||path.endsWith('/list_menu_management'))body=menu;
  else if(path.endsWith('/save_menu_item_in_group')){saves++;const p=req.postDataJSON();Object.assign(menu[0],{name:p.p_name,price:p.p_price,version:2});body=menu[0].id;}
- else if(path.endsWith('/cashier_dashboard_window')){assert.equal(req.postDataJSON().p_bands.length,7,'cashier legacy bands upgrade');reports++;if(fail)return route.fulfill({status:503,json:{message:'Test unavailable'}});const p=req.postDataJSON();
+ else if(path.endsWith('/cashier_dashboard_window_with_main')){assert.equal(req.postDataJSON().p_bands.length,7,'cashier legacy bands upgrade');reports++;if(fail)return route.fulfill({status:503,json:{message:'Test unavailable'}});const p=req.postDataJSON();
  const choices=[{table_id:1,name:'Bàn 1'},{table_id:2,name:'Mang về 2'}];
  const tableData=p.p_kind==='takeaway'||p.p_table===2?[{table_id:2,name:'Mang về 2',invoices:3,visits:3,qty:33}]:p.p_kind==='dine'||p.p_table===1?[{table_id:1,name:'Bàn 1',invoices:5,visits:4,qty:60}]:[{table_id:1,name:'Bàn 1',invoices:5,visits:4,qty:60},{table_id:2,name:'Mang về 2',invoices:3,visits:3,qty:33}];
  const qty=tableData.reduce((n,t)=>n+t.qty,0),invoices=tableData.reduce((n,t)=>n+t.invoices,0),visits=tableData.reduce((n,t)=>n+t.visits,0);
  const products=qty===93?[{name:'Bún riêu đầy đủ',qty:30},{name:'Bún riêu truyền thống',qty:20},{name:'Bún riêu góc phố',qty:15},{name:'Canh bún đầy đủ',qty:10},{name:'Canh bún truyền thống',qty:8},{name:'Canh bún góc phố',qty:5},{name:'Bún thêm',qty:3},{name:'Trà đá',qty:2}]:[{name:'Bún riêu đầy đủ',qty}];
- const slots=[...p.p_bands.map(b=>b.start+'–'+b.end),'Ngoài khung'].map((slot,i)=>({slot,slot_index:i+1,invoices:0,qty:0}));
- const product_slots=products.map((v,i)=>({name:v.name,qty:v.qty,slot_index:(i%p.p_bands.length)+1}));for(const v of product_slots)slots[v.slot_index-1].qty+=v.qty;if(products.length===invoices){for(const v of product_slots)slots[v.slot_index-1].invoices++;}else slots[0].invoices=invoices;
+ const slots=[...p.p_bands.map(b=>b.start+'–'+b.end),'Ngoài khung'].map((slot,i)=>({slot,slot_index:i+1,invoices:0,qty:0,main_qty:0}));
+ const product_slots=products.map((v,i)=>({name:v.name,qty:v.qty,slot_index:(i%p.p_bands.length)+1}));for(const v of product_slots){const slot=slots[v.slot_index-1];slot.qty+=v.qty;if(!['Bún thêm','Trà đá'].includes(v.name))slot.main_qty+=v.qty;}if(products.length===invoices){for(const v of product_slots)slots[v.slot_index-1].invoices++;}else slots[0].invoices=invoices;
  body={from:p.p_from_local,to:p.p_to_local,generated_at:new Date().toISOString(),kind:p.p_kind,table_id:p.p_table,invoices,visits,qty,slots,products,product_slots,table_sales:tableData,table_options:choices,days:[{day:p.p_from_local.slice(0,10),invoices,qty}]};}
 
  else if(path.endsWith('/list_employees'))body={employees:[],total:0,page:1,page_size:20};
@@ -39,7 +39,7 @@ try{for(const role of ['thu_ngan','chu']){
  await page.goto(process.env.POS_TEST_URL||'http://localhost:5197');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('local@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('LocalTest123!');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await page.locator('.table-card').first().waitFor();
  const open=async name=>{const summary=page.locator('.management-menu summary');if(await summary.isVisible()){if(!await page.locator('.management-menu').getAttribute('open'))await summary.click();await page.locator('.management-dropdown').getByRole('button',{name,exact:true}).click();}else await page.getByRole('button',{name,exact:true}).first().click();};
  if(role==='thu_ngan'){
- await open('Báo cáo');const report=page.getByRole('region',{name:'Báo cáo',exact:true});await report.getByRole('heading',{name:'Bán hàng theo khung giờ'}).waitFor();assert.equal(reports,1);
+ await open('Báo cáo');const report=page.getByRole('region',{name:'Báo cáo',exact:true});await report.getByRole('heading',{name:'Bán hàng theo khung giờ'}).waitFor();assert.equal(reports,1);assert.match(await report.locator('.dash-slot-bars > div').first().innerText(),/30 phần món chính.*2 hóa đơn/s);
  assert.equal(await report.locator('.dash-kpis').count(),0);assert.equal(await report.locator('.dash-charts-grid').count(),0);
  assert.equal(await report.locator('.dash-two-columns>.dash-card').count(),2);assert.equal(await report.locator('.dash-products>li').count(),6);
  assert.deepEqual(await report.locator('.dash-tables thead th').allTextContents(),['Bàn / điểm bán','Lượt bán','Hóa đơn','Số phần']);

@@ -1,6 +1,6 @@
 import type {TimeBand} from './dashboard-model';
 export type QuantityProduct={name:string;qty:number};
-export type QuantitySlot={slot:string;slot_index:number;invoices:number;qty:number};
+export type QuantitySlot={slot:string;slot_index:number;invoices:number;qty:number;main_qty:number};
 export type QuantityTable={table_id:number;name:string;visits:number;invoices:number;qty:number};
 export type CashierDashboard={from:string;to:string;generated_at:string;kind:string;table_id:number|null;invoices:number;visits:number;qty:number;slots:QuantitySlot[];products:QuantityProduct[];product_slots:{name:string;slot_index:number;qty:number}[];table_sales:QuantityTable[];table_options:{table_id:number;name:string}[];days:{day:string;invoices:number;qty:number}[]};
 const integer=(n:unknown):n is number=>Number.isSafeInteger(n)&&Number(n)>=0;
@@ -14,7 +14,7 @@ export function validateCashierDashboard(value:unknown,bands:TimeBand[]):Cashier
  const fail=()=>{throw Error('Dữ liệu báo cáo chưa đầy đủ hoặc không khớp. Bấm Xem Dashboard để tải lại.');};
  if(!keys(r,['from','to','generated_at','kind','table_id','invoices','visits','qty','slots','products','product_slots','table_sales','table_options','days'])||typeof r.from!=='string'||typeof r.to!=='string'||!Number.isFinite(Date.parse(r.generated_at))||!['all','takeaway','dine'].includes(r.kind)||r.table_id!==null&&!Number.isInteger(r.table_id)||![r.invoices,r.visits,r.qty].every(integer)||r.visits>r.invoices)fail();
  const labels=[...bands.map(b=>`${b.start}–${b.end}`),'Ngoài khung'];
- if(!Array.isArray(r.slots)||r.slots.length!==labels.length||r.slots.some((s,i)=>!keys(s,['slot','slot_index','invoices','qty'])||s.slot_index!==i+1||s.slot!==labels[i]||![s.invoices,s.qty].every(integer)||s.invoices===0&&s.qty!==0))fail();
+ if(!Array.isArray(r.slots)||r.slots.length!==labels.length||r.slots.some((s,i)=>!keys(s,['slot','slot_index','invoices','qty','main_qty'])||s.slot_index!==i+1||s.slot!==labels[i]||![s.invoices,s.qty,s.main_qty].every(integer)||s.main_qty>s.qty||s.invoices===0&&s.qty!==0))fail();
  if(!Array.isArray(r.products)||r.products.some(p=>!keys(p,['name','qty'])||!name(p.name)||!integer(p.qty)||!p.qty)||!unique(r.products.map(p=>p.name)))fail();
  if(!Array.isArray(r.table_sales)||r.table_sales.some(t=>!keys(t,['table_id','name','visits','invoices','qty'])||!Number.isInteger(t.table_id)||!name(t.name)||![t.invoices,t.visits,t.qty].every(integer)||!t.invoices||!t.visits||t.visits>t.invoices)||!unique(r.table_sales.map(t=>t.table_id)))fail();
  if(!Array.isArray(r.table_options)||r.table_options.some(t=>!keys(t,['table_id','name'])||!Number.isInteger(t.table_id)||!name(t.name))||!unique(r.table_options.map(t=>t.table_id)))fail();
