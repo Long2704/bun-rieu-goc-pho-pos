@@ -6,6 +6,7 @@ export async function checkCashierDashboard(db,owner,cashier,waiter){
  const as=async id=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');};
  await db.exec('reset role');const path=readdirSync(new URL('../../supabase/migrations/',import.meta.url)).find(n=>n.endsWith('_cashier_dashboard_quantities.sql'));
  await db.exec(readFileSync(new URL('../../supabase/migrations/'+path,import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../../supabase/migrations/20261119033813_cashier_main_dish_hourly.sql',import.meta.url),'utf8'));
  await db.exec('begin');
  try{
  await db.exec("update auth.users set email=replace(id::text,'-','')||'@pos.test'");
@@ -13,12 +14,20 @@ export async function checkCashierDashboard(db,owner,cashier,waiter){
  await db.query("update profiles set role='thu_ngan',is_active=true,must_change_password=false,staff_sessions_revoked_before=null where id=$1",[cashier]);
  const day=(await row("select (now() at time zone 'Asia/Ho_Chi_Minh')::date::text d")).d,from=day+'T00:00:00',to=day+'T23:59:59';
  const bands=[['06:00','09:00'],['09:00','11:00'],['11:00','13:00'],['13:00','15:00'],['15:00','17:00'],['17:00','22:00']].map(([start,end])=>({start,end}));
- const report=async(kind='all',table=null,bs=bands,f=from,t=to)=>(await row('select cashier_dashboard_window($1,$2,$3::jsonb,$4,$5) r',[f,t,JSON.stringify(bs),kind,table])).r;
+ const report=async(kind='all',table=null,bs=bands,f=from,t=to)=>(await row('select cashier_dashboard_window_with_main($1,$2,$3::jsonb,$4,$5) r',[f,t,JSON.stringify(bs),kind,table])).r;
  await as(cashier);const baseline=await report();validateCashierDashboard(baseline,bands);
  await db.exec('reset role');const seed=readFileSync(new URL('../../local/cashier-report-demo.sql',import.meta.url),'utf8').replace(/^begin;\s*$/gm,'').replace(/^commit;\s*$/gm,'');await db.exec(seed);
  await as(cashier);const result=await report();validateCashierDashboard(result,bands);
  assert.equal(result.invoices-baseline.invoices,7);assert.equal(result.visits-baseline.visits,7);assert.equal(result.qty-baseline.qty,76);
  for(const [i,qty] of [8,10,13,4,16,25,0].entries()){assert.equal(result.slots[i].qty-baseline.slots[i].qty,qty);assert.equal(result.slots[i].invoices-baseline.slots[i].invoices,i===5?2:i===6?0:1);}
+ const seededMain=await report('all',901001);
+ await db.exec('reset role');
+ const expected=(await db.query("select coalesce(sum(i.qty),0)::int qty from bill_items i join bills b on b.id=i.bill_id where b.table_no=901001 and i.category='bun'")).rows[0].qty;
+ await as(cashier);
+ assert.equal(seededMain.slots.reduce((sum,slot)=>sum+slot.main_qty,0),expected);
+ assert.ok(seededMain.qty>expected);
+ const legacy=(await row("select cashier_dashboard_window($1,$2,$3::jsonb,'all',901001) r",[from,to,JSON.stringify(bands)])).r;
+ assert.deepEqual(legacy.slots,seededMain.slots.map(({main_qty,...slot})=>slot));
  assert.deepEqual(Object.keys(result).sort(),['from','to','generated_at','kind','table_id','invoices','visits','qty','slots','products','product_slots','table_sales','table_options','days'].sort());
  const noMoney=o=>{if(!o||typeof o!=='object')return;for(const [key,value] of Object.entries(o)){assert.ok(!['price','gross','total','discount','cash','transfer','method','cash_received','change_due','amount'].includes(key),key);noMoney(value);}};noMoney(result);
  const dine=validateCashierDashboard(await report('all',901001),bands);assert.equal(dine.invoices,5);assert.equal(dine.visits,5);assert.equal(dine.qty,46);
