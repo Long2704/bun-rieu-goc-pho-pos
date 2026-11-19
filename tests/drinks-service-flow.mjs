@@ -111,10 +111,18 @@ try{
  await page.locator('.kitchen-page').getByText('1 × Bún riêu').waitFor();
  assert.equal(await page.locator('.kitchen-page .kitchen-card').getByText('Trà đá',{exact:false}).count(),0);
 
- role='bep';
- await page.reload();
- await page.getByRole('heading',{name:'Khu vực bếp'}).waitFor();
- assert.equal(await drinksTab.count(),0);
+ for(const staffRole of ['bep','thu_ngan','chu']){
+  role=staffRole;
+  completed=false;
+  await page.reload();
+  await page.getByRole('button',{name:'Nước (1)',exact:true}).click();
+  await card.getByText('2 × Trà đá').waitFor();
+  await swipe(1);
+  await page.getByRole('button',{name:'Nước (0)',exact:true}).waitFor();
+  assert.deepEqual(requests.at(-1),expected);
+  await panel.getByRole('button',{name:'Lịch sử',exact:true}).click();
+  await card.getByText('2 × Trà đá').waitFor();
+ }
  assert.deepEqual(errors,[]);
- console.log('PASS Mobile drink tab, drink-only display, touch completion and retry, history, kitchen isolation and waiter access');
+ console.log('PASS Mobile drink tab, drink-only display, touch completion and retry, history, kitchen isolation and all staff roles');
 }finally{await browser.close();}
