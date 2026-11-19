@@ -4,7 +4,7 @@ import type {Sale} from './dashboard-model';
 export async function loadDashboardSales(from:string,to:string,signal:AbortSignal,includePrevious=true,cutoff?:string){
  if(!supabase)throw Error('Chưa có kết nối dữ liệu.');
  const {start,previous,end}=bounds(from,to),generatedAt=cutoff??new Date().toISOString(),rows:Sale[]=[];
- const fields='id,session_id,table_no,service_label,paid_at,gross,discount,total,method,bill_items(name,qty,price,is_takeaway)';
+ const fields='id,session_id,table_no,service_label,paid_at,gross,discount,total,method,bill_items(name,qty,price,category,is_takeaway)';
  let expected:number|null=null;
  for(let offset=0;;){
   const result=await supabase.from('bills').select(fields,{count:'exact'}).gte('paid_at',new Date(includePrevious?previous:start).toISOString()).lt('paid_at',new Date(end).toISOString()).lte('paid_at',generatedAt).order('paid_at').order('id').range(offset,offset+499).abortSignal(signal);

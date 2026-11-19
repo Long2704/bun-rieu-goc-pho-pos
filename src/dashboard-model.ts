@@ -1,9 +1,10 @@
 import type {RevenueDay,RevenueReport,RevenueSlot} from './revenue-export';
 export type TimeBand={start:string;end:string};
 export const defaultBands:TimeBand[]=[['06:00','09:00'],['09:00','11:00'],['11:00','13:00'],['13:00','15:00'],['15:00','17:00'],['17:00','19:00'],['19:00','22:00']].map(([start,end])=>({start,end}));
-export type Sale={id:string;session_id:string;table_no:number;service_label?:string|null;paid_at:string;gross:number;discount:number;total:number;method:string;bill_items:{name:string;qty:number;price:number;is_takeaway?:boolean|null}[]};
+export type Sale={id:string;session_id:string;table_no:number;service_label?:string|null;paid_at:string;gross:number;discount:number;total:number;method:string;bill_items:{name:string;qty:number;price:number;category?:string;is_takeaway?:boolean|null}[]};
 export type TableSale={table_id:number;name:string;invoices:number;visits:number;qty:number;total:number};
-export type DashboardReport=RevenueReport&{visits:number;table_sales:TableSale[];filter_label:string;slot_rules:string};
+type DashboardSlot=RevenueSlot&{main_qty:number};
+export type DashboardReport=Omit<RevenueReport,'slots'>&{slots:DashboardSlot[];visits:number;table_sales:TableSale[];filter_label:string;slot_rules:string};
 export const vnToday=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 export function shiftDay(day:string,offset:number){return new Date(Date.parse(day+'T00:00:00Z')+offset*86400000).toISOString().slice(0,10);}
 export function minute(value:string){if(!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)&&value!=='24:00')return NaN;const [h,m]=value.split(':').map(Number);return h*60+m;}
@@ -22,14 +23,16 @@ function add(row:RevenueDay,sale:Sale){row.invoices++;row.gross+=sale.gross;row.
 export function aggregateSales(sales:Sale[],from:string,to:string,bands:TimeBand[],filterLabel:string,generatedAt:string):DashboardReport{
  if(!validBands(bands))throw Error('Khung giờ không hợp lệ.');
  const range=bounds(from,to),rows=sales.filter(s=>Date.parse(s.paid_at)>=range.start&&Date.parse(s.paid_at)<range.end);
- const days=new Map<string,RevenueDay>(),slots:RevenueSlot[]=[],products=new Map<string,{name:string;qty:number;gross:number}>(),tables=new Map<number,TableSale&{sessions:Set<string>}>();
- for(let d=from.slice(0,10);d<=to.slice(0,10);d=shiftDay(d,1)){days.set(d,empty(d));[...bands.map(bandLabel),'Ngoài khung'].forEach((slot,i)=>slots.push({...empty(d),slot,slot_index:i+1}));}
+ const days=new Map<string,RevenueDay>(),slots:DashboardSlot[]=[],products=new Map<string,{name:string;qty:number;gross:number}>(),tables=new Map<number,TableSale&{sessions:Set<string>}>();
+ for(let d=from.slice(0,10);d<=to.slice(0,10);d=shiftDay(d,1)){days.set(d,empty(d));[...bands.map(bandLabel),'Ngoài khung'].forEach((slot,i)=>slots.push({...empty(d),slot,slot_index:i+1,main_qty:0}));}
  const slotMap=new Map(slots.map(s=>[`${s.day}:${s.slot_index}`,s]));
  const totals=empty('');const visits=new Set<string>();
  for(const sale of rows){
   validateSale(sale);const local=new Date(Date.parse(sale.paid_at)+7*3600000).toISOString(),day=local.slice(0,10),minutes=Number(local.slice(11,13))*60+Number(local.slice(14,16));
   const band=bands.findIndex(b=>minutes>=minute(b.start)&&minutes<minute(b.end));
-  add(totals,sale);add(days.get(day)!,sale);add(slotMap.get(`${day}:${band<0?bands.length+1:band+1}`)!,sale);
+  add(totals,sale);add(days.get(day)!,sale);const slot=slotMap.get(`${day}:${band<0?bands.length+1:band+1}`)!;
+  add(slot,sale);
+  slot.main_qty+=sale.bill_items.reduce((qty,item)=>qty+(item.category==='bun'?item.qty:0),0);
   visits.add(`${sale.table_no}:${sale.session_id}`);
   let table=tables.get(sale.table_no);if(!table){table={table_id:sale.table_no,name:saleName(sale),invoices:0,visits:0,qty:0,total:0,sessions:new Set()};tables.set(sale.table_no,table);}
   table.name=saleName(sale);table.invoices++;table.total+=sale.total;table.sessions.add(sale.session_id);table.visits=table.sessions.size;
