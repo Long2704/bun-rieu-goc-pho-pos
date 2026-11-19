@@ -69,3 +69,11 @@
 .kitchen-page .kitchen-line-with-staff>.kitchen-order-staff{grid-column:2;grid-row:1;margin:0;align-self:last baseline;max-width:100%}
 .kitchen-page .kitchen-line-with-staff.has-note>.kitchen-order-staff{grid-row:2}
 .kitchen-page .kitchen-cancelled-line .kitchen-line-title>strong{text-decoration:line-through}
+
+.drinks-swipe-help,.drinks-empty{color:#715741;font-size:14px}
+.drinks-swipe-help{margin:0 0 10px}
+.drink-keyboard-complete:not(:focus-visible){position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden;padding:0;border:0}
+@media(max-width:380px){
+ .app-navigation>nav:has(.drinks-nav){gap:4px}
+ .app-navigation>nav:has(.drinks-nav)>button,.app-navigation>nav:has(.drinks-nav)>.management-menu>summary{min-width:0;padding-inline:4px;font-size:12px}
+}

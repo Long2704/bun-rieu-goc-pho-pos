@@ -4,4 +4,4 @@ export function kitchenFulfillmentTitle(order:Pick<Order,'order_items'>,place:st
  return lines.length&&lines.every(i=>i.is_takeaway)?takeawayTitle(place):place;
 }
 export function takeawayTitle(place:string){return /^mang\s+ve\b/i.test(place.normalize('NFD').replace(/[\u0300-\u036f]/g,''))||/\(Mang về\)$/.test(place)?place:`${place} (Mang về)`;}
-export function fulfillmentSections(lines:OrderLine[]){return [{takeaway:false,lines:lines.filter(i=>!i.is_takeaway)},{takeaway:true,lines:lines.filter(i=>i.is_takeaway)}].filter(section=>section.lines.length);}
+export function fulfillmentSections<T extends Pick<OrderLine,'is_takeaway'>>(lines:T[]){return [{takeaway:false,lines:lines.filter(i=>!i.is_takeaway)},{takeaway:true,lines:lines.filter(i=>i.is_takeaway)}].filter(section=>section.lines.length);}

@@ -4,9 +4,12 @@ export type TableSession = {opened_at?:string|null;canonical_table_id?:number;me
 export function savedTotal(sessions:TableSession[], tableId:number){
  return sessions.filter(s=>s.table_id===tableId).reduce((sum,s)=>sum+s.orders.reduce((n,o)=>n+o.order_items.filter(i=>!i.paid&&!i.cancelled_at).reduce((v,i)=>v+i.price*i.qty,0),0),0);
 }
+export function hasUnsentLines(order:Order){
+ return !!order.is_draft&&order.order_items.some(item=>!item.paid&&!item.cancelled_at);
+}
 export function tableStatus(sessions:TableSession[],tableId:number){
  const orders=sessions.filter(s=>s.table_id===tableId).flatMap(s=>s.orders).filter(o=>o.order_items.some(i=>!i.cancelled_at));
- return orders.some(o=>o.is_draft&&o.order_items.some(i=>!i.paid&&!i.cancelled_at&&i.category!=='do_uong'))?'Chưa gửi bếp':!orders.length?(tableId<0?'Chưa gọi món':'Trống'):orders.some(o=>o.kitchen_relevant&&o.status==='cooking')?'Bếp đang làm':'Đã ra món';
+ return orders.some(hasUnsentLines)?'Chưa thông báo':!orders.length?(tableId<0?'Chưa gọi món':'Trống'):orders.some(o=>o.kitchen_relevant&&o.status==='cooking')?'Bếp đang làm':'Đã ra món';
 }
 export function kitchenLines(order:Order){
  // Stable sorting keeps the existing order within each group and leaves stored lines unchanged.
