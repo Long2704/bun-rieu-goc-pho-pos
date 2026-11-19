@@ -1,3 +1,4 @@
+import LoadingIndicator from '../LoadingIndicator';
 import {useEffect,useRef,useState} from 'react';
 import type {PrivateImages} from './private-images';
 export default function PrivateImage({path,cache,full=false,ratio=1}:{path:string;cache:PrivateImages;full?:boolean;ratio?:number}){
@@ -8,5 +9,5 @@ export default function PrivateImage({path,cache,full=false,ratio=1}:{path:strin
   void lease.promise.then(url=>{if(alive)setSrc(url);}).catch(()=>{if(alive)setError(true);});
   return()=>{alive=false;lease.release();};
  },[cache,path,visible,retry]);
- return <div className={`kitchen-private-image${full?' full-image':''}`} ref={ref} style={full?undefined:{aspectRatio:String(ratio),maxHeight:480}}>{src?<img src={src} alt="Nội dung phiếu ảnh bếp" draggable={false}/>:error?<><span>Chưa tải được ảnh.</span><button onClick={()=>setRetry(n=>n+1)}>Thử tải lại ảnh</button></>:<span role="status">{visible?'Đang tải ảnh…':'Ảnh xem trước'}</span>}</div>;
+ return <div className={`kitchen-private-image${full?' full-image':''}`} ref={ref} style={full?undefined:{aspectRatio:String(ratio),maxHeight:480}}>{src?<img src={src} alt="Nội dung phiếu ảnh bếp" draggable={false}/>:error?<><span>Chưa tải được ảnh.</span><button onClick={()=>setRetry(n=>n+1)}>Thử tải lại ảnh</button></>:(visible?<LoadingIndicator label="Đang tải ảnh"/>:<span>Ảnh xem trước</span>)}</div>;
 }

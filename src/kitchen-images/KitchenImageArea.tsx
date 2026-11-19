@@ -1,3 +1,4 @@
+import LoadingIndicator from '../LoadingIndicator';
 import {Fragment,useCallback,useEffect,useRef,useState,useSyncExternalStore} from 'react';
 import type {ReactNode} from 'react';
 import {supabase} from '../supabase';
@@ -54,7 +55,7 @@ function AuthorizedImages({store,realtimeReady,userId,canUpload,canComplete,onli
   {!history&&(error||completionError)&&<p className="image-ticket-error" role="alert">{completionError||error} <button onClick={reload} disabled={!online}>Thử đồng bộ ảnh</button></p>}
   <section className="kitchen-grid" aria-describedby="kitchen-swipe-help">
    {cards.map(card=><Fragment key={card.key}>{card.content}</Fragment>)}
-   {!history&&!ready&&!error&&<p role="status">Đang tải phiếu ảnh…</p>}
+   {!history&&!ready&&!error&&<LoadingIndicator label="Đang tải phiếu ảnh"/>}
    {!cards.length&&(history||ready)&&(!error||history)&&<Empty history={history}/>}
   </section>
   {!history&&hasMore&&<button className="image-load-more" disabled={!online} onClick={()=>store.more()}>Xem thêm phiếu ảnh</button>}

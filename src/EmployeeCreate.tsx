@@ -70,7 +70,7 @@ export default function EmployeeCreate({userId,onCreated}:{userId:string;onCreat
    </fieldset>
    <label>Mật khẩu tạm<input type="password" autoComplete="new-password" required minLength={6} maxLength={12} disabled={busy} value={password} onChange={e=>setPassword(e.target.value)}/></label>
    <small>6–12 ký tự. Nhân viên phải đổi khi đăng nhập lần đầu.</small>
-   <div className="employee-create-actions"><button className="primary" type="submit" disabled={busy}>{busy?'Đang xử lý…':draft?'Thử lại cùng yêu cầu':'Tạo tài khoản'}</button>
+   <div className="employee-create-actions"><button className="primary" type="submit" disabled={busy}>{draft?'Thử lại cùng yêu cầu':'Tạo tài khoản'}</button>
    {draft?<><button type="button" disabled={busy} onClick={()=>void send(true)}>Kiểm tra lại</button><button type="button" disabled={busy} onClick={()=>void send(true,true)}>Hủy yêu cầu</button></>:<button type="button" disabled={busy} onClick={()=>{setPassword('');setOpen(false);}}>Đóng</button>}</div>
   </form>}
  </div>;

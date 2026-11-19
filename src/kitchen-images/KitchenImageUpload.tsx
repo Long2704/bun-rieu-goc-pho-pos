@@ -5,7 +5,7 @@ type Failure={id:string;name:string;message:string;upload?:Upload};
 const maxBytes=5*1024*1024;
 class ExpiredImageRequest extends Error{}
 export default function KitchenImageUpload({userId,online,onUploaded}:{userId:string;online:boolean;onUploaded:()=>void}){
- const [failures,setFailures]=useState<Failure[]>([]),[busy,setBusy]=useState(false),[progress,setProgress]=useState('');
+ const [failures,setFailures]=useState<Failure[]>([]),[busy,setBusy]=useState(false);
  const lock=useRef(false),input=useRef<HTMLInputElement>(null),alive=useRef(true);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  function failed(failure:Failure){if(alive.current)setFailures(old=>[...old.filter(item=>item.id!==failure.id),failure]);}
@@ -27,8 +27,8 @@ export default function KitchenImageUpload({userId,online,onUploaded}:{userId:st
   if(lock.current||!online||!navigator.onLine)return;lock.current=true;setBusy(true);setFailures(old=>old.filter(f=>f.upload));
   const seen=new Set<string>();
   try{
-   for(const [index,file] of files.entries()){
-    if(!alive.current)break;setProgress(`Đang tải ${index+1}/${files.length}…`);
+   for(const file of files){
+    if(!alive.current)break;
     if(!['image/jpeg','image/png','image/webp'].includes(file.type)||!file.size||file.size>maxBytes){failed({id:`invalid:${file.name}`,name:file.name,message:'Chỉ nhận JPG, PNG, WebP tối đa 5 MB.'});continue;}
     let item:Upload|undefined;
     try{
@@ -44,15 +44,15 @@ export default function KitchenImageUpload({userId,online,onUploaded}:{userId:st
      item={id,hash,file};await upload(item);
     }catch(error){failed({id:item?.id??`prepare:${file.name}`,name:file.name,upload:error instanceof ExpiredImageRequest?undefined:item,message:error instanceof Error&&error.message?error.message:'Chưa chuẩn bị được ảnh. Thử lại.'});}
    }
-  }finally{lock.current=false;if(alive.current){setBusy(false);setProgress('');if(input.current)input.current.value='';}}
+  }finally{lock.current=false;if(alive.current){setBusy(false);if(input.current)input.current.value='';}}
  }
  async function retry(item:Upload){
-  if(lock.current||!online||!navigator.onLine)return;lock.current=true;setBusy(true);setProgress('Đang tải…');
+  if(lock.current||!online||!navigator.onLine)return;lock.current=true;setBusy(true);
   try{await upload(item);}catch(error){failed({id:item.id,name:item.file.name,upload:error instanceof ExpiredImageRequest?undefined:item,message:error instanceof Error&&error.message?error.message:'Chưa xác nhận được. Thử lại.'});}
-  finally{lock.current=false;if(alive.current){setBusy(false);setProgress('');}}
+  finally{lock.current=false;if(alive.current){setBusy(false);}}
  }
  return <div className="kitchen-image-upload">
-  <button className="primary kitchen-upload-button" aria-label="Tải ảnh lên" aria-busy={busy} disabled={!online||busy} onClick={()=>input.current?.click()}>{busy?progress||'Đang tải…':'Tải ảnh lên'}</button>
+  <button className="primary kitchen-upload-button" aria-label="Tải ảnh lên" aria-busy={busy} disabled={!online||busy} onClick={()=>input.current?.click()}>Tải ảnh lên</button>
   <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={e=>void choose(Array.from(e.target.files??[]))}/>
   {!!failures.length&&<ul className="image-upload-errors" aria-label="Ảnh tải chưa thành công">{failures.map(item=><li key={item.id}><span role="alert"><strong>{item.name}</strong> · {item.message}</span>{item.upload&&<button disabled={!online||busy} onClick={()=>void retry(item.upload!)}>Thử lại</button>}</li>)}</ul>}
  </div>;

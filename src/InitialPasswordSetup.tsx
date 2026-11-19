@@ -53,6 +53,6 @@ export default function InitialPasswordSetup({onCompleted,onBusy}:{onCompleted:(
    {!!confirm&&password!==confirm&&<p role="alert">Hai mật khẩu chưa khớp.</p>}
   </fieldset>}
   {error&&<p role="alert">{error}</p>}
-  <button className="primary" type="submit" disabled={busy||(!verificationPending&&!valid)}>{busy?'Đang xử lý…':verificationPending?'Kiểm tra lại':'Lưu mật khẩu mới'}</button>
+  <button className="primary" type="submit" disabled={busy||(!verificationPending&&!valid)}>{verificationPending?'Kiểm tra lại':'Lưu mật khẩu mới'}</button>
  </form></div>;
 }

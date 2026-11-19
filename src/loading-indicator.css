@@ -1,0 +1,29 @@
+.loading-indicator {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  min-height: 24px;
+  vertical-align: middle;
+}
+
+.loading-indicator-ring {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  opacity: 0;
+  animation: reveal-loading-indicator 0s 450ms forwards, spin-loading-indicator .8s linear infinite;
+}
+
+@keyframes reveal-loading-indicator {
+  to { opacity: 1; }
+}
+
+@keyframes spin-loading-indicator {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-indicator-ring { animation: reveal-loading-indicator 0s 450ms forwards; }
+}
