@@ -8,6 +8,7 @@ export async function checkAdminAggregation(db,owner,waiter,kitchen,cashier,food
  await db.exec('reset role');await db.exec(readFileSync(new URL('../../supabase/migrations/20261115171227_aggregated_admin_dashboard_and_catalog.sql',import.meta.url),'utf8'));
  const one=async(q,p=[])=>{await db.exec('savepoint admin_check');try{const row=(await db.query(q,p)).rows[0];await db.exec('release savepoint admin_check');return row;}catch(e){await db.exec('rollback to admin_check;release savepoint admin_check');throw e;}};
  const as=async id=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id??'']);await db.exec('set role authenticated');};
+ await db.exec(readFileSync(new URL('../../supabase/migrations/20261119035622_admin_main_dish_hourly.sql',import.meta.url),'utf8'));
  await db.exec('begin');
  try{
  await db.query('update profiles set is_active=true,must_change_password=false,staff_sessions_revoked_before=null where id=any($1::uuid[])',[[owner,waiter,kitchen,cashier]]);await db.query("update profiles set role='thu_ngan' where id=$1",[cashier]);
@@ -16,7 +17,8 @@ export async function checkAdminAggregation(db,owner,waiter,kitchen,cashier,food
  const a=await pay(991,2,'cash','2010-01-02T08:59:59.999+07:00'),b=await pay(991,3,'transfer','2010-01-02T09:00:00+07:00');
  await db.query('update bills set session_id=(select session_id from bills where id=$1),discount=1000,total=gross-1000 where id=$2',[a,b]);
  const c=await pay(992,4,'cash','2010-01-02T17:00:00+07:00');await db.query("update bills set service_label='Máng Về đặc biệt' where id=$1",[c]);await pay(993,1,'transfer','2010-01-01T07:00:00+07:00');
- await as(owner);const raw=(await one("select coalesce(jsonb_agg(to_jsonb(b)||jsonb_build_object('bill_items',(select jsonb_agg(jsonb_build_object('name',i.name,'qty',i.qty,'price',i.price,'is_takeaway',i.is_takeaway)) from bill_items i where i.bill_id=b.id)) order by b.paid_at,b.id),'[]') rows from bills b where paid_at>='2009-12-30' and paid_at<'2010-01-04'")).rows;
+ await db.query("update bill_items set category='an_them' where bill_id=$1",[a]);
+ await as(owner);const raw=(await one("select coalesce(jsonb_agg(to_jsonb(b)||jsonb_build_object('bill_items',(select jsonb_agg(jsonb_build_object('name',i.name,'qty',i.qty,'price',i.price,'category',i.category,'is_takeaway',i.is_takeaway)) from bill_items i where i.bill_id=b.id)) order by b.paid_at,b.id),'[]') rows from bills b where paid_at>='2009-12-30' and paid_at<'2010-01-04'")).rows;
  const stamp=ms=>new Date(ms+7*3600000).toISOString().slice(0,19);
  const report=async(from,to,bands,kind='all',table=null)=>(await one('select admin_dashboard_window($1,$2,$3::jsonb,$4,$5) r',[from,to,JSON.stringify(bands),kind,table])).r;
  for(const [from,to,bands,kind,table] of [

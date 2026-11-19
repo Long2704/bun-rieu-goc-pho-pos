@@ -17,11 +17,11 @@ export function validateAdminDashboard(value:unknown,from:string,to:string,bands
    if(days.size!==r.days.length||slots.size!==r.slots.length||r.days.some(v=>!v||!allowed.has(v.day))||r.slots.some(v=>!v||!allowed.has(v.day)||!Number.isInteger(v.slot_index)||v.slot_index<1||v.slot_index>labels.length||v.slot!==labels[v.slot_index-1]))throw Error('Ngày hoặc khung giờ không hợp lệ.');
    const zero=(day:string)=>({day,invoices:0,gross:0,discount:0,total:0,cash:0,transfer:0});
    r.days=dates.map(day=>days.get(day)??zero(day));
-   r.slots=dates.flatMap(day=>labels.map((slot,i)=>slots.get(`${day}:${i+1}`)??{...zero(day),slot,slot_index:i+1}));
+   r.slots=dates.flatMap(day=>labels.map((slot,i)=>slots.get(`${day}:${i+1}`)??{...zero(day),slot,slot_index:i+1,main_qty:0}));
    delete (r as DashboardReport&{sparse?:boolean}).sparse;
   }
 
-  if(r.days.length!==dates.length||r.slots.length!==dates.length*labels.length||r.days.some((v,i)=>v.day!==dates[i]||!keys.every(k=>num(v[k])))||r.slots.some((v,i)=>v.day!==dates[Math.floor(i/labels.length)]||v.slot_index!==i%labels.length+1||v.slot!==labels[i%labels.length]||!keys.every(k=>num(v[k]))))throw Error('Thiếu ngày hoặc khung giờ.');
+  if(r.days.length!==dates.length||r.slots.length!==dates.length*labels.length||r.days.some((v,i)=>v.day!==dates[i]||!keys.every(k=>num(v[k])))||r.slots.some((v,i)=>v.day!==dates[Math.floor(i/labels.length)]||v.slot_index!==i%labels.length+1||v.slot!==labels[i%labels.length]||!num(v.main_qty)||v.invoices===0&&v.main_qty!==0||!keys.every(k=>num(v[k]))))throw Error('Thiếu ngày hoặc khung giờ.');
   for(const k of keys)if(r.days.reduce((s,v)=>s+v[k],0)!==r[k]||r.slots.reduce((s,v)=>s+v[k],0)!==r[k])throw Error('Tổng ngày/giờ không khớp.');
   for(const [i,day] of r.days.entries())for(const k of keys)if(r.slots.slice(i*labels.length,(i+1)*labels.length).reduce((n,s)=>n+s[k],0)!==day[k])throw Error('Khung giờ không khớp ngày.');
   if([...r.days,...r.slots].some(v=>v.gross-v.discount!==v.total||v.cash+v.transfer!==v.total))throw Error('Số tiền ngày/giờ không khớp.');
