@@ -7,12 +7,13 @@ export function savedTotal(sessions:TableSession[], tableId:number){
 export function drinkWasServed(item:OrderLine){
  return item.category==='do_uong'&&(item.drink_done_qty??0)>0;
 }
-export function hasUnsentLines(order:Order){
- return !!order.is_draft&&order.order_items.some(item=>!item.paid&&!item.cancelled_at);
+export function hasUnsentLines(order:Order,autoSaveItems?:ReadonlySet<string>){
+ return !!order.is_draft&&order.order_items.some(item=>!item.paid&&!item.cancelled_at&&
+  !(item.category==='do_uong'&&item.menu_item_id&&autoSaveItems?.has(item.menu_item_id)));
 }
-export function tableStatus(sessions:TableSession[],tableId:number){
+export function tableStatus(sessions:TableSession[],tableId:number,autoSaveItems?:ReadonlySet<string>){
  const orders=sessions.filter(s=>s.table_id===tableId).flatMap(s=>s.orders).filter(o=>o.order_items.some(i=>!i.cancelled_at));
- return orders.some(hasUnsentLines)?'Chưa thông báo':!orders.length?(tableId<0?'Chưa gọi món':'Trống'):orders.some(o=>o.kitchen_relevant&&o.status==='cooking')?'Bếp đang làm':'Đã ra món';
+ return orders.some(order=>hasUnsentLines(order,autoSaveItems))?'Chưa thông báo':!orders.length?(tableId<0?'Chưa gọi món':'Trống'):orders.some(o=>o.kitchen_relevant&&o.status==='cooking')?'Bếp đang làm':'Đã ra món';
 }
 export function kitchenLines(order:Order){
  // Stable sorting keeps the existing order within each group and leaves stored lines unchanged.
