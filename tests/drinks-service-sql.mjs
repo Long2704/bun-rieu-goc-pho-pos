@@ -108,7 +108,47 @@ try{
   await assert.rejects(list(false),/không có quyền/);
   await assert.rejects(complete(order,[{id:drink,qty:3}]),/không có quyền/);
  }
+ await db.exec(`
+ reset role;
+ alter table orders add column is_draft boolean not null default false,
+  add column request_id uuid, add column created_by uuid, add column submitted_table_id int;
+ alter table order_items add column menu_item_id uuid;
+ create table menu_groups(id text primary key,name text not null);
+ create table menu_item_groups(item_id uuid primary key,group_id text references menu_groups);
+ insert into menu_groups values ('m1',' KhÁc '),('m2','Đồ uống');
+ insert into menu_item_groups values ('${uuid(81)}','m1'),('${uuid(82)}','m2');
+ create function public.submit_order(integer,uuid,jsonb) returns uuid language plpgsql as $$
+ declare new_order uuid;
+ begin
+  select id into new_order from public.orders where request_id=$2;
+  if found then return new_order;end if;
+  insert into public.orders(id,session_id,request_id,created_by,submitted_table_id)
+   values(gen_random_uuid(),'${uuid(31)}',$2,auth.uid(),$1) returning id into new_order;
+  insert into public.order_items(id,order_id,menu_item_id,category,name,qty,paid)
+   select gen_random_uuid(),new_order,i.item_id,'do_uong',i.name,1,false
+   from jsonb_to_recordset($3) as i(item_id uuid,name text);
+  return new_order;
+ end;$$;
+ create function public.send_saved_menu_selections(integer,uuid,uuid[],uuid,jsonb) returns uuid language sql as $$
+  update public.orders set is_draft=false where id=any($3) returning id
+ $$;
+ `);
+ await db.exec(migration('20261120002342_exclude_other_group_from_drinks.sql'));
+ await signIn(waiter);
+ const ordered=JSON.stringify([{item_id:uuid(81),name:'Khăn lạnh'},{item_id:uuid(82),name:'Trà đá'}]);
+ const notified=(await one('select notify_service_order(5,$1,$2) as id',[uuid(91),ordered])).id;
+ assert.deepEqual((await list(false)).find(t=>t.id===notified).items.map(i=>i.name),['Trà đá']);
+ assert.equal((await one('select count(*)::integer as n from order_items where order_id=$1',[notified])).n,2);
+ await one('select notify_service_order(5,$1,$2)',[uuid(91),ordered]);
+ assert.equal((await one('select count(*)::integer as n from order_items where order_id=$1',[notified])).n,2);
+ await db.exec('reset role');
+ const draft=(await one('select submit_order(5,$1,$2) as id',[uuid(92),ordered])).id;
+ await db.query('update orders set is_draft=true where id=$1',[draft]);
+ await signIn(waiter);
+ await one('select notify_service_order(5,$1,$2,$3,$4)',[uuid(93),'[]',uuid(31),[draft]]);
+ assert.deepEqual((await list(false)).find(t=>t.id===draft).items.map(i=>i.name),['Trà đá']);
+ assert.equal((await one('select count(*)::integer as n from order_items where order_id=$1',[draft])).n,2);
  await db.exec('reset role;set role anon');
  await assert.rejects(list(false),/permission denied/);
- console.log('PASS drink queue SQL: mixed orders, paid drinks, exclusions, exact completion, replay, added quantities, history, and role permissions');
+ console.log('PASS drink queue SQL: mixed orders, paid drinks, exclusions, exact completion, replay, added quantities, history, permissions, and exclusion of Khác for notifications');
 }finally{await db.close();}
