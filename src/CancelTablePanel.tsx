@@ -1,4 +1,4 @@
-import {placeLabel} from './order-model';
+import {drinkWasServed,placeLabel} from './order-model';
 import PosIcon from './PosIcon';
 import {useEffect,useRef,useState} from 'react';
 import {supabase} from './supabase';
@@ -12,7 +12,7 @@ export default function CancelTablePanel({restrictServedCancellation=false,userI
  useEffect(()=>{alive.current=true;try{const raw=localStorage.getItem(key);if(raw){const p=JSON.parse(raw);if(!p.requestId||!p.sessionId||!Number.isInteger(p.tableId)||!Array.isArray(p.items)||!p.items.length||p.items.some((i:OrderLine)=>!i.id))throw new Error();setPending(p);}}catch{setStorageError(true);}return()=>{alive.current=false;};},[key]);
  useEffect(()=>{onPending(!!pending||storageError||busy);},[pending,storageError,busy,onPending]);
  const current=table?sessions.find(s=>s.table_id===table.id):undefined;
- const served=restrictServedCancellation&&!!current?.orders.some(o=>!o.is_draft&&o.kitchen_relevant&&o.status==='done'&&o.order_items.some(i=>!i.cancelled_at&&i.category!=='do_uong'));
+ const served=restrictServedCancellation&&!!current?.orders.some(o=>o.order_items.some(i=>!i.cancelled_at&&(drinkWasServed(i)||(!o.is_draft&&o.kitchen_relevant&&o.status==='done'&&i.category!=='do_uong'))));
  const lines=current?.orders.flatMap(o=>o.order_items).filter(i=>!i.paid&&!i.cancelled_at)??[];
  function start(){if(!table||!current||!lines.length||disabled||served||pending)return;setDraft({requestId:crypto.randomUUID(),sessionId:current.id,tableId:table.id,tableName:table.name,items:lines.map(i=>({...i}))});setError('');onMessage('');setOpen(true);}
  async function cancel(){
