@@ -154,6 +154,14 @@ try {
   await db.exec(migration('20261119140222_drinks_notifications.sql'));
   await db.exec(migration('20261119140804_drinks_staff_roles.sql'));
   await db.exec(migration('20261120010157_protect_completed_drink_cancellations.sql'));
+  await db.exec('create schema if not exists pos_sync');
+  await db.exec(migration('20261112022156_item_takeaway_markers.sql'));
+  await db.exec(migration('20261112050851_lock_takeaway_after_kitchen_completion.sql'));
+  await db.exec(migration('20261110001204_edit_sent_kitchen_notes.sql'));
+  const drinkNoteMigration=migration('20261111040957_drink_item_notes.sql');
+  const sentNotePatches=drinkNoteMigration.indexOf("do $patch$ declare v text;begin\n select pg_get_functiondef('public.edit_sent_order_note");
+  await db.exec(drinkNoteMigration.slice(sentNotePatches,drinkNoteMigration.indexOf("notify pgrst")));
+  await db.exec(migration('20261120051337_lock_completed_drink_edits.sql'));
   await asUser(1);
   const mixed=await submit(crypto.randomUUID(),[{menu_item_id:drink,qty:2},{menu_item_id:food,qty:1}]);
   const mixedSession=(await one('select session_id from public.orders where id=$1',[mixed.id])).session_id;
@@ -163,7 +171,22 @@ try {
   await db.exec('reset role');
   await db.query('update public.order_items set drink_queued_at=now() where id=$1',[waterLine]);
   await asUser(4);
+  const takeaway=(request,version,expected,value)=>one('select public.set_order_item_takeaway($1,$2,$3,$4,$5) as result',[request,waterLine,version,expected,value]);
+  const note=(request,version,expected,value)=>one('select public.edit_sent_order_note($1,$2,$3,$4,$5,$6) as result',[request,waterLine,mixed.id,version,expected,value]);
+  const takeawayRequest=crypto.randomUUID(),noteRequest=crypto.randomUUID();
+  const editedTakeaway=await takeaway(takeawayRequest,0,false,true);
+  const editedNote=await note(noteRequest,0,'','Ít đá');
+  assert.equal(editedTakeaway.result.is_takeaway,true);
+  assert.equal(editedNote.result.note,'Ít đá');
   await one('select public.complete_drink_ticket($1,$2)',[mixed.id,JSON.stringify([{id:waterLine,qty:1}])]);
+  assert.deepEqual(await takeaway(takeawayRequest,0,false,true),editedTakeaway);
+  assert.deepEqual(await note(noteRequest,0,'','Ít đá'),editedNote);
+  for(const n of [1,3,4,6]){
+   await asUser(n);
+   await assert.rejects(takeaway(crypto.randomUUID(),1,true,false),/Nước đã hoàn thành.*Mang về/);
+   await assert.rejects(note(crypto.randomUUID(),1,'Ít đá','Nhiều đá'),/Nước đã hoàn thành.*ghi chú/);
+  }
+  assert.deepEqual(await one('select is_takeaway,note from public.order_items where id=$1',[waterLine]),{is_takeaway:true,note:'Ít đá'});
   for(const n of [6,4]){
    await asUser(n);
    await assert.rejects(one("select public.cancel_order_item($1,'')",[waterLine]),/Nước đã hoàn thành/);

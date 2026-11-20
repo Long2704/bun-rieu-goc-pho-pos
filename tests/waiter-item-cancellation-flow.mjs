@@ -9,7 +9,7 @@ try{
  const food={id:'food',name:'Bún riêu truyền thống',price:58000,category:'bun',is_out:false},drink={id:'towel',name:'Trà đá',price:3000,category:'do_uong',is_out:false};
  const line=(id,p,note='',extra={})=>({...p,id,menu_item_id:p.id,qty:1,note,paid:false,bill_no:1,cancelled_at:null,...extra});
  const a=line('a',food,'Ít bún'),b=line('b',food,'Không hành');
- const orders=[{id:'first',request_id:'first',session_id:'session',status:'cooking',kitchen_relevant:true,created_at:new Date(Date.now()-120000).toISOString(),order_items:[a,line('drink',drink,'',{drink_done_qty:1}),line('paid',food,'Bản đã thanh toán',{paid:true}),line('cancelled',food,'Bản đã hủy',{cancelled_at:new Date().toISOString()})]},{id:'second',request_id:'second',session_id:'session',status:'cooking',kitchen_relevant:true,created_at:new Date(Date.now()-60000).toISOString(),order_items:[b]},{id:'done',request_id:'done',session_id:'session',status:'done',kitchen_relevant:true,created_at:new Date(Date.now()-180000).toISOString(),order_items:[line('done',food,'Đã phục vụ')]}];
+ const orders=[{id:'first',request_id:'first',session_id:'session',status:'cooking',kitchen_relevant:true,created_at:new Date(Date.now()-120000).toISOString(),order_items:[a,line('drink',drink,'',{drink_done_qty:1,takeaway_version:0}),line('paid',food,'Bản đã thanh toán',{paid:true}),line('cancelled',food,'Bản đã hủy',{cancelled_at:new Date().toISOString()})]},{id:'second',request_id:'second',session_id:'session',status:'cooking',kitchen_relevant:true,created_at:new Date(Date.now()-60000).toISOString(),order_items:[b]},{id:'done',request_id:'done',session_id:'session',status:'done',kitchen_relevant:true,created_at:new Date(Date.now()-180000).toISOString(),order_items:[line('done',food,'Đã phục vụ')]}];
  const cancelRequests=[],effects=[];let loseCancel=true;let mode='lost',syncFail=false,page;const requests=[],applied=new Map(),changes=[];
  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
   if(await mockLegacyMenuGroups(route))return;
@@ -40,6 +40,9 @@ try{
 
  page=await context.newPage();page.setDefaultTimeout(15000);const errors=[];page.on('pageerror',e=>errors.push(e.message));const base=process.env.POS_TEST_URL||'http://localhost:5196';
  await page.goto(base);await page.getByLabel('Tên đăng nhập',{exact:true}).fill('staff@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();if(testRole==='bep')await page.getByRole('button',{name:'Phục vụ',exact:true}).click();await page.getByRole('button',{name:/^Mang về 1 /}).click();
+ const takeawayDrink=page.getByRole('button',{name:/^Mang về Trà đá · Đã khóa/});
+ assert.ok(await takeawayDrink.isDisabled());
+ assert.equal(await page.getByRole('button',{name:'Sửa ghi chú Trà đá',exact:true}).count(),0);
  if(testRole==='bep'){
   assert.equal(await page.getByRole('button',{name:'Hủy Bún riêu truyền thống',exact:true}).count(),0);
   await page.getByRole('button',{name:'Thao tác bàn',exact:true}).click();const tableDialog=page.getByRole('dialog',{name:/Thao tác bàn/});assert.ok(await tableDialog.getByRole('button',{name:/Hủy cả|Hủy đơn/}).isDisabled());await tableDialog.getByText('Bàn có món đã ra. Chỉ Admin mới có thể hủy cả bàn.',{exact:true}).waitFor();console.log('PASS Kitchen: no item-cancel permission; served table cancellation disabled. All APIs mocked.');
