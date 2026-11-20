@@ -140,5 +140,54 @@ try {
   await db.exec(readFileSync(new URL('../supabase/rollbacks/033_staff_table_cancellation.sql',import.meta.url),'utf8'));
   for(const n of [2,3]){await asUser(n);assert.equal(await permission('tables.cancel'),false);await assert.rejects(cancel(active,request,[foodId]),/không có quyền hủy bàn/);}
   await db.exec('reset role');assert.deepEqual((await db.query('select * from public.table_cancellations order by request_id')).rows,ledger);assert.deepEqual(await snapshot('bills'),paidBills);assert.deepEqual(await snapshot('bill_items'),paidBillItems);
+  await db.exec(`
+   insert into auth.users(id) values ('${uid(6)}');
+   insert into public.profiles(id,name,role) values ('${uid(6)}','Waiter for Nước','phuc_vu');
+   alter table public.orders add column is_draft boolean not null default false;
+   create or replace function public.has_permission(p_permission text) returns boolean
+   language sql stable security definer set search_path='' as $$
+    select public.current_staff_role() in ('chu','phuc_vu','bep','thu_ngan')
+      and (p_permission<>'orders.cancel' or public.current_staff_role()<>'bep')
+   $$;
+  `);
+  await db.exec(migration('20261117024019_staff_served_cancellation_guard.sql'));
+  await db.exec(migration('20261119140222_drinks_notifications.sql'));
+  await db.exec(migration('20261119140804_drinks_staff_roles.sql'));
+  await db.exec(migration('20261120010157_protect_completed_drink_cancellations.sql'));
+  await asUser(1);
+  const mixed=await submit(crypto.randomUUID(),[{menu_item_id:drink,qty:2},{menu_item_id:food,qty:1}]);
+  const mixedSession=(await one('select session_id from public.orders where id=$1',[mixed.id])).session_id;
+  const mixedLines=(await db.query('select id,category from public.order_items where order_id=$1',[mixed.id])).rows;
+  const waterLine=mixedLines.find(i=>i.category==='do_uong').id;
+  const mealLine=mixedLines.find(i=>i.category==='bun').id;
+  await db.exec('reset role');
+  await db.query('update public.order_items set drink_queued_at=now() where id=$1',[waterLine]);
+  await asUser(4);
+  await one('select public.complete_drink_ticket($1,$2)',[mixed.id,JSON.stringify([{id:waterLine,qty:1}])]);
+  for(const n of [6,4]){
+   await asUser(n);
+   await assert.rejects(one("select public.cancel_order_item($1,'')",[waterLine]),/Nước đã hoàn thành/);
+   await assert.rejects(cancel(mixedSession,crypto.randomUUID(),[waterLine,mealLine]),/Chỉ Admin/);
+  }
+  await asUser(3);
+  await assert.rejects(one("select public.cancel_order_item($1,'')",[waterLine]),/không có quyền/);
+  await assert.rejects(cancel(mixedSession,crypto.randomUUID(),[waterLine,mealLine]),/Chỉ Admin/);
+  await asUser(6);
+  await one("select public.cancel_order_item($1,'')",[mealLine]);
+  await asUser(1);
+  await one("select public.cancel_order_item($1,'')",[waterLine]);
+  assert.ok((await one('select cancelled_at from public.order_items where id=$1',[waterLine])).cancelled_at);
+
+  const drinksOnly=await submit(crypto.randomUUID(),[{menu_item_id:drink,qty:1}]);
+  const drinkSession=(await one('select session_id from public.orders where id=$1',[drinksOnly.id])).session_id;
+  const lastDrink=(await one('select id from public.order_items where order_id=$1',[drinksOnly.id])).id;
+  await db.exec('reset role');
+  await db.query('update public.order_items set drink_queued_at=now() where id=$1',[lastDrink]);
+  await asUser(3);
+  await one('select public.complete_drink_ticket($1,$2)',[drinksOnly.id,JSON.stringify([{id:lastDrink,qty:1}])]);
+  await asUser(1);
+  await cancel(drinkSession,crypto.randomUUID(),[lastDrink]);
+  assert.ok((await one('select closed_at from public.table_sessions where id=$1',[drinkSession])).closed_at);
+  console.log('PASS completed drinks: waiter/cashier item and table protection, Kitchen table protection, Admin override, and unrelated item cancellation');
   console.log('ĐẠT SQL 033: quyền riêng Owner/Waiter/Kitchen, API chặn anon/legacy/khóa/đổi mật khẩu/phiên cũ, không cấp hủy từng món/tài chính, chỉ hủy món chưa trả, giữ bill/item đã trả, snapshot/idempotency/actor/audit, không đổi dữ liệu khi migration và rollback giữ lịch sử.');
 }finally{await db.close();}

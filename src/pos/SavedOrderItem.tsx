@@ -1,3 +1,4 @@
+import {drinkWasServed} from '../order-model';
 import ItemTakeaway,{TakeawayBadge} from '../ItemTakeaway';
 import {useState} from 'react';
 import EditSentNote from '../EditSentNote';
@@ -6,7 +7,11 @@ import POSIcon from './POSIcon';
 import QuantityControl from './QuantityControl';
 import {formatMoney} from './types';
 import type {DraftLine,Product} from './types';
-import type {SavedGroup} from './saved-order-groups';
+import type {SavedSource,SavedGroup} from './saved-order-groups';
+function servedCancellationReason({line,kitchenCompleted}:SavedSource){
+ if(drinkWasServed(line))return 'Nước đã hoàn thành. Chỉ Admin mới có thể hủy món này.';
+ if(kitchenCompleted)return 'Bếp đã ra món. Chỉ Admin mới có thể hủy món này.';
+}
 export default function SavedOrderItem({restrictServedCancellation=false,group,product,draft,disabled,awaiting,canCancel,onChange,onNote,onBusy,onSavedChanged,draftBillNo=group.billNo}:{
  restrictServedCancellation?:boolean;draftBillNo?:number;group:SavedGroup;product?:Product;draft?:DraftLine;disabled:boolean;awaiting:boolean;canCancel:boolean;
  onChange:(delta:number)=>void;onNote:(note:string)=>void;onBusy:(value:boolean)=>void;onSavedChanged:()=>Promise<void>;
@@ -23,9 +28,9 @@ export default function SavedOrderItem({restrictServedCancellation=false,group,p
    {extra>0&&<p className="pos-extra-note">Đã gửi {group.qty} · <strong>Thêm {extra} {awaiting?'chờ xác nhận':'chưa gửi'}</strong></p>}
    {[...notes].map(([note,qty])=><p className="pos-saved-note" key={note}>{qty===group.qty?note:`${qty} × ${note}`}</p>)}
    {extra>0&&<label className="pos-line-note">Ghi chú món thêm<input maxLength={500} disabled={disabled} value={draft?.note??''} placeholder="Ghi chú cho phần gọi thêm…" onChange={event=>onNote(event.target.value)}/></label>}
-   {group.rows.length===1&&<div className="pos-saved-actions"><ItemTakeaway item={group.rows[0].line} kitchenCompleted={group.rows[0].kitchenCompleted} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/><EditSentNote item={group.rows[0].line} orderId={group.rows[0].orderId} status={group.rows[0].status} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>{canCancel&&<CancelItem blockedReason={restrictServedCancellation&&group.rows[0].kitchenCompleted?'Bếp đã ra món. Chỉ Admin mới có thể hủy món này.':undefined} compact item={group.rows[0].line} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>}</div>}
+   {group.rows.length===1&&<div className="pos-saved-actions"><ItemTakeaway item={group.rows[0].line} kitchenCompleted={group.rows[0].kitchenCompleted} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/><EditSentNote item={group.rows[0].line} orderId={group.rows[0].orderId} status={group.rows[0].status} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>{canCancel&&<CancelItem blockedReason={restrictServedCancellation?servedCancellationReason(group.rows[0]):undefined} compact item={group.rows[0].line} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>}</div>}
    {!expanded&&group.rows.some(({line})=>line.note_edited_at)&&<small className="note-edited-label">Đã chỉnh sửa</small>}
-   {expanded&&<div className="pos-saved-sources">{group.rows.map(({line,status,orderId,kitchenCompleted})=><div className="pos-saved-source" data-item-id={line.id} key={line.id}><div><strong>{line.qty} × {line.name}</strong><span>{formatMoney(line.price*line.qty)}</span></div><small>Bill {line.bill_no??1} · {status==='done'?'Đã ra món':'Đang làm'}</small>{line.note&&<p>{line.note}</p>}<ItemTakeaway item={line} kitchenCompleted={kitchenCompleted} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/><EditSentNote item={line} orderId={orderId} status={status} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>{canCancel&&<CancelItem blockedReason={restrictServedCancellation&&kitchenCompleted?'Bếp đã ra món. Chỉ Admin mới có thể hủy món này.':undefined} compact item={line} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>} {line.note_edited_at&&<small className="note-edited-label">Đã chỉnh sửa</small>}</div>)}</div>}
+   {expanded&&<div className="pos-saved-sources">{group.rows.map(source=>{const {line,status,orderId,kitchenCompleted}=source;return <div className="pos-saved-source" data-item-id={line.id} key={line.id}><div><strong>{line.qty} × {line.name}</strong><span>{formatMoney(line.price*line.qty)}</span></div><small>Bill {line.bill_no??1} · {status==='done'?'Đã ra món':'Đang làm'}</small>{line.note&&<p>{line.note}</p>}<ItemTakeaway item={line} kitchenCompleted={kitchenCompleted} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/><EditSentNote item={line} orderId={orderId} status={status} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>{canCancel&&<CancelItem blockedReason={restrictServedCancellation?servedCancellationReason(source):undefined} compact item={line} disabled={disabled} onBusy={onBusy} onChanged={onSavedChanged}/>} {line.note_edited_at&&<small className="note-edited-label">Đã chỉnh sửa</small>}</div>;})}</div>}
   </div>
  </article>;
 }

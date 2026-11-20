@@ -8,7 +8,7 @@ export function CancelItem({blockedReason,item,disabled,onChanged,compact=false,
  async function cancel(){
   if(!supabase||lock.current||disabled||blockedReason)return;
   lock.current=true;setBusy(true);onBusy?.(true);setError('');
-  try{const r=await supabase.rpc('cancel_order_item',{p_item_id:item.id,p_reason:''});if(r.error){if(r.error.code==='P0001'&&['Bếp đã ra món. Chỉ Admin mới có thể hủy món này.','Bếp đã ra món. Phục vụ không thể hủy món này.'].includes(r.error.message)){await onChanged();setError(r.error.message);return;}throw new Error(r.error.message);}await onChanged();setOpen(false);}
+  try{const r=await supabase.rpc('cancel_order_item',{p_item_id:item.id,p_reason:''});if(r.error){if(r.error.code==='P0001'&&['Nước đã hoàn thành. Chỉ Admin mới có thể hủy món này.','Bếp đã ra món. Chỉ Admin mới có thể hủy món này.','Bếp đã ra món. Phục vụ không thể hủy món này.'].includes(r.error.message)){await onChanged();setError(r.error.message);return;}throw new Error(r.error.message);}await onChanged();setOpen(false);}
   catch(e){setError(`Chưa xác nhận hủy: ${e instanceof Error?e.message:'Lỗi kết nối'}. Thử lại cùng món; hệ thống chỉ hủy một lần.`);}
   finally{lock.current=false;setBusy(false);onBusy?.(false);}
  }
