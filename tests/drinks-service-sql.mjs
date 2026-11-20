@@ -47,6 +47,7 @@ try{
  `);
  await db.exec(migration('20261119140222_drinks_notifications.sql'));
  await db.exec(migration('20261119140804_drinks_staff_roles.sql'));
+ await db.exec(migration('20261120014300_hide_paid_drink_history.sql'));
  await db.exec(`
  alter table table_sessions enable row level security;
  create policy sessions_staff_read on table_sessions for select to authenticated using ((select public.has_permission('orders.read')));
@@ -96,8 +97,7 @@ try{
  for(const user of [cashier,kitchen,admin,waiter]){
   await signIn(user);
   const history=await list(true);
-  assert.equal(history.length,2);
-  assert.ok(history.some(ticket=>ticket.id===closedOrder));
+  assert.deepEqual(history.map(ticket=>ticket.id),[order]);
   assert.ok(history.every(ticket=>ticket.items.every(item=>!('price' in item))));
   await complete(order,[{id:drink,qty:3}]);
  }
@@ -148,6 +148,16 @@ try{
  await one('select notify_service_order(5,$1,$2,$3,$4)',[uuid(93),'[]',uuid(31),[draft]]);
  assert.deepEqual((await list(false)).find(t=>t.id===draft).items.map(i=>i.name),['Trà đá']);
  assert.equal((await one('select count(*)::integer as n from order_items where order_id=$1',[draft])).n,2);
+ await db.exec('reset role');
+ await db.query('update public.order_items set paid=true where id=$1',[drink]);
+ await signIn(waiter);
+ assert.deepEqual((await list(true)).map(ticket=>ticket.id),[order],'Partial payment does not hide an open table');
+ await db.exec('reset role');
+ await db.query('update public.table_sessions set closed_at=now() where id=$1',[uuid(31)]);
+ await signIn(waiter);
+ assert.deepEqual(await list(true),[],'A completed ticket disappears when the table closes');
+ assert.equal((await one('select drink_done_qty from public.order_items where id=$1',[drink])).drink_done_qty,3);
+ assert.ok((await list(false)).length>0,'The pending queue remains available after table closure');
  await db.exec('reset role;set role anon');
  await assert.rejects(list(false),/permission denied/);
  console.log('PASS drink queue SQL: mixed orders, paid drinks, exclusions, exact completion, replay, added quantities, history, permissions, and exclusion of Khác for notifications');
