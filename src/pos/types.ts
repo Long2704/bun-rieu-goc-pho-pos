@@ -4,6 +4,7 @@ export type Product = {
     price: number;
     category: string;
     group_id?: string;
+    autoSave?: boolean;
     is_out: boolean;
 };
 export type Category = {
