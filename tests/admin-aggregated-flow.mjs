@@ -16,7 +16,7 @@ try{
   else if(path==='/auth/v1/user')body={id:'aggregate-owner'};
   else if(path==='/auth/v1/logout')body={};
   else if(path.endsWith('/get_my_access'))body={...mockAccess({name:'Admin',role:'chu'}),dashboard_aggregates:true};
-  else if(path==='/rest/v1/table_sessions'||path==='/rest/v1/orders')body=[];
+  else if(path==='/rest/v1/table_sessions'||path==='/rest/v1/orders'||path.endsWith('/list_drink_tickets'))body=[];
   else if(path==='/rest/v1/restaurant_tables')body=[{id:1,name:'Bàn 1'},{id:2,name:'Mang về 2'}];
   else if(path==='/rest/v1/menu_items')return route.fulfill({json:[{id:'food',name:'Bún riêu',price:58000,category:'bun',sort:0,is_active:true,is_out:false},{id:'drink',name:'Trà đá',price:3000,category:'do_uong',sort:1,is_active:true,is_out:false}],headers:{'content-range':'0-1/2','access-control-expose-headers':'content-range'}});
   else if(path.endsWith('/menu_group_catalog'))body={groups,assignments:{},non_kitchen_checkout:true};
@@ -35,7 +35,7 @@ try{
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));let downloadCount=0;page.on('download',()=>downloadCount++);page.setDefaultTimeout(12000);await page.clock.setFixedTime(new Date(today+'T23:59:59+07:00'));
  await page.goto(process.env.POS_TEST_URL||'http://localhost:5199');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('test@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('mock');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();await page.locator('.table-card').first().waitFor();
  if(await page.locator('.management-menu summary').isVisible())await page.locator('.management-menu summary').click();await page.getByRole('button',{name:'Dashboard',exact:true}).click();
- const firstBand=page.locator('.dash-slot-bars > div').first();await firstBand.getByText('228 phần món chính',{exact:true}).waitFor();await firstBand.getByText('114 hóa đơn',{exact:true}).waitFor();
+ const firstBand=page.locator('.dash-slot-bars > div').first();await firstBand.getByText('13.566.000đ',{exact:true}).waitFor();await firstBand.getByText('228 phần món chính · 114 hóa đơn',{exact:true}).waitFor();
  const dash=page.getByRole('region',{name:'Dashboard kinh doanh'}),kpi=()=>dash.locator('.dash-kpis>div').filter({has:page.getByText('Số hóa đơn',{exact:true})}).locator('dd');await kpi().waitFor();assert.equal(await kpi().innerText(),'601');assert.equal(requests,1);assert.equal(rawReads,0,'view never downloads invoice rows');
  const initial=requests;await dash.getByRole('button',{name:'Mang về',exact:true}).click();await dash.getByRole('button',{name:'Tất cả',exact:true}).click();await dash.getByRole('button',{name:'Ăn tại bàn',exact:true}).click();await kpi().waitFor();assert.equal(await kpi().innerText(),'300');assert.equal(requests,initial+1,'burst emits only final filter');assert.equal(rawReads,0);
  const explicit=requests;await dash.getByRole('button',{name:'Mang về',exact:true}).click();await dash.getByRole('button',{name:'Xem Dashboard',exact:true}).click();await kpi().waitFor();await page.waitForTimeout(500);assert.equal(requests,explicit+1,'manual submit cancels pending debounce');
