@@ -1,3 +1,4 @@
+import {checkCatalogDeletion} from './support/catalog-deletion.mjs';
 import {checkDeputyAdmin} from './support/deputy-admin.mjs';
 import {checkCashierKitchenCompletion} from './support/cashier-kitchen-completion.mjs';
 import {checkServedCancellationGuard} from './support/served-cancellation-guard.mjs';
@@ -184,5 +185,6 @@ try {
   await checkServedCancellationGuard(db,uid(1),food,drink);
   await checkCashierKitchenCompletion(db,uid(1),food);
   await checkDeputyAdmin(db,uid(1),food);
+  await checkCatalogDeletion(db,uid(1));
   console.log('PASS bill transfer SQL: staff permissions, exact whole-bill snapshot, empty/occupied target and target-session guard, partial kitchen-ticket split without copied items/new-food audit, same status/time/path/position, untouched source bills, close last source bill, request replay, paid protection, kitchen completion, private ledger.');
 } finally {await db.close();}

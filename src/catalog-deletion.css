@@ -1,0 +1,4 @@
+.catalog-row-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.catalog-row-actions .catalog-delete-button{min-width:56px;padding:8px 12px;color:#b42318;background:#fff1ed;border:1px solid #efc5bd}
+.catalog-row-actions .catalog-delete-button:hover:not(:disabled){background:#ffe0d7}
+@media(max-width:480px){.catalog-row-actions{flex-direction:column;align-items:stretch;gap:6px}}

@@ -73,9 +73,9 @@ function referenceMatrix(report:RevenueReport,current:readonly Sale[],options:Ex
   const time=localTime(sale.paid_at).slice(11,16),b=PERIOD_BANDS.findIndex(([a,z])=>time>=a&&time<z),band=b<0?7:b;invoices[band]++;
   for(const item of sale.bill_items){
    const key=normalizedName(item.name),m=byName.get(key),rowKey=m?key:JSON.stringify([key,item.price]);
-   const row=rows.get(rowKey)??{name:m?.name??item.name,price:m?.price??item.price,main:m?.category==='bun',counts:Array(8).fill(0),fallback:!m};
+   const row=rows.get(rowKey)??{name:m?.name??item.name,price:m?.price??item.price,main:(m?.category??item.category)==='bun',counts:Array(8).fill(0),fallback:!m};
    row.counts[band]+=item.qty;rows.set(rowKey,row);
-   if(row.main){main[band]+=item.qty;if(item.is_takeaway??isTakeaway(saleName(sale)))takeaway[band]+=item.qty;}
+   if((m?.category??item.category)==='bun'){main[band]+=item.qty;if(item.is_takeaway??isTakeaway(saleName(sale)))takeaway[band]+=item.qty;}
    if(key===normalizedName('Chả ốc (Tặng)'))gift[band]+=item.qty;
   }
  }
@@ -95,7 +95,7 @@ function referenceMatrix(report:RevenueReport,current:readonly Sale[],options:Ex
   'Mang về (tô): đếm món chính có dấu Mang về trên hóa đơn; dữ liệu cũ chưa có dấu dùng tên bàn bắt đầu bằng “Mang về”.',
   'Chả ốc (Tặng): chỉ đếm đúng món này; không đếm Chả ốc bán thường hoặc món khác có giá 0đ.',
   'Giá là giá menu tại lúc xuất. Thành tiền = Giá × Tổng cộng; thực thu Dashboard không bị thay đổi.',
-  '† Món cũ không còn trong menu: giữ giá hóa đơn, chưa đưa vào tổng món chính nếu không xác định được nhóm.',
+  '† Món cũ không còn trong menu: giữ giá và nhóm trên hóa đơn; chỉ cộng món chính khi xác định được nhóm.',
   'Dòng 1 là khoảng ngày giờ đã chọn để xuất báo cáo, theo giờ Việt Nam; không phải ngày tải file.'
  ];
  for(const text of notes){sheet.rows.push([cell(text,5)]);const r=sheet.rows.length;sheet.merges?.push(`A${r}:${column(last)}${r}`);}

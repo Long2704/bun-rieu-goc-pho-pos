@@ -1,3 +1,5 @@
+import CatalogDeletion from './CatalogDeletion';
+import type {CatalogDeletionHandle} from './CatalogDeletion';
 import {createPortal} from 'react-dom';
 import './menu-edit-dialog.css';
 import Toast from './Toast';
@@ -9,6 +11,8 @@ type Table={id:number;name:string;is_active:boolean;version:number;busy:boolean}
 type OrderAttempt={requestId:string;expected:number[];ordered:number[]};
 type Attempt={requestId:string;tableId:number|null;version:number;name:string;active:boolean};
 export default function TableManagement({userId,active,disabled,onPending,onSaved}:{userId:string;active:boolean;disabled:boolean;onPending:(v:boolean)=>void;onSaved:()=>Promise<void>}){
+ const deletion=useRef<CatalogDeletionHandle>(null);
+ const [deletePending,setDeletePending]=useState(false);
  const key=`goc-pho-table-management-v1:${userId}`;
  const orderKey=`goc-pho-table-order-v1:${userId}`;
  const [baseIds,setBaseIds]=useState<number[]>([]),[orderPending,setOrderPending]=useState<OrderAttempt|null>(null);
@@ -25,7 +29,7 @@ export default function TableManagement({userId,active,disabled,onPending,onSave
  },[active,adding]);
  useEffect(()=>{alive.current=true;try{const raw=localStorage.getItem(key);if(raw){const p=JSON.parse(raw);if(!p.requestId||(p.tableId!==null&&(!Number.isInteger(p.tableId)||p.tableId<=0))||!Number.isInteger(p.version)||typeof p.name!=='string'||typeof p.active!=='boolean')throw new Error();setPending(p);setEdit(p);}}catch{setStorageError(true);}return()=>{alive.current=false;};},[key]);
  useEffect(()=>{try{const raw=localStorage.getItem(orderKey);if(raw){const p=JSON.parse(raw);if(!p.requestId||!Array.isArray(p.expected)||!Array.isArray(p.ordered)||!p.ordered.length||[...p.expected,...p.ordered].some((id:number)=>!Number.isInteger(id)||id<=0))throw new Error();setOrderPending(p);}}catch{setStorageError(true);}},[orderKey]);
- useEffect(()=>onPending(!!pending||!!orderPending||busy||storageError),[pending,orderPending,busy,storageError,onPending]);
+ useEffect(()=>onPending(!!pending||!!orderPending||busy||storageError||deletePending),[pending,orderPending,busy,storageError,deletePending,onPending]);
  async function read(){const r=await supabase!.rpc('list_table_management');if(r.error)throw new Error(['PGRST202','42883'].includes(r.error.code)?'Cần chạy SQL 015_table_management.sql để dùng quản lý bàn.':'Không tải được danh sách bàn. Kiểm tra kết nối và quyền Bún Riêu Góc Phố.');if(alive.current){setTables(r.data as Table[]);setBaseIds((r.data as Table[]).map(t=>t.id));}}
  async function load(){if(!supabase||lock.current)return;lock.current=true;setBusy(true);setError('');try{await read();}catch(e){if(alive.current)setError(e instanceof Error?e.message:'Không tải được bàn.');}finally{lock.current=false;if(alive.current)setBusy(false);}}
  useEffect(()=>{if(active&&!dirty&&!orderPending)void load();},[active]);
@@ -48,15 +52,15 @@ export default function TableManagement({userId,active,disabled,onPending,onSave
    await onSaved();await read();localStorage.removeItem(orderKey);if(alive.current){setOrderPending(null);setMessage('Đã lưu thứ tự bàn. Màn hình Phục vụ đã cập nhật.');}
   }catch(e){if(alive.current)setError(e instanceof Error?e.message:'Chưa xác nhận thứ tự bàn. Thử lại cùng mã.');}finally{lock.current=false;if(alive.current)setBusy(false);}
  }
- function start(t?:Table){setError('');setMessage('');setEdit({requestId:crypto.randomUUID(),tableId:t?.id??null,version:t?.version??0,name:t?.name??'',active:t?.is_active??true});}
+ function start(t?:Table){if(deletePending)return;setError('');setMessage('');setEdit({requestId:crypto.randomUUID(),tableId:t?.id??null,version:t?.version??0,name:t?.name??'',active:t?.is_active??true});}
  function closeEdit(){
   if(lock.current||pending)return;
   setEdit(null);
   if(adding)setError('');
  }
  const pendingStatus=pending&&!busy&&<aside role="status"><strong>Cập nhật bàn chờ xác nhận: {pending.name}</strong><p>Thử lại cùng mã để tránh thêm bàn trùng.</p><button disabled={busy} onClick={()=>void save()}>Thử lại cùng mã cập nhật bàn</button></aside>;
- const form=edit&&<form className={adding?'table-edit-form menu-edit-form':'table-edit-form'} onSubmit={e=>{e.preventDefault();void save();}}><h3>{adding?'Thêm bàn':'Sửa bàn'}</h3><fieldset disabled={disabled||busy||dirty||!!orderPending||!!pending||storageError}><label>Tên bàn<input required maxLength={80} placeholder="Ví dụ: Bàn 14, Sân trước" value={edit.name} onChange={e=>setEdit({...edit,name:e.target.value})}/></label><label className="checkbox-label"><input type="checkbox" checked={edit.active} onChange={e=>setEdit({...edit,active:e.target.checked})}/>Đang sử dụng</label><button type="submit" className="primary" disabled={!edit.name.trim()}>Lưu bàn</button></fieldset><button type="button" disabled={busy||!!pending} onClick={closeEdit}>{adding?'Đóng':'Đóng sửa bàn'}</button></form>;
- return <section className="table-management" aria-label="Quản lý bàn"><div className="table-management-toolbar">{dirty&&!orderPending?<><span className="visually-hidden" role="status">Thứ tự mới chưa lưu.</span><button className="primary" disabled={!dirty||!!orderPending||disabled||busy||!!pending||!!edit||storageError} onClick={()=>void saveOrder()}>Lưu thứ tự bàn</button><button disabled={!dirty||busy||!!pending||!!orderPending} onClick={()=>void load()}>Hủy sắp xếp</button></>:<><button className="primary" disabled={disabled||busy||dirty||!!orderPending||!!pending||storageError} aria-haspopup="dialog" onClick={()=>start()}>Thêm bàn</button><button className="table-reload" aria-label="Tải lại bàn" title="Tải lại bàn" disabled={busy||dirty||!!orderPending} onClick={()=>void load()}><PosIcon name="refresh"/>Tải lại</button></>}</div>
+ const form=edit&&<form className={adding?'table-edit-form menu-edit-form':'table-edit-form'} onSubmit={e=>{e.preventDefault();void save();}}><h3>{adding?'Thêm bàn':'Sửa bàn'}</h3><fieldset disabled={deletePending||disabled||busy||dirty||!!orderPending||!!pending||storageError}><label>Tên bàn<input required maxLength={80} placeholder="Ví dụ: Bàn 14, Sân trước" value={edit.name} onChange={e=>setEdit({...edit,name:e.target.value})}/></label><label className="checkbox-label"><input type="checkbox" checked={edit.active} onChange={e=>setEdit({...edit,active:e.target.checked})}/>Đang sử dụng</label><button type="submit" className="primary" disabled={!edit.name.trim()}>Lưu bàn</button></fieldset><button type="button" disabled={busy||!!pending} onClick={closeEdit}>{adding?'Đóng':'Đóng sửa bàn'}</button></form>;
+ return <section className="table-management" aria-label="Quản lý bàn"><CatalogDeletion ref={deletion} kind="table" userId={userId} disabled={disabled||busy||dirty||!!pending||!!orderPending||!!edit||storageError} onPending={setDeletePending} onChanged={async()=>{await onSaved();await read();}}/><div className="table-management-toolbar">{dirty&&!orderPending?<><span className="visually-hidden" role="status">Thứ tự mới chưa lưu.</span><button className="primary" disabled={!dirty||!!orderPending||disabled||busy||!!pending||!!edit||storageError} onClick={()=>void saveOrder()}>Lưu thứ tự bàn</button><button disabled={!dirty||busy||!!pending||!!orderPending} onClick={()=>void load()}>Hủy sắp xếp</button></>:<><button className="primary" disabled={deletePending||disabled||busy||dirty||!!orderPending||!!pending||storageError} aria-haspopup="dialog" onClick={()=>start()}>Thêm bàn</button><button className="table-reload" aria-label="Tải lại bàn" title="Tải lại bàn" disabled={busy||dirty||!!orderPending} onClick={()=>void load()}><PosIcon name="refresh"/>Tải lại</button></>}</div>
  {storageError&&<p role="alert">Không đọc được cập nhật bàn chờ. Không xóa dữ liệu trình duyệt; liên hệ hỗ trợ.</p>}
  {!adding&&pendingStatus}
  {disabled&&!pending&&<p>Gửi hoặc xóa các món đang chọn và xử lý yêu cầu chờ trước khi quản lý bàn.</p>}
@@ -70,7 +74,7 @@ export default function TableManagement({userId,active,disabled,onPending,onSave
  <p id="table-sort-help" className="visually-hidden">Kéo nút ⠿ cạnh tên bàn, rồi bấm Lưu thứ tự bàn. Có thể dùng phím ↑ / ↓ trên nút kéo. Bàn đang có khách vẫn sắp xếp được.</p>
  {orderPending&&!busy&&<aside role="status"><strong>Thứ tự bàn chờ xác nhận.</strong><button disabled={busy} onClick={()=>void saveOrder()}>Thử lại cùng mã sắp xếp</button></aside>}
 
- <DraggableTables rows={tables} disabled={disabled||busy||!!pending||!!orderPending||storageError||!!edit} onChange={next=>{setTables(next);setError('');setMessage('');}} render={t=><><div className="sortable-table-name"><h3>{t.name}</h3><p title={t.busy?'Bàn đang có khách hoặc món bếp chưa xong':undefined}>{!t.is_active?'Ngừng sử dụng':t.busy?'Đang phục vụ':'Trống'}</p></div><button className="table-edit-button" aria-label={`Sửa ${t.name}`} title={t.busy?'Xử lý xong đơn của bàn trước khi sửa':`Sửa ${t.name}`} disabled={disabled||busy||dirty||!!pending||!!orderPending||storageError||t.busy} onClick={()=>start(t)}>Sửa</button></>}/>
+ <DraggableTables rows={tables} disabled={deletePending||disabled||busy||!!pending||!!orderPending||storageError||!!edit} onChange={next=>{setTables(next);setError('');setMessage('');}} render={t=><><div className="sortable-table-name"><h3>{t.name}</h3><p title={t.busy?'Bàn đang có khách hoặc món bếp chưa xong':undefined}>{!t.is_active?'Ngừng sử dụng':t.busy?'Đang phục vụ':'Trống'}</p></div><div className="catalog-row-actions"><button className="table-edit-button" aria-label={`Sửa ${t.name}`} title={t.busy?'Xử lý xong đơn của bàn trước khi sửa':`Sửa ${t.name}`} disabled={deletePending||disabled||busy||dirty||!!pending||!!orderPending||storageError||t.busy} onClick={()=>start(t)}>Sửa</button><button className="catalog-delete-button" aria-label={`Xóa bàn ${t.name}`} aria-haspopup="dialog" title={t.busy?'Bàn đang phục vụ, chưa thể xóa':`Xóa ${t.name}`} disabled={deletePending||disabled||busy||dirty||!!pending||!!orderPending||!!edit||storageError||t.busy} onClick={()=>deletion.current?.open({id:t.id,name:t.name,version:t.version})}>Xóa</button></div></>}/>
 
 
  {!adding&&error&&<p role="alert">{error}</p>}{message&&<Toast message={message}/>}</section>;
