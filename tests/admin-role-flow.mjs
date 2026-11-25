@@ -2,7 +2,7 @@ import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mockAccess} from './support/access.mjs';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
-try{for(const role of ['admin','thu_ngan','phuc_vu','bep']){
+try{for(const role of ['admin','admin_phu','thu_ngan','phuc_vu','bep']){
  const errors=[];let attempts=0,mode='same',accessDenied=false,resolveUpdate;
  const context=await browser.newContext({viewport:{width:390,height:844}});
  await context.routeWebSocket('**/realtime/v1/websocket**',socket=>socket.onMessage(raw=>{const m=JSON.parse(String(raw));if(['phx_join','heartbeat'].includes(m[3]))socket.send(JSON.stringify([m[0],m[1],m[2],'phx_reply',{status:'ok',response:{}}]));}));
@@ -17,19 +17,20 @@ try{for(const role of ['admin','thu_ngan','phuc_vu','bep']){
    }
    body={id:role,email:'local@example.test',aud:'authenticated',role:'authenticated'};
   }
-  else if(path.endsWith('/get_my_access'))body={...mockAccess({role:role==='admin'?'chu':role,name:role==='admin'?'Admin':'Nhân viên'}),actual_role:role,is_active:!accessDenied,linked_tables:true};
+  else if(path.endsWith('/get_my_access'))body={...mockAccess({role:['admin','admin_phu'].includes(role)?'chu':role,name:role==='admin'?'Admin':'Nhân viên'}),actual_role:role,is_active:!accessDenied,linked_tables:true};
   else if(path.endsWith('/get_linked_table_snapshot'))body={sessions:[],links:[]};
   else if(path.endsWith('/get_pos_sync_delta'))body={session_ids:[],sessions:[],links:[],kitchen:[]};
   else if(path.endsWith('/menu_group_catalog'))body={groups:[],assignments:{},non_kitchen_checkout:true};
   else if(path==='/rest/v1/restaurant_tables')body=[{id:1,name:'Bàn 1',service_type:'dine_in'}];
   else if(path.endsWith('/list_employees'))body={items:[{id:'admin',name:'Admin',role:'admin',is_active:true,created_at:new Date().toISOString()}],total:1};
+  if(path.endsWith('/get_my_access')&&role==='admin_phu')body.permissions=body.permissions.filter(p=>!['orders.cancel','tables.cancel'].includes(p));
   await route.fulfill({json:body});
  });
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(10000);
  await page.goto(process.env.POS_TEST_URL||'http://localhost:5200');await page.getByLabel('Tên đăng nhập',{exact:true}).fill('local@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('LocalTest123!');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await page.getByRole('button',{name:'Phục vụ',exact:true}).waitFor();
  const open=async()=>{const menu=page.locator('.management-menu');await menu.locator('summary').click();await menu.getByRole('button',{name:'Đổi mật khẩu',exact:true}).click();};
- if(role!=='admin'){assert.equal(await page.getByRole('button',{name:'Đổi mật khẩu',exact:true}).count(),0);assert.equal(attempts,0);}
+ if(!['admin','admin_phu'].includes(role)){assert.equal(await page.getByRole('button',{name:'Đổi mật khẩu',exact:true}).count(),0);assert.equal(attempts,0);}
  else{
   await open();let d=page.getByRole('dialog',{name:'Đổi mật khẩu Admin'});
   await d.getByLabel('Mật khẩu mới',{exact:true}).fill('AdminTest123!');await d.getByLabel('Nhập lại mật khẩu mới',{exact:true}).fill('different');assert.ok(await d.getByRole('button',{name:'Lưu mật khẩu',exact:true}).isDisabled());

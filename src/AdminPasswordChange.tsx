@@ -15,7 +15,7 @@ export default function AdminPasswordChange({onClose,onBusy,onSuccess}:{onClose:
   lock.current=true;setBusy(true);onBusy(true);setError('');
   try{
    const access=await supabase.rpc('get_my_access');
-   if(access.error||access.data?.is_active!==true||access.data?.session_invalid||access.data?.must_change_password||!['admin','chu'].includes(access.data?.actual_role??access.data?.role)||!access.data?.permissions?.includes('employees.manage'))throw new Error('Không xác nhận được quyền Admin. Vui lòng đăng nhập lại.');
+   if(access.error||access.data?.is_active!==true||access.data?.session_invalid||access.data?.must_change_password||!['admin','admin_phu','chu'].includes(access.data?.actual_role??access.data?.role)||!access.data?.permissions?.includes('employees.manage'))throw new Error('Không xác nhận được quyền Admin. Vui lòng đăng nhập lại.');
    if(!alive.current)return;
    const result=await supabase.auth.updateUser({password});
    if(result.error){
