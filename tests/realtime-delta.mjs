@@ -15,3 +15,15 @@ next=mergeRealtimeDelta(previous,[a],{session_ids:[a],sessions:[],links:[],kitch
 next=mergeRealtimeDelta(next,[a],{session_ids:[a],sessions:[],links:[],kitchen:[]});assert.deepEqual(next.kitchen,[unrelatedKitchen]);
 for(const bad of [{...delta,session_ids:[]},{...delta,session_ids:[b]},{...delta,sessions:[session(b,1)]},{...delta,kitchen:[order('x',b)]},{...delta,sessions:[session(a,3)],links:[]},{...delta,sessions:[session(a,1),session(a,1)]}])assert.throws(()=>mergeRealtimeDelta(previous,[a],bad));
 console.log('PASS scoped merge: replace linked aliases once, preserve unrelated sessions/tickets by reference, exact note/amount, no mutation, paid cooking retention, final removal, strict scope/collision/malformed-response rejection.');
+const withDrinks={...previous,drinkCounts:{[a]:1,[b]:2}};
+const paid={session_ids:[a],sessions:[],links:[],kitchen:[],drink_counts:{[a]:1}};
+next=mergeRealtimeDelta(withDrinks,[a],paid);
+assert.deepEqual(next.drinkCounts,{[a]:1,[b]:2},'a closed session still has a pending drink ticket');
+next=mergeRealtimeDelta(next,[a],{...paid,drink_counts:{}});
+assert.deepEqual(next.drinkCounts,{[b]:2},'zero tickets removes only the affected session');
+assert.deepEqual(withDrinks.drinkCounts,{[a]:1,[b]:2});
+assert.equal(mergeRealtimeDelta(previous,[a],paid).drinkCounts,undefined,'a scoped response cannot bootstrap a global total');
+for(const bad of [null,undefined,[],{[b]:1},{[a]:-1},{[a]:0},{[a]:1.1},{[a]:'1'}]){
+ assert.throws(()=>mergeRealtimeDelta(withDrinks,[a],{...paid,drink_counts:bad}));
+}
+console.log('PASS shared drinks: closed-session retention, zero removal, unaffected counts, legacy compatibility and invalid scope rejection.');

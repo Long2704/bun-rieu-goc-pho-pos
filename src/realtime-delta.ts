@@ -1,13 +1,15 @@
 import {projectLinkedSessions} from './linked-tables';
 import type {Order,TableSession} from './order-model';
 import {isSessionId} from './realtime-sync';
+import {readDrinkCounts,replaceDrinkCounts} from './drink-counts';
+import type {DrinkCounts} from './drink-counts';
 export type CookingOrder=Order&{table_sessions:{table_id:number;closed_at:string|null;table_path?:number[]}};
-export type LiveSnapshot={sessions:TableSession[];kitchen:CookingOrder[]};
+export type LiveSnapshot={sessions:TableSession[];kitchen:CookingOrder[];drinkCounts?:DrinkCounts};
 // Closed sessions are deliberately absent from sessions but can retain paid
 // cooking tickets. Replace both projections for every requested session.
 export function mergeRealtimeDelta(previous:LiveSnapshot,ids:readonly string[],value:unknown):LiveSnapshot{
  if(!value||typeof value!=='object'||!ids.length||ids.length>30||ids.some(id=>!isSessionId(id)))throw Error('Invalid delta scope');
- const data=value as {session_ids?:unknown;sessions?:unknown;links?:unknown;kitchen?:unknown};
+ const data=value as {session_ids?:unknown;sessions?:unknown;links?:unknown;kitchen?:unknown;drink_counts?:unknown};
  const scope=new Set(ids);
  if(!Array.isArray(data.session_ids)||data.session_ids.length!==scope.size||data.session_ids.some(id=>typeof id!=='string'||!scope.has(id))||new Set(data.session_ids).size!==scope.size||!Array.isArray(data.sessions)||!Array.isArray(data.kitchen))throw Error('Incomplete delta');
  const sessions=data.sessions as TableSession[],kitchen=data.kitchen as CookingOrder[];
@@ -20,5 +22,6 @@ export function mergeRealtimeDelta(previous:LiveSnapshot,ids:readonly string[],v
  if(new Set(nextSessions.map(s=>s.table_id)).size!==nextSessions.length)throw Error('Table ownership changed');
  const nextKitchen=[...previous.kitchen.filter(o=>!scope.has(o.session_id)),...kitchen].sort((a,b)=>a.created_at.localeCompare(b.created_at)||a.id.localeCompare(b.id));
  if(new Set(nextKitchen.map(o=>o.id)).size!==nextKitchen.length)throw Error('Kitchen ownership changed');
- return {sessions:nextSessions,kitchen:nextKitchen};
+ const drinkCounts=previous.drinkCounts&&replaceDrinkCounts(previous.drinkCounts,scope,readDrinkCounts(data.drink_counts,scope));
+ return {sessions:nextSessions,kitchen:nextKitchen,...(drinkCounts?{drinkCounts}:{})};
 }

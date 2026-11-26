@@ -2,7 +2,7 @@ import {projectLinkedSessions} from './linked-tables';
 import type {TableSession} from './order-model';
 import type {CookingOrder} from './realtime-delta';
 type Catalog={menu:{id:string;name:string;price:number;category:string;is_out:boolean}[];tables:{id:number;name:string;service_type?:string}[]};
-export type PosLiveSnapshot={version:1;access:unknown;snapshot:{sessions:TableSession[];links:unknown;kitchen:CookingOrder[]}|null;catalog:Catalog|null};
+export type PosLiveSnapshot={version:1;access:unknown;snapshot:{sessions:TableSession[];links:unknown;kitchen:CookingOrder[];drink_counts?:unknown}|null;catalog:Catalog|null};
 export function liveEnvelope(value:unknown):PosLiveSnapshot{
  if(!value||typeof value!=='object'||(value as PosLiveSnapshot).version!==1||!('access' in value))throw Error('Invalid live snapshot');
  return value as PosLiveSnapshot;

@@ -29,3 +29,12 @@ Run tests/sync-read-policy.mjs, tests/realtime-coordinator.mjs, tests/realtime-f
 - Khi đang ở màn hình khác, số trên nút **Nước** lấy dữ liệu lần đầu và định kỳ khoảng 60 giây khi app đang hiển thị. Sự kiện phát sinh đơn không kích hoạt lượt đọc phiếu riêng cho từng thiết bị ở ngoài tab Nước. Nút **Đồng bộ** vẫn cập nhật ngay.
 - Mở tab **Nước** sẽ tải ngay và vẫn cập nhật theo Realtime. Nếu Realtime hoặc lượt đọc bị lỗi, quầy Nước vẫn thử lại sau 5 giây khi đang hiển thị. Không đổi quyền, thanh toán, dữ liệu hoặc RPC.
 - Chạy `tests/drinks-service-flow.mjs` với API giả để kiểm tra số trên nút, tải ngay khi mở tab, Realtime, hoàn thành/thử lại và lịch sử. Sau khi triển khai, so sánh lượt `list_drink_tickets` trong các khung giờ có mức hoạt động tương tự; không suy ra MB tiết kiệm chỉ từ số lượt gọi.
+
+### Shared pending-drink badge
+The navigation badge uses per-session pending-ticket counts from the existing
+live snapshot and scoped order delta, like the kitchen badge. A scoped response
+replaces the affected sessions (omitted counts mean zero); paid drinks in a
+closed session remain pending until prepared. Opening Nước still reads the
+separate detailed queue and history. Older servers omit the new field, so the
+previous throttled badge remains available as a rollout fallback. Apply the
+read-only projection migration before deploying the matching frontend.

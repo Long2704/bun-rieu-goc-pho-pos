@@ -68,14 +68,14 @@ function useDrinkList(history:boolean,enabled:boolean,realtimeReady:boolean,revi
  return {tickets,readError,setTickets};
 }
 
-export default function DrinksPanel({active,online,realtimeReady,revision,manualRevision,onQueueCount}:{
- active:boolean;online:boolean;realtimeReady:boolean;revision:number;manualRevision:number;onQueueCount:(count:number)=>void;
+export default function DrinksPanel({active,online,realtimeReady,revision,manualRevision,useLegacyBadge,onQueueCount}:{
+ active:boolean;online:boolean;realtimeReady:boolean;revision:number;manualRevision:number;useLegacyBadge:boolean;onQueueCount:(count:number)=>void;
 }){
  const [history,setHistory]=useState(false);
  const [completeError,setCompleteError]=useState(false);
  const [completing,setCompleting]=useState(false);
  const lock=useRef(false),mounted=useRef(false);
- const queue=useDrinkList(false,online&&!completing,realtimeReady,revision,manualRevision,active);
+ const queue=useDrinkList(false,online&&!completing&&(active||useLegacyBadge),realtimeReady,revision,manualRevision,active);
  const done=useDrinkList(true,active&&history&&online,realtimeReady,revision,manualRevision,active);
  const queueCount=queue.tickets?.length;
  const {tickets,readError}=history?done:queue;
@@ -85,8 +85,8 @@ export default function DrinksPanel({active,online,realtimeReady,revision,manual
   return()=>{mounted.current=false;};
  },[]);
  useEffect(()=>{
-  if(queueCount!==undefined)onQueueCount(queueCount);
- },[queueCount,onQueueCount]);
+  if(useLegacyBadge&&queueCount!==undefined)onQueueCount(queueCount);
+ },[queueCount,useLegacyBadge,onQueueCount]);
 
  async function complete(ticket:DrinkTicket,beforeRemove?:CompletionMotion){
   if(!supabase||lock.current||!navigator.onLine||history||readError)return false;
