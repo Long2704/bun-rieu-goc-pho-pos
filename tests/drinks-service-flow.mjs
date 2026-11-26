@@ -22,7 +22,7 @@ try{
  const order={id:'order',request_id:'request',session_id:'session',status:'cooking',kitchen_relevant:true,created_at:'2026-11-19T04:00:00Z',order_items:items};
  const ticket={id:order.id,queued_at:order.created_at,done_at:null,place:'Bàn 5',ordered_by_name:'Lan',
   items:[{id:'tea',name:'Trà đá',qty:2,target_qty:2,note:'Ít đá',is_takeaway:true}]};
- let role='phuc_vu',completed=false,fail=true,drinksSaved=false;
+ let role='phuc_vu',completed=false,fail=true,failRead=false,drinksSaved=false;
  const requests=[];
  let reads=0;
  await context.route('https://uiwzinyckukaqlbznnam.supabase.co/**',async route=>{
@@ -39,6 +39,7 @@ try{
   else if(path.endsWith('/list_drink_tickets')){
    reads++;
    const history=req.postDataJSON().p_history;
+   if(failRead&&!history){failRead=false;return route.fulfill({status:503,json:{message:'Simulated read failure'}});}
    data=drinksSaved&&completed===history?[{...ticket,done_at:completed?'2026-11-19T04:03:00Z':null}]:[];
   }else if(path.endsWith('/complete_drink_ticket')){
    requests.push(req.postDataJSON());
@@ -49,6 +50,7 @@ try{
   await route.fulfill({json:data});
  });
  const page=await context.newPage();
+ await page.clock.install();
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
  page.setDefaultTimeout(8000);
@@ -63,17 +65,32 @@ try{
  await drinksTab.waitFor();
  assert.equal(await drinksTab.innerText(),'Nước (0)');
  await page.waitForFunction(()=>document.querySelector('.drinks-nav')?.textContent==='Nước (0)');
+ await page.getByRole('button',{name:/^Bàn 5/}).waitFor();
  assert.equal(await panel.count(),0);
  const previousReads=reads;
  assert.ok(ordersJoin);
  drinksSaved=true;
- socket.send(JSON.stringify([ordersJoin,null,'realtime:pos:orders','broadcast',{
+ const invalidateOrders=()=>socket.send(JSON.stringify([ordersJoin,null,'realtime:pos:orders','broadcast',{
   type:'broadcast',event:'invalidate',payload:{version:1}
  }]));
- // A notification from another station changes the badge without opening Nước.
+ // Other order changes still sync the POS, but do not fetch full drink tickets for the badge.
+ const refreshed=page.waitForResponse(response=>new URL(response.url()).pathname==='/rest/v1/table_sessions');
+ for(let count=0;count<3;count++)invalidateOrders();
+ await refreshed;
+ await page.clock.runFor(1000);
+ assert.equal(reads,previousReads);
+ assert.equal(await drinksTab.innerText(),'Nước (0)');
+ await page.clock.fastForward(60_000);
  await page.getByRole('button',{name:'Nước (1)',exact:true}).waitFor({timeout:2000});
- assert.ok(reads>previousReads);
+ assert.equal(reads,previousReads+1);
+ // Manual sync still updates the badge without waiting for the next minute.
+ drinksSaved=false;
+ await page.getByRole('button',{name:'Đồng bộ',exact:true}).click();
+ await page.getByRole('button',{name:'Nước (0)',exact:true}).waitFor({timeout:2000});
+ drinksSaved=true;
+ const entered=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/list_drink_tickets'));
  await drinksTab.click();
+ await entered;
  await card.getByText('2 × Trà đá').waitFor();
  await panel.getByRole('button',{name:'Đang làm (1)',exact:true}).waitFor();
  await card.getByRole('heading',{name:'Bàn 5 (Mang về)',exact:true}).waitFor();
@@ -83,6 +100,20 @@ try{
  assert.equal(await card.getByText('Bún riêu',{exact:false}).count(),0);
  assert.equal(await panel.getByRole('button',{name:/chuông|thông báo|tải ảnh/i}).count(),0);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+
+ // At the water station, Realtime still refreshes without waiting for the badge timer.
+ drinksSaved=false;
+ invalidateOrders();
+ await panel.getByText('Chưa có món nước đang làm.').waitFor({timeout:2000});
+ drinksSaved=true;
+ invalidateOrders();
+ await card.getByText('2 × Trà đá').waitFor({timeout:2000});
+ failRead=true;
+ invalidateOrders();
+ const syncError=panel.getByRole('alert').filter({hasText:'Chưa đồng bộ được phiếu nước'});
+ await syncError.waitFor({timeout:2000});
+ await page.clock.fastForward(5000);
+ await syncError.waitFor({state:'hidden',timeout:2000});
 
  const cdp=await context.newCDPSession(page);
  async function swipe(direction){
@@ -124,5 +155,5 @@ try{
   await card.getByText('2 × Trà đá').waitFor();
  }
  assert.deepEqual(errors,[]);
- console.log('PASS Mobile drink tab, drink-only display, touch completion and retry, history, kitchen isolation and all staff roles');
+ console.log('PASS Background badge polling, immediate active refresh and Realtime, mobile completion and retry, history, kitchen isolation and staff roles');
 }finally{await browser.close();}

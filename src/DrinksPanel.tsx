@@ -11,51 +11,72 @@ type DrinkTicket={
  id:string;place:string;queued_at:string;done_at:string|null;ordered_by_name:string|null;
  items:{id:string;name:string;qty:number;target_qty:number;note:string;is_takeaway:boolean|null}[];
 };
-function useDrinkList(history:boolean,enabled:boolean,realtimeReady:boolean,revision:number,visible:boolean){
+function useDrinkList(history:boolean,enabled:boolean,realtimeReady:boolean,revision:number,manualRevision:number,active:boolean){
  const [tickets,setTickets]=useState<DrinkTicket[]>();
  const [readError,setReadError]=useState(false);
- const visibleView=useRef(visible);
- visibleView.current=visible;
+ const lastSettled=useRef<number|null>(null);
+ const lastManualRevision=useRef(manualRevision);
+ // Generic order events refresh the open Nước screen, not every device's badge.
+ const activeRevision=active?revision:0;
+ const activeRealtime=active&&realtimeReady;
 
  useEffect(()=>{
   if(!supabase||!enabled)return;
   const client=supabase;
   const controller=new AbortController();
   let timer:ReturnType<typeof setTimeout>;
+  let reading=false;
+  let manualRefresh=lastManualRevision.current!==manualRevision;
+  const visible=()=>document.visibilityState==='visible';
   const read=async()=>{
+   if(controller.signal.aborted||reading||!visible())return;
+   reading=true;
+   manualRefresh=false;
    let healthy=false;
    try{
-    if(document.visibilityState==='visible'){
-     const {data,error}=await client.rpc('list_drink_tickets',{p_history:history}).abortSignal(controller.signal);
-     if(error||!Array.isArray(data))throw Error('Could not read drink tickets');
-     if(!controller.signal.aborted){
-      setTickets(data as DrinkTicket[]);
-      setReadError(false);
-     }
+    const {data,error}=await client.rpc('list_drink_tickets',{p_history:history}).abortSignal(controller.signal);
+    if(error||!Array.isArray(data))throw Error('Could not read drink tickets');
+    if(!controller.signal.aborted){
+     setTickets(data as DrinkTicket[]);
+     setReadError(false);
     }
     healthy=true;
    }catch{
     if(!controller.signal.aborted)setReadError(true);
    }finally{
-    if(!controller.signal.aborted)timer=setTimeout(()=>void read(),!visibleView.current||realtimeReady&&healthy?CATALOG_SYNC_MS:LIVE_SYNC_MS);
+    reading=false;
+    if(!controller.signal.aborted){
+     lastSettled.current=Date.now();
+     lastManualRevision.current=manualRevision;
+     if(visible())timer=setTimeout(()=>void read(),!active||activeRealtime&&healthy?CATALOG_SYNC_MS:LIVE_SYNC_MS);
+    }
    }
   };
-  void read();
-  return()=>{controller.abort();clearTimeout(timer);};
- },[enabled,history,realtimeReady,revision]);
+  const resume=()=>{
+   clearTimeout(timer);
+   if(!visible()||reading)return;
+   const last=lastSettled.current,now=Date.now();
+   const delay=!active&&!manualRefresh&&last!==null&&now>=last?Math.max(0,CATALOG_SYNC_MS-(now-last)):0;
+   if(delay)timer=setTimeout(()=>void read(),delay);
+   else void read();
+  };
+  document.addEventListener('visibilitychange',resume);
+  resume();
+  return()=>{controller.abort();clearTimeout(timer);document.removeEventListener('visibilitychange',resume);};
+ },[enabled,history,active,activeRealtime,activeRevision,manualRevision]);
 
  return {tickets,readError,setTickets};
 }
 
-export default function DrinksPanel({active,online,realtimeReady,revision,onQueueCount}:{
- active:boolean;online:boolean;realtimeReady:boolean;revision:number;onQueueCount:(count:number)=>void;
+export default function DrinksPanel({active,online,realtimeReady,revision,manualRevision,onQueueCount}:{
+ active:boolean;online:boolean;realtimeReady:boolean;revision:number;manualRevision:number;onQueueCount:(count:number)=>void;
 }){
  const [history,setHistory]=useState(false);
  const [completeError,setCompleteError]=useState(false);
  const [completing,setCompleting]=useState(false);
  const lock=useRef(false),mounted=useRef(false);
- const queue=useDrinkList(false,online&&!completing,realtimeReady,revision,active);
- const done=useDrinkList(true,active&&history&&online,realtimeReady,revision,active);
+ const queue=useDrinkList(false,online&&!completing,realtimeReady,revision,manualRevision,active);
+ const done=useDrinkList(true,active&&history&&online,realtimeReady,revision,manualRevision,active);
  const queueCount=queue.tickets?.length;
  const {tickets,readError}=history?done:queue;
 

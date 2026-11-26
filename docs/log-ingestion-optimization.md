@@ -22,3 +22,10 @@ Already-ingested usage is not removed. Compare the next 24–48 hours under simi
 ## Verification
 
 Run tests/sync-read-policy.mjs, tests/realtime-coordinator.mjs, tests/realtime-flow.mjs, tests/item-takeaway-flow.mjs, tests/menu-groups-flow.mjs, tests/payment-flow.mjs and tests/save-selection-latency-flow.mjs against the dev server. Browser fixtures mock Supabase HTTP and WebSockets, avoiding production transactions and push. Realtime coverage includes hidden/resume, missed-event safety, disconnect fallback, malformed delta fallback, concurrent invalidations, manual sync, local save and same-user re-login.
+
+## Phiếu Nước: giảm lượt đọc ngoài tab Nước
+
+- Hai mẫu một giờ ngày 26/11/2026 (09:00 và 13:00 giờ Việt Nam) có 789 lượt `list_drink_tickets` trên 2.340 lượt log cổng API. Đây là số lượt, không phải dung lượng log.
+- Khi đang ở màn hình khác, số trên nút **Nước** lấy dữ liệu lần đầu và định kỳ khoảng 60 giây khi app đang hiển thị. Sự kiện phát sinh đơn không kích hoạt lượt đọc phiếu riêng cho từng thiết bị ở ngoài tab Nước. Nút **Đồng bộ** vẫn cập nhật ngay.
+- Mở tab **Nước** sẽ tải ngay và vẫn cập nhật theo Realtime. Nếu Realtime hoặc lượt đọc bị lỗi, quầy Nước vẫn thử lại sau 5 giây khi đang hiển thị. Không đổi quyền, thanh toán, dữ liệu hoặc RPC.
+- Chạy `tests/drinks-service-flow.mjs` với API giả để kiểm tra số trên nút, tải ngay khi mở tab, Realtime, hoàn thành/thử lại và lịch sử. Sau khi triển khai, so sánh lượt `list_drink_tickets` trong các khung giờ có mức hoạt động tương tự; không suy ra MB tiết kiệm chỉ từ số lượt gọi.
