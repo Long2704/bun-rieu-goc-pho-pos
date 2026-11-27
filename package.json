@@ -53,6 +53,7 @@
     "test:employee-management-ui": "node tests/employee-management-flow.mjs",
     "test:usernames": "node tests/username-accounts-sql.mjs",
     "test:username-ui": "node tests/username-login-flow.mjs",
+    "test:protected-routes": "node tests/protected-routes-flow.mjs",
     "test:staff-login": "node tests/staff-login.mjs",
     "test:password-reset": "node tests/employee-password-reset-sql.mjs && node tests/staff-admin-password-reset.mjs",
     "test:password-reset-ui": "node tests/employee-password-reset-flow.mjs",
